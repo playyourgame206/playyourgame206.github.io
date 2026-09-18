@@ -14,6 +14,11 @@
   const STORAGE_KEY_MUTE = 'andy_master_muted';
 
   let currentVol = 80; // 0 to 300%
+  // Where the pull tab lives. Default is bottom-centre; a page whose own UI owns
+  // the bottom edge (the Windows taskbar games) sets data-position="top-right"
+  // on its <script> tag and gets a small tab hanging from the top corner.
+  const scriptTag = document.currentScript;
+  const TAB_POSITION = (scriptTag && scriptTag.getAttribute('data-position')) === 'top-right' ? 'top-right' : 'bottom';
   let isMuted = false;
   let isOpen = false;
 
@@ -59,6 +64,24 @@
   if (OrigAudioContext) {
     const origConnect = AudioNode.prototype.connect;
 
+    // At 100% or below the games' audio goes master gain -> destination and
+    // sounds exactly as they wrote it. The limiter is only wired in while the
+    // volume is boosted above 100%, where it stops the extra gain clipping.
+    function routeMaster(ctx) {
+      const boosted = isBoosted();
+      if (ctx.__andyBoostWired === boosted) return;
+      const mg = ctx.__andyMasterGain, compressor = ctx.__andyCompressor;
+      try { mg.disconnect(); } catch (e) {}
+      try { compressor.disconnect(); } catch (e) {}
+      if (boosted) {
+        origConnect.call(mg, compressor);
+        origConnect.call(compressor, ctx.destination);
+      } else {
+        origConnect.call(mg, ctx.destination);
+      }
+      ctx.__andyBoostWired = boosted;
+    }
+
     function ensureMasterGain(ctx) {
       if (!ctx.__andyMasterGain) {
         try {
@@ -74,12 +97,10 @@
           compressor.attack.setValueAtTime(0.002, ctx.currentTime);
           compressor.release.setValueAtTime(0.1, ctx.currentTime);
 
-          // Wire: master gain -> compressor limiter -> destination
-          origConnect.call(mg, compressor);
-          origConnect.call(compressor, ctx.destination);
-
           ctx.__andyMasterGain = mg;
           ctx.__andyCompressor = compressor;
+          ctx.__andyBoostWired = null;
+          routeMaster(ctx);
           activeGainNodes.add(mg);
         } catch (e) {
           return ctx.destination;
@@ -87,6 +108,7 @@
       }
       return ctx.__andyMasterGain;
     }
+    window.__andyRouteMaster = routeMaster;
 
     AudioNode.prototype.connect = function (destination, outputIndex, inputIndex) {
       if (destination && this.context && destination === this.context.destination) {
@@ -101,9 +123,12 @@
     const eff = getEffectiveVolume();
     activeGainNodes.forEach(function (gain) {
       try {
-        if (gain.context && gain.context.state !== 'closed') {
-          gain.gain.setValueAtTime(eff, gain.context.currentTime);
+        if (!gain.context || gain.context.state === 'closed') {
+          activeGainNodes.delete(gain);   // finished contexts would otherwise pile up forever
+          return;
         }
+        gain.gain.setValueAtTime(eff, gain.context.currentTime);
+        if (window.__andyRouteMaster) window.__andyRouteMaster(gain.context);
       } catch (e) {}
     });
 
@@ -128,25 +153,22 @@
     );
   }
 
-  // Preview test sound chime with 300% overdrive support
+  // Preview test sound chime. It plays through the same master gain (and, when
+  // boosted, the same limiter) that the games get, so what you hear is what
+  // the games will sound like. One context is reused: browsers cap how many
+  // can exist at once, and a fresh one per click stops working after a few.
+  let chimeCtx = null;
   function playTestChime() {
     const eff = getEffectiveVolume();
     if (eff <= 0.001) return;
     try {
       const Actx = window.AudioContext || window.webkitAudioContext;
       if (!Actx) return;
-      const ctx = new Actx();
+      if (!chimeCtx || chimeCtx.state === 'closed') chimeCtx = new Actx();
+      const ctx = chimeCtx;
+      if (ctx.state === 'suspended') ctx.resume();
       const now = ctx.currentTime;
-
-      // Dynamics limiter for test sound
-      const limiter = ctx.createDynamicsCompressor();
-      limiter.threshold.setValueAtTime(-4, now);
-      limiter.ratio.setValueAtTime(12, now);
-      limiter.connect(ctx.destination);
-
-      const master = ctx.createGain();
-      master.gain.setValueAtTime(eff, now);
-      master.connect(limiter);
+      const master = ctx.destination;
 
       // 3-note cheerful arcade arpeggio (C5 -> E5 -> G5)
       const notes = [
@@ -169,9 +191,6 @@
         osc.stop(now + n.t + n.d + 0.05);
       });
 
-      setTimeout(function () {
-        try { ctx.close(); } catch (e) {}
-      }, 700);
     } catch (e) {}
   }
 
@@ -201,7 +220,7 @@
       transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), background 0.2s, box-shadow 0.2s, border-color 0.2s;
       user-select: none;
       -webkit-user-select: none;
-      touch-action: pan-x;
+      touch-action: none;
     }
     #andy-vol-trigger:hover {
       background: rgba(22, 28, 54, 0.95);
@@ -209,6 +228,27 @@
       box-shadow: 0 -6px 25px rgba(0, 242, 254, 0.4);
       transform: translateX(-50%) translateY(-2px);
     }
+    /* corner variant: hangs from the top edge, out of the way of a bottom taskbar */
+    #andy-vol-trigger.andy-pos-top-right {
+      bottom: auto;
+      top: 0;
+      left: auto;
+      right: 12px;
+      transform: none;
+      padding: 4px 12px 6px;
+      border: 1px solid rgba(0, 242, 254, 0.4);
+      border-top: none;
+      border-radius: 0 0 14px 14px;
+      box-shadow: 0 4px 20px rgba(0, 242, 254, 0.2);
+      touch-action: none;
+    }
+    #andy-vol-trigger.andy-pos-top-right:hover {
+      transform: translateY(2px);
+      box-shadow: 0 6px 25px rgba(0, 242, 254, 0.4);
+    }
+    #andy-vol-trigger.andy-pos-top-right .andy-pill { display: none; }
+    #andy-vol-trigger.andy-pos-top-right .andy-arrow { display: none; }
+    #andy-vol-trigger.andy-pos-top-right .andy-trigger-content { font-size: 11px; }
     #andy-vol-trigger.andy-trigger-boosted {
       border-color: #ffd60a;
       box-shadow: 0 -4px 22px rgba(255, 214, 10, 0.45);
@@ -806,6 +846,7 @@
     // Inject Bottom Trigger Tab
     const triggerEl = document.createElement('div');
     triggerEl.id = 'andy-vol-trigger';
+    if (TAB_POSITION === 'top-right') triggerEl.classList.add('andy-pos-top-right');
     triggerEl.setAttribute('role', 'button');
     triggerEl.setAttribute('aria-label', 'Open volume control menu (or swipe up)');
     triggerEl.innerHTML = `
@@ -1211,7 +1252,10 @@
     });
 
     // -----------------------------------------------------------------------
-    // Gesture 1: SWIPE UP FROM BOTTOM OF THE SCREEN (Touch & Mouse)
+    // Gesture 1: SWIPE UP ON THE PULL TAB (Touch & Mouse)
+    // Only a touch that begins on the tab counts. The 3D games put their touch
+    // joysticks along the bottom of the screen, so a bottom-edge zone opened
+    // this menu every time someone pushed forward.
     // -----------------------------------------------------------------------
     let touchStartY = null;
     let touchStartX = null;
@@ -1222,9 +1266,7 @@
       function (e) {
         if (isOpen) return;
         const touch = e.touches[0];
-        // Check if touch starts near the bottom of viewport (within bottom 85px)
-        const fromBottom = window.innerHeight - touch.clientY;
-        if (fromBottom <= 85 || e.target.closest('#andy-vol-trigger')) {
+        if (e.target.closest && e.target.closest('#andy-vol-trigger')) {
           touchStartY = touch.clientY;
           touchStartX = touch.clientX;
           isTrackingSwipeUp = true;

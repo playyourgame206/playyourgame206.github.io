@@ -1,7 +1,7 @@
 {
   "name": "Play Centre",
   "short_name": "Play Centre",
-  "description": "Play Centre mini games: 3D Laundry Simulator, Coin Collector, PC Builder Tycoon and Virus PC Simulator",
+  "description": "Play Centre mini games: 3D Laundry Simulator, Coin Collector, PC Builder Tycoon, Virus PC Simulator and Windows Desktop Simulator",
   "id": "/andy/",
   "start_url": "/andy/",
   "scope": "/andy/",
