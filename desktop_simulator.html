@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>Windows Desktop Simulator — Play Centre</title>
 <meta name="description" content="A realistic Windows 11 desktop that runs entirely in your browser: Start menu, File Explorer, Notepad, Paint, Calculator, Edge, Terminal, Settings with classic wallpapers, light and dark themes, snapping windows and a lock screen. Nothing to install.">
-<link rel="canonical" href="https://bethqzak.github.io/andy/desktop_simulator.html">
+<link rel="canonical" href="https://playyourgame206.github.io/desktop_simulator.html">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-192.png">
@@ -1371,14 +1371,22 @@ function wallpaperMarkup(key) {
 }
 // A picture dropped into the repo as wallpaper.jpg becomes "Andy's background"
 // and is used until the player picks something else themselves.
+// It tries wallpaper.jpg in the repo first, then the picture Andy asked for
+// (hosted elsewhere, so it is only used if it actually loads).
+const OWNER_WALLPAPER_URL = 'https://www.trustedreviews.com/wp-content/uploads/sites/7/2023/03/windows11background-scaled-820x461.jpg';
 function probeOwnerWallpaper() {
-    const img = new Image();
-    img.onload = function () {
-        WALLPAPERS.owner = { label: "Andy's background", theme: 'light', svg: function () { return '<img src="wallpaper.jpg" alt="">'; } };
-        if (!G.wpChosen) G.wp = 'owner';
-        applyWallpaper(); refreshWindows();
-    };
-    img.src = 'wallpaper.jpg';
+    const candidates = ['wallpaper.jpg', OWNER_WALLPAPER_URL];
+    (function tryNext(i) {
+        if (i >= candidates.length) return;
+        const img = new Image();
+        img.onload = function () {
+            WALLPAPERS.owner = { label: "Andy's background", theme: 'light', svg: function () { return '<img src="' + candidates[i] + '" alt="">'; } };
+            if (!G.wpChosen) G.wp = 'owner';
+            applyWallpaper(); refreshWindows();
+        };
+        img.onerror = function () { tryNext(i + 1); };
+        img.src = candidates[i];
+    })(0);
 }
 function applyWallpaper() {
     if (G.wp === 'custom' && !customWallpaperUrl) G.wp = 'bloom';
