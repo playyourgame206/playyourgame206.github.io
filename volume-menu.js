@@ -211,7 +211,7 @@
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(n.f, now + n.t);
         g.gain.setValueAtTime(0.0001, now + n.t);
-        g.gain.exponentialRampToValueAtTime(0.24, now + n.t + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.5, now + n.t + 0.02);
         g.gain.exponentialRampToValueAtTime(0.0001, now + n.t + n.d);
         osc.connect(g);
         g.connect(master);
@@ -219,6 +219,36 @@
         osc.stop(now + n.t + n.d + 0.05);
       });
 
+    } catch (e) {}
+  }
+
+  // Short single tick while the slider is being dragged, so the new level is
+  // audible as it changes (throttled so a fast drag does not machine-gun).
+  let lastTick = 0;
+  function playTick() {
+    const eff = getEffectiveVolume();
+    if (eff <= 0.001) return;
+    const t = Date.now();
+    if (t - lastTick < 140) return;
+    lastTick = t;
+    try {
+      const Actx = window.AudioContext || window.webkitAudioContext;
+      if (!Actx) return;
+      if (!chimeCtx || chimeCtx.state === 'closed') chimeCtx = new Actx();
+      const ctx = chimeCtx;
+      if (ctx.state === 'suspended') ctx.resume();
+      const now = ctx.currentTime;
+      const osc = ctx.createOscillator();
+      const g = ctx.createGain();
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(783.99, now);
+      g.gain.setValueAtTime(0.0001, now);
+      g.gain.exponentialRampToValueAtTime(0.45, now + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, now + 0.11);
+      osc.connect(g);
+      g.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.14);
     } catch (e) {}
   }
 
@@ -1234,6 +1264,7 @@
     if (slider) {
       slider.addEventListener('input', function () {
         setVolume(this.value);
+        playTick();
       });
       slider.addEventListener('change', function () {
         playTestChime();
