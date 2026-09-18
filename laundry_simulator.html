@@ -1,0 +1,3462 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>3D Laundry Simulator — Play Centre</title>
+    <meta name="description" content="Multiplayer 3D laundry tycoon you can play right in your browser: collect laundry, run washing machines, upgrade your laundromat and play with friends. No downloads, no powerful device needed.">
+    <link rel="canonical" href="https://bethqzak.github.io/andy/laundry_simulator.html">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#0b0d1a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { background: #0a0a12; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+
+        /* 100dvh tracks the real visible height on mobile Chrome, where 100vh
+           includes the space hidden behind the collapsible URL bar */
+        #game-container { position: relative; width: 100vw; height: 100vh; height: 100dvh; }
+        canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
+        /* UI Overlays */
+        .ui-panel { position: absolute; padding: 12px 22px; background: rgba(12, 16, 28, 0.88); backdrop-filter: blur(10px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        #stats-bar { top: calc(28px + env(safe-area-inset-top, 0px)); left: calc(28px + env(safe-area-inset-left, 0px)); display: flex; gap: 20px; font-weight: 600; font-size: 16px; pointer-events: none; }
+        #stats-bar span { color: #00f2fe; font-weight: bold; }
+
+        #settings-btn-icon { position: absolute; top: calc(28px + env(safe-area-inset-top, 0px)); right: calc(28px + env(safe-area-inset-right, 0px)); background: rgba(12, 16, 28, 0.88); border: 1px solid rgba(255,255,255,0.2); padding: 10px 18px; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: 600; z-index: 30; transition: all 0.2s; backdrop-filter: blur(10px); }
+        #settings-btn-icon:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+
+        #character-select { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1e36 0%, #080914 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        #character-select h1 { font-size: 3.5rem; margin-bottom: 10px; color: #4facfe; text-shadow: 0 0 25px rgba(79,172,254,0.6); letter-spacing: 2px; }
+
+        .avatar-options { display: flex; gap: 20px; margin: 30px 0; }
+        .avatar-btn { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 20px 25px; text-align: center; cursor: pointer; transition: all 0.25s ease; min-width: 130px; }
+        .avatar-btn:hover { transform: translateY(-6px); border-color: #00f2fe; background: rgba(0, 242, 254, 0.1); }
+        .avatar-btn.selected { border-color: #00f2fe; box-shadow: 0 0 20px rgba(0,242,254,0.4); background: rgba(0, 242, 254, 0.15); }
+        .avatar-btn div { font-size: 45px; margin-bottom: 10px; }
+
+        button.start-btn { padding: 16px 55px; font-size: 20px; border: none; background: linear-gradient(135deg, #00f2fe, #4facfe); color: white; font-weight: bold; border-radius: 30px; cursor: pointer; transition: all 0.25s; box-shadow: 0 4px 20px rgba(0,242,254,0.4); text-transform: uppercase; letter-spacing: 1px; }
+        button.start-btn:hover { transform: scale(1.05); box-shadow: 0 6px 25px rgba(0,242,254,0.6); }
+
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 480px; max-height: 85vh; overflow-y: auto; background: rgba(12, 16, 28, 0.95); border: 1px solid rgba(0, 242, 254, 0.4); border-radius: 16px; padding: 25px; display: none; z-index: 20; flex-direction: column; gap: 14px; box-shadow: 0 15px 40px rgba(0,0,0,0.8); backdrop-filter: blur(12px); }
+        .modal h2 { text-align: center; color: #00f2fe; font-size: 24px; }
+        .modal-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); padding: 14px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); }
+        .modal-btn { padding: 10px 20px; background: linear-gradient(135deg, #27ae60, #2ecc71); border: none; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: opacity 0.2s; white-space: nowrap; }
+        .modal-btn:disabled { background: #444; opacity: 0.6; cursor: not-allowed; }
+        .close-btn { background: rgba(231, 76, 60, 0.8); border: none; padding: 12px; color: white; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 5px; transition: background 0.2s; }
+        .close-btn:hover { background: #e74c3c; }
+
+        select.setting-select { background: #1a1e36; color: white; border: 1px solid #4facfe; padding: 8px 12px; border-radius: 8px; font-size: 14px; outline: none; cursor: pointer; }
+
+        #controls-hint { position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); font-size: 14px; color: #bbb; background: rgba(12, 16, 28, 0.85); padding: 10px 22px; border-radius: 20px; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); text-align: center; }
+        #cooldown-msg { position: absolute; top: calc(84px + env(safe-area-inset-top, 0px)); left: calc(28px + env(safe-area-inset-left, 0px)); color: #ff6b6b; font-weight: bold; font-size: 15px; display: none; background: rgba(12, 16, 28, 0.9); padding: 8px 16px; border-radius: 8px; border: 1px solid #ff6b6b; backdrop-filter: blur(8px); }
+
+        /* Touch controls: only shown on phones/tablets */
+        #touch-controls { display: none; }
+        @media (hover: none) and (pointer: coarse) {
+            #touch-controls { display: block; }
+            #controls-hint { display: none; }
+        }
+        @media (max-width: 760px) {
+            #stats-bar { font-size: 13px; gap: 10px; padding: 8px 12px; top: 12px; left: 12px; }
+            #settings-btn-icon { top: 12px; right: 12px; padding: 8px 12px; font-size: 14px; }
+            .modal { width: 92vw; }
+            #character-select h1 { font-size: 2.2rem; }
+            .avatar-options { flex-wrap: wrap; justify-content: center; }
+        }
+        /* Touch anywhere on the left half of the screen to walk; a floating
+           stick appears under the finger. Right half keeps the buttons. */
+        #move-zone {
+            position: absolute; top: 0; bottom: 0; left: 0; width: 50%;
+            touch-action: none; z-index: 6;
+        }
+        /* Right half pans the camera; double-tap it to jump (buttons sit on top) */
+        #pan-zone {
+            position: absolute; top: 0; bottom: 0; right: 0; width: 50%;
+            touch-action: none; z-index: 5;
+        }
+        #stick-ring {
+            position: absolute; display: none;
+            width: 130px; height: 130px; margin: -65px 0 0 -65px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.3);
+            z-index: 7; pointer-events: none;
+        }
+        #stick-knob {
+            position: absolute; top: 50%; left: 50%;
+            width: 54px; height: 54px; margin: -27px 0 0 -27px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            border: 2px solid rgba(255,255,255,0.85);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        #cooldown-msg, #hint-msg { pointer-events: none; }
+
+        /* Tip notification: slides down + expands like a message banner */
+        #tip-bar { position: absolute; top: calc(16px + env(safe-area-inset-top, 0px)); left: 50%; transform: translate(-50%, -160%) scale(0.9); z-index: 18; background: linear-gradient(135deg, rgba(255,214,10,0.97), rgba(243,156,18,0.97)); color: #1a1a2e; font-weight: 700; font-size: 14px; text-align: center; padding: 12px 22px; border-radius: 14px; box-shadow: 0 8px 24px rgba(0,0,0,0.4); max-width: 88vw; transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.2); pointer-events: none; }
+        #tip-bar.show { transform: translate(-50%, 0) scale(1); }
+        .touch-btn {
+            position: absolute; right: calc(30px + env(safe-area-inset-right, 0px));
+            width: 78px; height: 78px; border-radius: 50%;
+            backdrop-filter: blur(8px);
+            border: 2px solid rgba(255,255,255,0.4);
+            color: #fff; font-size: 15px; font-weight: bold;
+            cursor: pointer; z-index: 6;
+            touch-action: manipulation;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .touch-btn:active { transform: scale(0.92); }
+        #interact-touch-btn { bottom: calc(36px + env(safe-area-inset-bottom, 0px)); background: rgba(0, 190, 210, 0.65); }
+        #jump-touch-btn { bottom: calc(136px + env(safe-area-inset-bottom, 0px)); background: rgba(79, 172, 254, 0.55); }
+
+        /* Shop interior backdrop shown while the shop is open */
+        #shop-room { position: absolute; inset: 0; display: none; z-index: 15; background: linear-gradient(180deg, #2a3158 0%, #202750 62%, #141830 62%, #0d1020 100%); }
+        #shop-room::after { content: ''; position: absolute; left: 0; right: 0; top: 62%; bottom: 0; background: repeating-linear-gradient(90deg, rgba(255,255,255,0.05) 0 3px, transparent 3px 130px); }
+        .shop-sign { position: absolute; top: 6%; left: 50%; transform: translateX(-50%); font-size: clamp(20px, 4vw, 36px); font-weight: 900; color: #ffd60a; text-shadow: 0 0 22px rgba(255,214,10,0.6); letter-spacing: 2px; background: rgba(10,13,25,0.8); padding: 12px 30px; border-radius: 16px; border: 2px solid rgba(255,214,10,0.5); white-space: nowrap; }
+        .shop-shelf { position: absolute; left: 6%; right: 6%; text-align: center; font-size: clamp(20px, 3.4vw, 34px); letter-spacing: 12px; padding-bottom: 8px; border-bottom: 10px solid #3a4166; border-radius: 3px; text-shadow: 0 4px 8px rgba(0,0,0,0.5); }
+        .tier-pic { width: 76px; height: 76px; border-radius: 12px; background: #0d1120; border: 1px solid rgba(255,255,255,0.12); flex-shrink: 0; }
+        .tier-info { flex: 1; padding: 0 12px; }
+
+        /* Multiplayer */
+        #player-name { margin-top: 8px; padding: 12px 18px; font-size: 17px; border-radius: 12px; border: 2px solid rgba(0,242,254,0.4); background: rgba(255,255,255,0.07); color: white; text-align: center; outline: none; width: 280px; max-width: 80vw; }
+        #player-name:focus { border-color: #00f2fe; box-shadow: 0 0 14px rgba(0,242,254,0.3); }
+        #online-panel { position: absolute; top: calc(28px + env(safe-area-inset-top, 0px)); left: 50%; transform: translateX(-50%); display: none; background: rgba(12,16,28,0.88); padding: 8px 18px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.15); font-size: 13px; color: #cdd6f4; z-index: 4; text-align: center; backdrop-filter: blur(8px); max-width: 60vw; }
+        @media (max-width: 760px) {
+            #online-panel { top: 54px; font-size: 11px; padding: 6px 10px; max-width: 92vw; }
+        }
+    </style>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="save-tools.js"></script>
+    <script src="webgl-check.js"></script>
+    <!-- Supabase (multiplayer presence + broadcast, same project as the workspace whiteboard) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Top UI Bar -->
+    <div id="stats-bar" class="ui-panel">
+        <div>Points: <span id="pts">0</span> 🧺</div>
+        <div>Basket: <span id="holding-count">0</span>/<span id="holding-max">0</span> <span id="holding-type"></span></div>
+        <div>Plot: <span id="plot-status">None</span></div>
+    </div>
+
+    <!-- Tip notification (slides down like a message) -->
+    <div id="tip-bar"></div>
+
+    <!-- Cooldown Warning -->
+    <div id="cooldown-msg">⏱️ Cooldown active! Wait <span id="cd-timer">3.0</span>s</div>
+
+    <!-- Who's online (multiplayer) -->
+    <div id="online-panel"></div>
+
+    <!-- Plot tools: edit / expand (shown while standing on your plot) -->
+    <div id="plot-tools" style="position:absolute; bottom:calc(28px + env(safe-area-inset-bottom, 0px)); left:calc(28px + env(safe-area-inset-left, 0px)); z-index:30; display:none; gap:10px;">
+        <button id="edit-plot-btn" class="modal-btn" onclick="toggleEditMode()">🔧 Edit Plot</button>
+        <button id="expand-plot-btn" class="modal-btn" style="display:none; background:linear-gradient(135deg,#f39c12,#e67e22);" onclick="expandPlot()">⬆️ Expand Plot (3000 Pts)</button>
+    </div>
+
+    <!-- Shopping cart (shown inside the shop room) -->
+    <div id="cart-bar" style="position:absolute; bottom:calc(28px + env(safe-area-inset-bottom, 0px)); left:50%; transform:translateX(-50%); display:none; z-index:12; background:rgba(12,16,28,0.92); border:1px solid rgba(255,214,10,0.5); border-radius:12px; padding:10px 16px; gap:12px; align-items:center; backdrop-filter:blur(8px);">
+        <span id="cart-text" style="font-size:14px; font-weight:600;"></span>
+        <button class="modal-btn" onclick="checkoutCart()">Buy All</button>
+        <button class="close-btn" style="width:auto; margin:0; padding:10px 14px;" onclick="clearCart()">Clear</button>
+    </div>
+
+    <!-- AFK Pause Overlay -->
+    <div id="pause-overlay" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(5,8,16,0.82); z-index:40; text-align:center; backdrop-filter:blur(6px);">
+        <div style="color:#fff; font-size:24px; font-weight:700; line-height:1.7;">⏸️ Game paused<br><span style="font-size:16px; color:#9aa3c7; font-weight:400;">You were away for a while — tap or press any key to continue</span></div>
+    </div>
+
+    <!-- Gameplay Hint Toast -->
+    <div id="hint-msg" style="position:absolute; top:120px; left:50%; transform:translateX(-50%); display:none; color:#ffd60a; font-weight:bold; font-size:16px; background:rgba(12,16,28,0.92); padding:10px 22px; border-radius:12px; border:1px solid #ffd60a; backdrop-filter:blur(8px); z-index:5; text-align:center;"></div>
+
+    <!-- Settings Icon -->
+    <div id="settings-btn-icon" onclick="toggleSettings(true)">⚙️ Settings</div>
+
+    <!-- Controls Hint -->
+    <div id="controls-hint">
+        WASD: Move | SPACE: Jump | E or Click: Interact (Claim Plot / Load Machine)<br>
+        Deliver clean laundry to the chute at the back — and cross the road outside to reach the SHOP!
+    </div>
+
+    <!-- Touch Controls (phones / tablets) -->
+    <div id="touch-controls">
+        <div id="move-zone"></div>
+        <div id="pan-zone"></div>
+        <div id="stick-ring"><div id="stick-knob"></div></div>
+        <button id="jump-touch-btn" class="touch-btn">JUMP</button>
+        <button id="interact-touch-btn" class="touch-btn">USE</button>
+    </div>
+
+    <!-- Character Selection Screen -->
+    <div id="character-select">
+        <h1>3D LAUNDRY SIMULATOR</h1>
+        <p style="color: #aaa; font-size: 18px; margin-top: 5px;">Select your avatar to enter the laundromat:</p>
+        <input id="player-name" maxlength="14" placeholder="Type your name (multiplayer!)" autocomplete="off">
+        <div class="avatar-options">
+            <div class="avatar-btn selected" onclick="selectAvatar('boy', this)">
+                <div>👦</div>
+                Alex (Boy)
+            </div>
+            <div class="avatar-btn" onclick="selectAvatar('girl', this)">
+                <div>👧</div>
+                Maya (Girl)
+            </div>
+            <div class="avatar-btn" onclick="selectAvatar('cat', this)">
+                <div>🐱</div>
+                Tabby Cat
+            </div>
+            <div class="avatar-btn" onclick="selectAvatar('dog', this)">
+                <div>🐶</div>
+                Retriever
+            </div>
+        </div>
+        <button class="start-btn" onclick="startGame()">PLAY GAME</button>
+    </div>
+
+    <!-- Shop Interior Backdrop -->
+    <div id="shop-room">
+        <div class="shop-sign">🧺 WASHER WORLD 🫧</div>
+        <div class="shop-shelf" style="top: 30%;">🧴🧼🧺🫧🧴🧼🧺🫧🧴</div>
+        <div class="shop-shelf" style="top: 46%;">🧼🫧🧴🧺🧼🫧🧴🧺🧼</div>
+    </div>
+
+    <!-- Shop Modal -->
+    <div id="shop-modal" class="modal">
+        <h2>Laundromat Building Shop</h2>
+        <p id="sale-banner" style="display:none; text-align:center; color:#ffd60a; font-weight:700; font-size:14px;"></p>
+        <p style="text-align:center; color:#9aa3c7; font-size:13px;">Your basket can only hold as much dirty laundry as your machines can wash!</p>
+        <div class="modal-item">
+            <img class="tier-pic" id="tier-img-0" alt="Standard Washer">
+            <div class="tier-info">
+                <strong>Standard Washer</strong><br>
+                <small style="color: #aaa;">45s Cycle | Holds 5 Clothes</small>
+            </div>
+            <button class="modal-btn" id="buy-tier-0" onclick="buyMachine(0)">Buy (100 Pts)</button>
+        </div>
+        <div class="modal-item">
+            <img class="tier-pic" id="tier-img-1" alt="Turbo Washer">
+            <div class="tier-info">
+                <strong>Turbo Washer</strong><br>
+                <small style="color: #aaa;">35s Cycle | Holds 8 Clothes</small>
+            </div>
+            <button class="modal-btn" id="buy-tier-1" onclick="buyMachine(1)">Buy (300 Pts)</button>
+        </div>
+        <div class="modal-item">
+            <img class="tier-pic" id="tier-img-2" alt="Deluxe Washer">
+            <div class="tier-info">
+                <strong>Deluxe Washer</strong><br>
+                <small style="color: #aaa;">20s Cycle | Holds 12 Clothes</small>
+            </div>
+            <button class="modal-btn" id="buy-tier-2" onclick="buyMachine(2)">Buy (800 Pts)</button>
+        </div>
+        <div class="modal-item">
+            <img class="tier-pic" id="tier-img-3" alt="Quantum Washer">
+            <div class="tier-info">
+                <strong>Quantum Washer</strong><br>
+                <small style="color: #aaa;">7s Cycle | Holds 20 Clothes</small>
+            </div>
+            <button class="modal-btn" id="buy-tier-3" onclick="buyMachine(3)">Buy (2000 Pts)</button>
+        </div>
+        <div class="modal-item" id="basket-row-15">
+            <div>
+                <strong>🧺 Big Basket</strong><br>
+                <small style="color: #aaa;">Carry up to 15 laundry</small>
+            </div>
+            <button class="modal-btn" id="buy-basket-15" onclick="buyBasket(15)">Buy (750 Pts)</button>
+        </div>
+        <div class="modal-item" id="basket-row-20">
+            <div>
+                <strong>🧺 Mega Basket</strong><br>
+                <small style="color: #aaa;">Carry up to 20 laundry</small>
+            </div>
+            <button class="modal-btn" id="buy-basket-20" onclick="buyBasket(20)">Buy (1800 Pts)</button>
+        </div>
+        <button class="close-btn" onclick="toggleShop(false)">Close Shop</button>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <h2>Settings & Customization</h2>
+        <div class="modal-item">
+            <div>
+                <strong>🧲 Laundry Magnet</strong><br>
+                <small style="color: #aaa;">Automatically collects nearby laundry from the carousel</small>
+            </div>
+            <button class="modal-btn" id="buy-magnet-btn" onclick="buyMagnet()">Buy (25 Pts)</button>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>👆 Touch Sensitivity</strong><br>
+                <small style="color: #aaa;">Camera pan speed: <span id="sens-value">100</span>%</small>
+            </div>
+            <input id="sens-slider" type="range" min="50" max="200" value="100" style="width:130px;" oninput="setTouchSens(this.value)">
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>💡 Tips</strong><br>
+                <small style="color: #aaa;">Show sale &amp; delivery tips along the top</small>
+            </div>
+            <select id="tips-select" class="setting-select" onchange="setTipsEnabled(this.value === 'on')">
+                <option value="on" selected>On</option>
+                <option value="off">Off</option>
+            </select>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>Character Avatar</strong><br>
+                <small style="color: #aaa;">Change player model instantly</small>
+            </div>
+            <select id="avatar-setting-select" class="setting-select" onchange="changeAvatarFromSettings(this.value)">
+                <option value="boy">Alex (Boy)</option>
+                <option value="girl">Maya (Girl)</option>
+                <option value="cat">Tabby Cat</option>
+                <option value="dog">Retriever</option>
+            </select>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>Render Resolution</strong><br>
+                <small style="color: #aaa;">Adjust graphic fidelity</small>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                <select id="res-select" class="setting-select" onchange="changeResolution(this.value)">
+                    <option value="720">720p</option>
+                    <option value="900">900p</option>
+                    <option value="1050">1050p</option>
+                    <option value="1080" selected>1080p</option>
+                    <option value="1200">1200p</option>
+                    <option value="1440">1440p</option>
+                    <option value="1800">1800p</option>
+                    <option value="2160">2160p (4K)</option>
+                    <option value="custom">Custom…</option>
+                </select>
+                <input id="res-custom" type="number" min="240" max="4320" step="10" value="1080"
+                       class="setting-select" style="display:none; width:110px;"
+                       onchange="changeResolution('custom')" placeholder="height px">
+            </div>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>💾 Save Progress</strong><br>
+                <small style="color: #aaa;">Auto-save to this device (<span id="device-id-label"></span>)</small>
+            </div>
+            <select id="autosave-select" class="setting-select" onchange="setAutoSave(this.value === 'on')">
+                <option value="on" selected>On</option>
+                <option value="off">Off</option>
+            </select>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>🔁 Transfer Progress</strong><br>
+                <small style="color: #aaa;">Move your save between devices with a code</small>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                <button class="modal-btn" onclick="saveNowClicked(this)">💾 Save now</button>
+                <button class="modal-btn" onclick="copySaveCode(this)">📋 Copy code</button>
+                <button class="modal-btn" onclick="enterSaveCode()">⌨️ Enter code</button>
+            </div>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>🗑️ Reset Save</strong><br>
+                <small style="color: #aaa;">Wipe points, machines &amp; upgrades</small>
+            </div>
+            <button class="modal-btn" style="background:linear-gradient(135deg,#e74c3c,#c0392b);" onclick="resetLaundrySave()">Reset</button>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>🏠 Play Centre</strong><br>
+                <small style="color: #aaa;">Back to the games menu</small>
+            </div>
+            <button class="modal-btn" onclick="location.href='./'">🏠 Home</button>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>📖 How to Play</strong><br>
+                <small style="color: #aaa;">Controls &amp; game guide</small>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="modal-btn" onclick="toggleSettings(false); toggleControls(true);">🎮 Controls</button>
+                <button class="modal-btn" onclick="toggleSettings(false); toggleHelp(true);">📖 Guide</button>
+            </div>
+        </div>
+        <button class="close-btn" onclick="toggleSettings(false)">Save & Close</button>
+    </div>
+
+    <!-- How to Play Modal -->
+    <div id="help-modal" class="modal">
+        <h2>📖 How to Play</h2>
+        <div style="font-size: 14px; line-height: 1.75; color: #cdd6f4;">
+            <p>🏠 <strong>Claim a plot</strong> — walk to an empty plot and press E (or tap it). You get a free washing machine!</p>
+            <p>👕 <strong>Collect dirty laundry</strong> from the carousel with E, tap, or the USE button. Your basket starts at 5 (10 with two machines) — bigger baskets are sold at the shop, and you can never carry more than your machines can wash.</p>
+            <p>🫧 <strong>Fill a machine to the top</strong> — the x/y counter above it shows how full it is, and the wash starts by itself when it's full. READY! means the load is clean.</p>
+            <p>✨ <strong>Collect the clean laundry</strong> and drop it at the big LAUNDRY DROP chute at the back for points. Rare colours pay more — Platinum pays 16×!</p>
+            <p>🚪 <strong>Cross the road</strong> through the EXIT door to visit the shop. Tap machines to fill your cart, or talk to the shopkeeper — sales only happen through them! Watch out for cars…</p>
+            <p>🧲 <strong>Upgrades</strong>: the Laundry Magnet (Settings, 25 pts) auto-collects laundry. Bigger machines wash more, faster. After an hour of play everything is 25% off.</p>
+            <p>🚚 <strong>Trucks</strong> arrive with 10 customers and a mountain of laundry. Friends on this page at the same time play with you — each on their own plot!</p>
+        </div>
+        <button class="close-btn" onclick="toggleHelp(false)">Got it!</button>
+    </div>
+
+    <!-- Controls Modal -->
+    <div id="controls-modal" class="modal">
+        <h2>🎮 Controls</h2>
+        <div style="font-size: 14px; line-height: 1.75; color: #cdd6f4;">
+            <p><strong>💻 Computer</strong><br>
+            WASD / Arrow keys — walk<br>
+            SPACE — jump &nbsp;·&nbsp; E — interact<br>
+            Click things — interact &nbsp;·&nbsp; Mouse wheel — zoom</p>
+            <p><strong>📱 Tablet / Phone</strong><br>
+            Touch &amp; drag the LEFT half — walk<br>
+            Drag the RIGHT half — look around (up/down too!)<br>
+            Double-tap the right half — jump<br>
+            Pinch with two fingers — zoom in/out<br>
+            Tap laundry, machines &amp; doors — interact<br>
+            JUMP / USE buttons — same as Space / E</p>
+            <p><strong>🔧 Plot editing</strong><br>
+            Stand on your plot → Edit Plot → drag machines around</p>
+        </div>
+        <button class="close-btn" onclick="toggleControls(false)">Got it!</button>
+    </div>
+</div>
+
+<script>
+// --- GAME CONFIG & RARITY ---
+const CLOTH_TYPES = {
+    STANDARD: { name: 'Standard', color: 0x3498db, mult: 1,  chance: 0.57 },
+    SILVER:   { name: 'Silver',   color: 0xbdc3c7, mult: 2,  chance: 0.20 },
+    GOLD:     { name: 'Gold',     color: 0xf1c40f, mult: 3,  chance: 0.15 },
+    DIAMOND:  { name: 'Diamond',  color: 0x9b59b6, mult: 4,  chance: 0.07 },
+    PLATINUM: { name: 'Platinum', color: 0xe84393, mult: 16, chance: 0.01 }
+};
+
+// Washing machine tiers available in the shop
+const MACHINE_TIERS = [
+    { name: 'Standard Washer', cost: 100,  washTime: 45, capacity: 5,  bodyColor: 0xecf0f1 },
+    { name: 'Turbo Washer',    cost: 300,  washTime: 35, capacity: 8,  bodyColor: 0x85c1e9 },
+    { name: 'Deluxe Washer',   cost: 800,  washTime: 20, capacity: 12, bodyColor: 0xf7dc6f },
+    { name: 'Quantum Washer',  cost: 2000, washTime: 7,  capacity: 20, bodyColor: 0xbb8fce }
+];
+
+let points = 0;
+let playerAvatar = 'boy';
+let gameStarted = false;
+let myPlot = null;
+let magnetOwned = false;
+let basketLevel = 0;        // 0 = starter basket rules, 15 or 20 = bought upgrade
+let magnetBatchCounter = 0; // magnet picks 15 before its cooldown
+let lastMagnetPick = 0;
+
+// Batch Pickup Logic (Max 50, 3s cooldown every 5 items)
+let pickupBatchCounter = 0;
+let pickupCooldownUntil = 0;
+
+// --- THREE.JS SCENE SETUP ---
+const container = document.getElementById('game-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x0c101d);
+scene.fog = new THREE.FogExp2(0x0c101d, 0.012);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+// No WebGL means three.js throws on the next line and nothing below
+// runs, so say so on the start screen rather than leave a dead button.
+if (!AndyWebGL.require('character-select')) throw new Error('WebGL is not available');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+container.appendChild(renderer.domElement);
+
+// Resolution Handler
+function changeResolution(res) {
+    const customInput = document.getElementById('res-custom');
+    let targetHeight;
+    if (res === 'custom') {
+        customInput.style.display = 'inline-block';
+        targetHeight = parseInt(customInput.value, 10);
+    } else {
+        customInput.style.display = 'none';
+        targetHeight = parseInt(res, 10);
+    }
+    if (!isFinite(targetHeight)) targetHeight = window.innerHeight;
+    targetHeight = Math.max(240, Math.min(4320, targetHeight));
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    // Cap the ratio so small phone screens don't render a huge supersampled buffer
+    renderer.setPixelRatio(Math.min(targetHeight / window.innerHeight, 2.5));
+}
+changeResolution('1080');
+
+// --- REALISTIC LIGHTING ---
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+scene.add(ambientLight);
+
+const dirLight = new THREE.DirectionalLight(0xfff5ea, 1.2);
+dirLight.position.set(25, 45, 20);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 200;
+dirLight.shadow.camera.left = -75;
+dirLight.shadow.camera.right = 75;
+dirLight.shadow.camera.top = 75;
+dirLight.shadow.camera.bottom = -75;
+scene.add(dirLight);
+
+// Fill Light for softer realistic shadows
+const fillLight = new THREE.DirectionalLight(0x80a0ff, 0.4);
+fillLight.position.set(-25, 20, -20);
+scene.add(fillLight);
+
+// --- REALISTIC ENVIRONMENT FLOOR ---
+// Procedural linoleum tile texture with grout lines, speckle and gloss streaks
+function generateTileTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#12151f';
+    ctx.fillRect(0, 0, 512, 512);
+    const tile = 128;
+    for (let ty = 0; ty < 4; ty++) {
+        for (let tx = 0; tx < 4; tx++) {
+            const shade = 0.85 + Math.random() * 0.3;
+            ctx.fillStyle = `rgb(${Math.floor(44 * shade)}, ${Math.floor(50 * shade)}, ${Math.floor(72 * shade)})`;
+            ctx.fillRect(tx * tile + 3, ty * tile + 3, tile - 6, tile - 6);
+            for (let i = 0; i < 80; i++) {
+                ctx.fillStyle = Math.random() > 0.5 ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.08)';
+                ctx.fillRect(tx * tile + 3 + Math.random() * (tile - 6), ty * tile + 3 + Math.random() * (tile - 6), 2, 2);
+            }
+            const grd = ctx.createLinearGradient(tx * tile, ty * tile, tx * tile + tile, ty * tile + tile);
+            grd.addColorStop(0, 'rgba(120,160,255,0.06)');
+            grd.addColorStop(0.5, 'rgba(120,160,255,0)');
+            ctx.fillStyle = grd;
+            ctx.fillRect(tx * tile + 3, ty * tile + 3, tile - 6, tile - 6);
+        }
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(9, 9);
+    return t;
+}
+
+const floorGeo = new THREE.PlaneGeometry(70, 70);
+const floorMat = new THREE.MeshStandardMaterial({
+    map: generateTileTexture(),
+    roughness: 0.25,
+    metalness: 0.15
+});
+const floor = new THREE.Mesh(floorGeo, floorMat);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Outer Perimeter Walls with panelled texture
+function generateWallTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 256;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#171c2b';
+    ctx.fillRect(0, 0, 512, 256);
+    // Vertical panel seams with a subtle highlight edge
+    for (let x = 0; x < 512; x += 64) {
+        ctx.fillStyle = 'rgba(0,0,0,0.35)';
+        ctx.fillRect(x, 0, 3, 256);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        ctx.fillRect(x + 3, 0, 2, 256);
+    }
+    // Horizontal dado rail
+    ctx.fillStyle = 'rgba(0,0,0,0.3)';
+    ctx.fillRect(0, 170, 512, 6);
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(8, 1);
+    return t;
+}
+const wallMat = new THREE.MeshStandardMaterial({ map: generateWallTexture(), roughness: 0.7 });
+const createWall = (w, h, d, x, y, z) => {
+    const geo = new THREE.BoxGeometry(w, h, d);
+    const mesh = new THREE.Mesh(geo, wallMat);
+    mesh.position.set(x, y, z);
+    mesh.receiveShadow = true;
+    scene.add(mesh);
+};
+createWall(70, 8, 1, 0, 4, -35); // Back Wall
+createWall(1, 8, 70, -35, 4, 0); // Left Wall
+// Right wall has a doorway (z -14..-2) leading out to the road and the shop
+createWall(1, 8, 21, 35, 4, -24.5);
+createWall(1, 8, 37, 35, 4, 16.5);
+createWall(1, 2.5, 12, 35, 6.75, -8); // lintel above the doorway
+
+// Glowing neon trim + dark baseboards along each wall
+const trimMat = new THREE.MeshStandardMaterial({ color: 0x00f2fe, emissive: 0x00a8b8, emissiveIntensity: 0.9, roughness: 0.3 });
+const baseboardMat = new THREE.MeshStandardMaterial({ color: 0x0b0e18, roughness: 0.4, metalness: 0.3 });
+const addStrip = (w, d, x, y, z, mat, h) => {
+    const mesh = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), mat);
+    mesh.position.set(x, y, z);
+    scene.add(mesh);
+};
+addStrip(70, 0.25, 0, 6.5, -34.4, trimMat, 0.18);
+addStrip(70, 0.3, 0, 0.3, -34.3, baseboardMat, 0.6);
+addStrip(0.25, 70, -34.4, 6.5, 0, trimMat, 0.18);
+addStrip(0.3, 70, -34.3, 0.3, 0, baseboardMat, 0.6);
+addStrip(0.25, 70, 34.4, 6.5, 0, trimMat, 0.18);
+addStrip(0.3, 70, 34.3, 0.3, 0, baseboardMat, 0.6);
+
+// --- OUTDOORS: sidewalk, road and the crossing to the shop ---
+const outdoorGround = new THREE.Mesh(
+    new THREE.PlaneGeometry(44, 70),
+    new THREE.MeshStandardMaterial({ color: 0x2a2e38, roughness: 0.9 })
+);
+outdoorGround.rotation.x = -Math.PI / 2;
+outdoorGround.position.set(57, 0, 0);
+outdoorGround.receiveShadow = true;
+scene.add(outdoorGround);
+
+// Asphalt road running along z between the two sidewalks
+const roadStrip = new THREE.Mesh(
+    new THREE.PlaneGeometry(12, 70),
+    new THREE.MeshStandardMaterial({ color: 0x16181d, roughness: 0.95 })
+);
+roadStrip.rotation.x = -Math.PI / 2;
+roadStrip.position.set(46, 0.01, 0);
+roadStrip.receiveShadow = true;
+scene.add(roadStrip);
+
+// Dashed centre line
+const dashMat = new THREE.MeshStandardMaterial({ color: 0xd8d8d0, roughness: 0.7 });
+for (let dz = -32; dz <= 32; dz += 6) {
+    const dash = new THREE.Mesh(new THREE.BoxGeometry(0.35, 0.02, 2.6), dashMat);
+    dash.position.set(46, 0.03, dz);
+    scene.add(dash);
+}
+
+// Zebra crossing lined up with the laundromat doorway and the shop entrance
+for (let zx = 41.5; zx <= 50.5; zx += 2) {
+    const stripe = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.02, 3.6), dashMat);
+    stripe.position.set(zx, 0.035, -8);
+    scene.add(stripe);
+}
+
+// Curbs on both sides of the road
+const curbMat = new THREE.MeshStandardMaterial({ color: 0x4a5060, roughness: 0.7 });
+[40.2, 51.8].forEach(cx => {
+    const curb = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.18, 70), curbMat);
+    curb.position.set(cx, 0.09, 0);
+    scene.add(curb);
+});
+
+// EXIT sign above the doorway pointing to the shop
+const exitSign = makeNameSprite('EXIT → SHOP', '#ffd60a');
+exitSign.scale.set(5, 0.95, 1);
+exitSign.position.set(34, 7.2, -8);
+scene.add(exitSign);
+
+// --- CONVEYOR: a long stadium loop spanning the width of the room ---
+// Two straights joined by rounded end caps, like a stretched-out
+// baggage carousel. Positions along it use distance s in world units.
+const CAROUSEL = { half: 20, r: 4.5, speed: 1.5 }; // straight half-length, cap radius, units/sec
+CAROUSEL.perimeter = 4 * CAROUSEL.half + 2 * Math.PI * CAROUSEL.r;
+
+function carouselPos(s) {
+    const P = CAROUSEL.perimeter;
+    s = ((s % P) + P) % P;
+    const straight = 2 * CAROUSEL.half;
+    const cap = Math.PI * CAROUSEL.r;
+    if (s < straight) return { x: -CAROUSEL.half + s, z: -CAROUSEL.r };
+    s -= straight;
+    if (s < cap) {
+        const t = s / CAROUSEL.r;
+        return { x: CAROUSEL.half + CAROUSEL.r * Math.sin(t), z: -CAROUSEL.r * Math.cos(t) };
+    }
+    s -= cap;
+    if (s < straight) return { x: CAROUSEL.half - s, z: CAROUSEL.r };
+    s -= straight;
+    const t = s / CAROUSEL.r;
+    return { x: -CAROUSEL.half - CAROUSEL.r * Math.sin(t), z: CAROUSEL.r * Math.cos(t) };
+}
+
+// Outward direction from the loop at s (for customers standing beside it)
+function carouselOutward(s) {
+    const p = carouselPos(s);
+    const sx = Math.max(-CAROUSEL.half, Math.min(CAROUSEL.half, p.x));
+    const nx = p.x - sx, nz = p.z;
+    const len = Math.hypot(nx, nz) || 1;
+    return { x: nx / len, z: nz / len };
+}
+
+function stadiumRingGeo(half, r, halfW, h) {
+    const outerR = r + halfW, innerR = r - halfW;
+    const shape = new THREE.Shape();
+    shape.moveTo(-half, -outerR);
+    shape.lineTo(half, -outerR);
+    shape.absarc(half, 0, outerR, -Math.PI / 2, Math.PI / 2, false);
+    shape.lineTo(-half, outerR);
+    shape.absarc(-half, 0, outerR, Math.PI / 2, Math.PI * 1.5, false);
+    const hole = new THREE.Path();
+    hole.moveTo(-half, -innerR);
+    hole.lineTo(half, -innerR);
+    hole.absarc(half, 0, innerR, -Math.PI / 2, Math.PI / 2, false);
+    hole.lineTo(-half, innerR);
+    hole.absarc(-half, 0, innerR, Math.PI / 2, Math.PI * 1.5, false);
+    shape.holes.push(hole);
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: h, bevelEnabled: false, curveSegments: 48 });
+    geo.rotateX(-Math.PI / 2);
+    return geo;
+}
+
+const beltGroup = new THREE.Group();
+
+const carouselBase = new THREE.Mesh(
+    stadiumRingGeo(CAROUSEL.half, CAROUSEL.r, 1.35, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0x111115, roughness: 0.8 })
+);
+carouselBase.castShadow = true;
+carouselBase.receiveShadow = true;
+beltGroup.add(carouselBase);
+
+const carouselTrack = new THREE.Mesh(
+    stadiumRingGeo(CAROUSEL.half, CAROUSEL.r, 1.05, 0.1),
+    new THREE.MeshStandardMaterial({ color: 0x232428, metalness: 0.4, roughness: 0.5 })
+);
+carouselTrack.position.y = 0.5;
+beltGroup.add(carouselTrack);
+
+// Sliding metal slats, airport-carousel style, that ride around the loop
+const slats = [];
+const slatGeo = new THREE.BoxGeometry(0.9, 0.05, 1.9);
+const slatMat = new THREE.MeshStandardMaterial({ color: 0x555a63, metalness: 0.85, roughness: 0.3 });
+const SLAT_COUNT = 44;
+for (let i = 0; i < SLAT_COUNT; i++) {
+    const slat = new THREE.Mesh(slatGeo, slatMat);
+    slat.position.y = 0.63;
+    beltGroup.add(slat);
+    slats.push({ mesh: slat, theta: (i / SLAT_COUNT) * CAROUSEL.perimeter });
+}
+
+// Caution-yellow guard rails along both edges
+[1.35, -1.35].forEach(off => {
+    const rail = new THREE.Mesh(
+        stadiumRingGeo(CAROUSEL.half, CAROUSEL.r + off, 0.09, 0.28),
+        new THREE.MeshStandardMaterial({ color: 0xf1c40f, metalness: 0.8, roughness: 0.2 })
+    );
+    rail.position.y = 0.55;
+    beltGroup.add(rail);
+});
+
+scene.add(beltGroup);
+let spawnedClothes = [];
+
+// --- CLOTHING MESH BUILDER (T-Shirts & Pants) ---
+function createClothMesh(type) {
+    const g = new THREE.Group();
+    const mat = new THREE.MeshStandardMaterial({ color: type.color, roughness: 0.6, metalness: 0.05 });
+
+    if (Math.random() < 0.5) {
+        // T-Shirt: torso + angled sleeves + collar
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.6, 0.08), mat);
+        g.add(torso);
+
+        const sleeveGeo = new THREE.BoxGeometry(0.22, 0.3, 0.08);
+        const s1 = new THREE.Mesh(sleeveGeo, mat);
+        s1.position.set(-0.36, 0.16, 0);
+        s1.rotation.z = 0.55;
+        const s2 = new THREE.Mesh(sleeveGeo, mat);
+        s2.position.set(0.36, 0.16, 0);
+        s2.rotation.z = -0.55;
+        g.add(s1, s2);
+
+        const collarMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.7 });
+        const collar = new THREE.Mesh(new THREE.BoxGeometry(0.2, 0.05, 0.09), collarMat);
+        collar.position.set(0, 0.31, 0);
+        g.add(collar);
+    } else {
+        // Pants: waistband + two legs
+        const waist = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.18, 0.08), mat);
+        waist.position.y = 0.22;
+        const legGeo2 = new THREE.BoxGeometry(0.17, 0.48, 0.08);
+        const l1 = new THREE.Mesh(legGeo2, mat);
+        l1.position.set(-0.13, -0.1, 0);
+        const l2 = new THREE.Mesh(legGeo2, mat);
+        l2.position.set(0.13, -0.1, 0);
+        g.add(waist, l1, l2);
+    }
+
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    // Lay the garment flat on the belt with a random scatter angle
+    g.rotation.x = -Math.PI / 2;
+    g.rotation.z = (Math.random() - 0.5) * 1.5;
+    return g;
+}
+
+// --- REALISTIC SHOP BUILDING AT THE SIDE OF THE WORLD ---
+const shopBuildingGroup = new THREE.Group();
+shopBuildingGroup.position.set(65, 0, -8); // Across the road, opposite the doorway
+
+// Shop Main Structure
+const bldgGeo = new THREE.BoxGeometry(20, 6, 16);
+const bldgMat = new THREE.MeshStandardMaterial({ color: 0x252a3a, roughness: 0.4 });
+const bldgMesh = new THREE.Mesh(bldgGeo, bldgMat);
+bldgMesh.position.set(0, 3, 0);
+bldgMesh.castShadow = true;
+bldgMesh.receiveShadow = true;
+shopBuildingGroup.add(bldgMesh);
+
+// Roof Accent / Trim
+const roofGeo = new THREE.BoxGeometry(20.6, 0.6, 16.6);
+const roofMat = new THREE.MeshStandardMaterial({ color: 0x00f2fe, roughness: 0.2, metalness: 0.5 });
+const roofMesh = new THREE.Mesh(roofGeo, roofMat);
+roofMesh.position.set(0, 6.2, 0);
+shopBuildingGroup.add(roofMesh);
+
+// Glass Window / Display Frame
+const windowGeo = new THREE.BoxGeometry(0.2, 3.5, 8);
+const windowMat = new THREE.MeshPhysicalMaterial({ color: 0x88ccff, transparent: true, opacity: 0.5, roughness: 0.1, transmission: 0.9 });
+const windowMesh = new THREE.Mesh(windowGeo, windowMat);
+windowMesh.position.set(-10.01, 3, 0);
+shopBuildingGroup.add(windowMesh);
+
+// Glowing Shop Signboard
+const signGeo = new THREE.BoxGeometry(0.4, 1.2, 7);
+const signMat = new THREE.MeshStandardMaterial({ color: 0xf39c12, emissive: 0xd35400, emissiveIntensity: 0.6, roughness: 0.2 });
+const signMesh = new THREE.Mesh(signGeo, signMat);
+signMesh.position.set(-10.3, 5.2, 0);
+shopBuildingGroup.add(signMesh);
+
+// Entrance Mat / Trigger Area
+const matGeo = new THREE.BoxGeometry(3, 0.05, 5);
+const matMat = new THREE.MeshStandardMaterial({ color: 0x27ae60, roughness: 0.9 });
+const matMesh = new THREE.Mesh(matGeo, matMat);
+matMesh.position.set(-11, 0.02, 0);
+shopBuildingGroup.add(matMesh);
+
+// Big glowing SHOP sign floating above the roof
+const shopSignCanvas = document.createElement('canvas');
+shopSignCanvas.width = 512;
+shopSignCanvas.height = 160;
+const shopSignCtx = shopSignCanvas.getContext('2d');
+shopSignCtx.fillStyle = 'rgba(8, 12, 22, 0.92)';
+shopSignCtx.beginPath();
+shopSignCtx.roundRect ? shopSignCtx.roundRect(10, 10, 492, 140, 26) : shopSignCtx.rect(10, 10, 492, 140);
+shopSignCtx.fill();
+shopSignCtx.strokeStyle = '#f39c12';
+shopSignCtx.lineWidth = 10;
+shopSignCtx.beginPath();
+shopSignCtx.roundRect ? shopSignCtx.roundRect(10, 10, 492, 140, 26) : shopSignCtx.rect(10, 10, 492, 140);
+shopSignCtx.stroke();
+shopSignCtx.fillStyle = '#ffd60a';
+shopSignCtx.font = 'bold 110px Segoe UI, Arial';
+shopSignCtx.textAlign = 'center';
+shopSignCtx.textBaseline = 'middle';
+shopSignCtx.fillText('SHOP', 256, 84);
+const shopSignSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(shopSignCanvas), transparent: true }));
+shopSignSprite.scale.set(7, 2.2, 1);
+shopSignSprite.position.set(0, 8.3, 0);
+shopBuildingGroup.add(shopSignSprite);
+
+// Dark open doorway on the street side - walking into it enters the shop
+const shopDoorway = new THREE.Mesh(new THREE.BoxGeometry(0.3, 4.6, 3.6),
+    new THREE.MeshStandardMaterial({ color: 0x05070d, roughness: 0.9 }));
+shopDoorway.position.set(-10.05, 2.3, 0);
+shopBuildingGroup.add(shopDoorway);
+
+scene.add(shopBuildingGroup);
+
+// --- SHOP INTERIOR (inside the shop building; walk in through the door) ---
+// The building shell hides while you're inside, and the interior walls are
+// low, so the street and the rest of the world stay visible around you.
+const SHOP_ROOM = { cx: 65, cz: -8 };
+const shopRoomGroup = new THREE.Group();
+
+const shopFloor = new THREE.Mesh(new THREE.PlaneGeometry(19, 15),
+    new THREE.MeshStandardMaterial({ color: 0x6b4f35, roughness: 0.8 }));
+shopFloor.rotation.x = -Math.PI / 2;
+shopFloor.position.set(SHOP_ROOM.cx, 0.02, SHOP_ROOM.cz);
+shopRoomGroup.add(shopFloor);
+
+// Waist-high interior walls with a gap at the street door
+const shopWallMat = new THREE.MeshStandardMaterial({ color: 0x3a4166, roughness: 0.7 });
+[
+    [19.4, 0.4, SHOP_ROOM.cx, SHOP_ROOM.cz - 7.5],
+    [19.4, 0.4, SHOP_ROOM.cx, SHOP_ROOM.cz + 7.5],
+    [0.4, 15.4, SHOP_ROOM.cx + 9.5, SHOP_ROOM.cz],
+    [0.4, 4.5, SHOP_ROOM.cx - 9.5, SHOP_ROOM.cz - 5.25],
+    [0.4, 4.5, SHOP_ROOM.cx - 9.5, SHOP_ROOM.cz + 5.25]
+].forEach(w => {
+    const wall = new THREE.Mesh(new THREE.BoxGeometry(w[0], 2.2, w[1]), shopWallMat);
+    wall.position.set(w[2], 1.1, w[3]);
+    shopRoomGroup.add(wall);
+});
+
+// Warm light for the showroom
+const shopLight = new THREE.PointLight(0xfff2dd, 0.9, 40);
+shopLight.position.set(SHOP_ROOM.cx, 6, SHOP_ROOM.cz);
+shopRoomGroup.add(shopLight);
+
+// Display machines on pedestals along the back wall, with price tags
+const displayMachines = [];
+MACHINE_TIERS.forEach((tier, i) => {
+    const px = SHOP_ROOM.cx - 6.6 + i * 4.4;
+    const pz = SHOP_ROOM.cz - 4.5;
+
+    const pedestal = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.35, 3.4),
+        new THREE.MeshStandardMaterial({ color: 0x161b26, roughness: 0.4, metalness: 0.3 }));
+    pedestal.position.set(px, 0.17, pz);
+    shopRoomGroup.add(pedestal);
+
+    const model = createMachineModel(i);
+    model.group.scale.multiplyScalar(0.9);
+    model.group.position.set(px, 0.35, pz);
+    shopRoomGroup.add(model.group);
+
+    const tag = makeNameSprite(tier.name + ' · ' + tier.cost + ' pts', '#ffd60a');
+    tag.scale.set(4.6, 0.86, 1);
+    tag.position.set(px, 3.4, pz);
+    shopRoomGroup.add(tag);
+
+    displayMachines.push({ group: model.group, tierIndex: i, x: px, z: pz });
+});
+
+// Shopkeeper behind a counter
+const shopCounter = new THREE.Mesh(new THREE.BoxGeometry(4.4, 1.1, 1.5),
+    new THREE.MeshStandardMaterial({ color: 0x8a5a2b, roughness: 0.6 }));
+shopCounter.position.set(SHOP_ROOM.cx + 6, 0.55, SHOP_ROOM.cz + 4);
+shopRoomGroup.add(shopCounter);
+
+const shopkeeperGroup = new THREE.Group();
+(function buildShopkeeper() {
+    const apronMat = new THREE.MeshStandardMaterial({ color: 0x27ae60, roughness: 0.6 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.9, 0.38), apronMat);
+    torso.position.y = 1.1;
+    shopkeeperGroup.add(torso);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.26, 12, 12), skinMat);
+    head.position.y = 1.85;
+    shopkeeperGroup.add(head);
+    [-0.16, 0.16].forEach(lx => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.68),
+            new THREE.MeshStandardMaterial({ color: 0x36455c, roughness: 0.7 }));
+        leg.position.set(lx, 0.34, 0);
+        shopkeeperGroup.add(leg);
+    });
+    const tag = makeNameSprite('Shopkeeper', '#2ecc71');
+    tag.position.y = 2.6;
+    shopkeeperGroup.add(tag);
+})();
+shopkeeperGroup.position.set(SHOP_ROOM.cx + 6, 0, SHOP_ROOM.cz + 5.3);
+shopkeeperGroup.rotation.y = Math.PI; // facing the room
+shopRoomGroup.add(shopkeeperGroup);
+const keeperPos = { x: SHOP_ROOM.cx + 6, z: SHOP_ROOM.cz + 4.5 };
+
+shopRoomGroup.traverse(o => { if (o.isMesh) { o.castShadow = false; o.receiveShadow = false; } });
+scene.add(shopRoomGroup);
+
+// --- SHARED LAUNDRY CHUTE (one for everyone, at the end of the room) ---
+const chuteGroup = new THREE.Group();
+chuteGroup.position.set(0, 0, -31);
+
+const chuteBodyGeo = new THREE.BoxGeometry(7, 3.4, 2.6);
+const chuteBodyMat = new THREE.MeshStandardMaterial({ color: 0xc0392b, metalness: 0.4, roughness: 0.3 });
+const chuteBodyMesh = new THREE.Mesh(chuteBodyGeo, chuteBodyMat);
+chuteBodyMesh.position.y = 1.7;
+chuteBodyMesh.castShadow = true;
+chuteGroup.add(chuteBodyMesh);
+
+// Dark opening slot on the front face
+const slotGeo = new THREE.BoxGeometry(5.5, 1.2, 0.2);
+const slotMat = new THREE.MeshStandardMaterial({ color: 0x0a0a0a, roughness: 0.2 });
+const slotMesh = new THREE.Mesh(slotGeo, slotMat);
+slotMesh.position.set(0, 1.9, 1.35);
+chuteGroup.add(slotMesh);
+
+// Glowing "drop here" band
+const bandGeo = new THREE.BoxGeometry(7.2, 0.35, 2.8);
+const bandMat = new THREE.MeshStandardMaterial({ color: 0x2ecc71, emissive: 0x27ae60, emissiveIntensity: 0.7, roughness: 0.2 });
+const bandMesh = new THREE.Mesh(bandGeo, bandMat);
+bandMesh.position.y = 3.55;
+chuteGroup.add(bandMesh);
+
+// "LAUNDRY DROP" sign floating above the chute
+const signCanvas = document.createElement('canvas');
+signCanvas.width = 512; signCanvas.height = 128;
+const sctx = signCanvas.getContext('2d');
+sctx.fillStyle = 'rgba(8, 12, 22, 0.9)';
+sctx.fillRect(0, 0, 512, 128);
+sctx.strokeStyle = '#2ecc71';
+sctx.lineWidth = 6;
+sctx.strokeRect(6, 6, 500, 116);
+sctx.fillStyle = '#2ecc71';
+sctx.font = 'bold 60px Segoe UI, Arial';
+sctx.textAlign = 'center';
+sctx.textBaseline = 'middle';
+sctx.fillText('LAUNDRY DROP', 256, 68);
+const chuteSign = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(signCanvas), transparent: true }));
+chuteSign.scale.set(6, 1.5, 1);
+chuteSign.position.y = 4.9;
+chuteGroup.add(chuteSign);
+
+scene.add(chuteGroup);
+
+// --- DECORATIVE PROPS ---
+// Potted plants soften the corners and flank the chute
+function addPlant(x, z) {
+    const g = new THREE.Group();
+    const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.45, 0.32, 0.7, 12),
+        new THREE.MeshStandardMaterial({ color: 0xa04000, roughness: 0.8 }));
+    pot.position.y = 0.35;
+    g.add(pot);
+    const soil = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.4, 0.06, 12),
+        new THREE.MeshStandardMaterial({ color: 0x3d2817, roughness: 1 }));
+    soil.position.y = 0.7;
+    g.add(soil);
+    const leafMat = new THREE.MeshStandardMaterial({ color: 0x1e8449, roughness: 0.7, flatShading: true });
+    for (let i = 0; i < 5; i++) {
+        const leaf = new THREE.Mesh(new THREE.ConeGeometry(0.16, 1.1, 5), leafMat);
+        const a = (i / 5) * Math.PI * 2;
+        leaf.position.set(Math.cos(a) * 0.2, 1.2, Math.sin(a) * 0.2);
+        leaf.rotation.set(Math.sin(a) * 0.5, 0, Math.cos(a) * -0.5);
+        g.add(leaf);
+    }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    g.position.set(x, 0, z);
+    scene.add(g);
+}
+addPlant(-32, -32); addPlant(32, -32); addPlant(-32, 32); addPlant(32, 32);
+addPlant(-5.5, -31); addPlant(5.5, -31);
+
+// Stacks of colourful laundry baskets by the conveyor
+function addBasketStack(x, z) {
+    const colors = [0x3498db, 0xe74c3c, 0xf1c40f];
+    colors.forEach((col, i) => {
+        const b = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.45, 0.4, 10),
+            new THREE.MeshStandardMaterial({ color: col, roughness: 0.6 }));
+        b.position.set(x, 0.2 + i * 0.28, z);
+        b.castShadow = true;
+        scene.add(b);
+    });
+}
+addBasketStack(-10, 2.62);
+addBasketStack(9.8, -2.62);
+
+// --- COLORFUL DECOR: glowing wall posters ---
+[[-24, 0xe74c3c], [-8, 0x2ecc71], [8, 0x9b59b6], [24, 0xf39c12]].forEach(pd => {
+    const poster = new THREE.Mesh(
+        new THREE.BoxGeometry(4.4, 3, 0.15),
+        new THREE.MeshStandardMaterial({ color: pd[1], emissive: pd[1], emissiveIntensity: 0.25, roughness: 0.6 })
+    );
+    poster.position.set(pd[0], 4.4, -34.35);
+    poster.rotation.z = (pd[0] % 3) * 0.02;
+    scene.add(poster);
+});
+
+// --- TRAFFIC & CUSTOMERS ---
+// Cars pull over on the road; a person hops out (3% chance of two), walks
+// in through the doorway carrying a laundry bundle, tips 3 items onto the
+// carousel and walks back before the car drives off. Every 15 minutes a
+// truck arrives and 10 people pile out with 3 items each.
+const vehicles = [];
+const npcs = [];
+const flyingClothes = [];
+const CAR_COLORS = [0xe74c3c, 0x3498db, 0xf1c40f, 0x9b59b6, 0x2ecc71, 0xe67e22];
+const NPC_SHIRTS = [0xe17055, 0x00b894, 0x0984e3, 0xfdcb6e, 0x6c5ce7, 0xd63031, 0x00cec9];
+
+function buildCarGroup(dir) {
+    const g = new THREE.Group();
+
+    const bodyMat = new THREE.MeshStandardMaterial({
+        color: CAR_COLORS[Math.floor(Math.random() * CAR_COLORS.length)],
+        roughness: 0.3, metalness: 0.4
+    });
+    const body = new THREE.Mesh(new THREE.BoxGeometry(2.2, 0.8, 4.4), bodyMat);
+    body.position.y = 0.75;
+    body.castShadow = true;
+    g.add(body);
+
+    const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.9, 0.7, 2.2),
+        new THREE.MeshStandardMaterial({ color: 0x9fd8ef, roughness: 0.1, metalness: 0.3 }));
+    cabin.position.set(0, 1.45, -0.2);
+    cabin.castShadow = true;
+    g.add(cabin);
+
+    const wheelGeo = new THREE.CylinderGeometry(0.42, 0.42, 0.3, 14);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.8 });
+    [[-1.05, 1.4], [1.05, 1.4], [-1.05, -1.4], [1.05, -1.4]].forEach(w => {
+        const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+        wheel.rotation.z = Math.PI / 2;
+        wheel.position.set(w[0], 0.42, w[1]);
+        g.add(wheel);
+    });
+
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff2b0, emissive: 0xd9c36a, emissiveIntensity: 0.9 });
+    [-0.7, 0.7].forEach(lx => {
+        const hl = new THREE.Mesh(new THREE.SphereGeometry(0.14, 8, 8), lightMat);
+        hl.position.set(lx, 0.75, dir * 2.2);
+        g.add(hl);
+    });
+
+    return g;
+}
+
+function buildTruckGroup(dir) {
+    const g = new THREE.Group();
+
+    const cargo = new THREE.Mesh(new THREE.BoxGeometry(2.6, 2.8, 6.4),
+        new THREE.MeshStandardMaterial({ color: 0xdfe4ea, roughness: 0.5, metalness: 0.15 }));
+    cargo.position.set(0, 1.85, -dir * 1.0);
+    cargo.castShadow = true;
+    g.add(cargo);
+
+    const cab = new THREE.Mesh(new THREE.BoxGeometry(2.4, 1.7, 2.0),
+        new THREE.MeshStandardMaterial({ color: 0x3867d6, roughness: 0.35, metalness: 0.3 }));
+    cab.position.set(0, 1.15, dir * 3.2);
+    cab.castShadow = true;
+    g.add(cab);
+
+    // Cyan company stripe down both sides
+    const stripeMat = new THREE.MeshStandardMaterial({ color: 0x00f2fe, emissive: 0x0093a3, emissiveIntensity: 0.6 });
+    [-1.31, 1.31].forEach(sx => {
+        const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.7, 5.8), stripeMat);
+        stripe.position.set(sx, 1.6, -dir * 1.0);
+        g.add(stripe);
+    });
+
+    const wheelGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.35, 14);
+    const wheelMat = new THREE.MeshStandardMaterial({ color: 0x15181c, roughness: 0.8 });
+    [-2.4, 0, 2.6].forEach(wz => {
+        [-1.25, 1.25].forEach(wx => {
+            const wheel = new THREE.Mesh(wheelGeo, wheelMat);
+            wheel.rotation.z = Math.PI / 2;
+            wheel.position.set(wx, 0.5, wz);
+            g.add(wheel);
+        });
+    });
+
+    const lightMat = new THREE.MeshStandardMaterial({ color: 0xfff2b0, emissive: 0xd9c36a, emissiveIntensity: 0.9 });
+    [-0.8, 0.8].forEach(lx => {
+        const hl = new THREE.Mesh(new THREE.SphereGeometry(0.15, 8, 8), lightMat);
+        hl.position.set(lx, 1.0, dir * 4.2);
+        g.add(hl);
+    });
+
+    return g;
+}
+
+function buildNpcModel() {
+    const g = new THREE.Group();
+    const shirtMat = new THREE.MeshStandardMaterial({ color: NPC_SHIRTS[Math.floor(Math.random() * NPC_SHIRTS.length)], roughness: 0.6 });
+    const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+    const pantsMat = new THREE.MeshStandardMaterial({ color: 0x36455c, roughness: 0.7 });
+
+    const torso = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.85, 0.35), shirtMat);
+    torso.position.y = 1.05;
+    g.add(torso);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12), skinMat);
+    head.position.y = 1.75;
+    g.add(head);
+    [-0.15, 0.15].forEach(lx => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.09, 0.65), pantsMat);
+        leg.position.set(lx, 0.32, 0);
+        g.add(leg);
+    });
+
+    // Armful of laundry they carry in (hidden once tipped out)
+    const bundle = new THREE.Mesh(new THREE.SphereGeometry(0.3, 10, 8),
+        new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.6 }));
+    bundle.scale.set(1.2, 0.75, 0.9);
+    bundle.position.set(0, 1.25, 0.4);
+    g.add(bundle);
+    g.userData.bundle = bundle;
+
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return g;
+}
+
+function spawnVehicle(type) {
+    if (!gameStarted || gamePaused) return;
+    if (type === 'car' && vehicles.filter(v => v.type === 'car').length >= 2) return;
+    if (type === 'truck' && vehicles.some(v => v.type === 'truck')) return;
+
+    const dir = Math.random() < 0.5 ? 1 : -1; // driving toward +z or -z
+    const group = type === 'car' ? buildCarGroup(dir) : buildTruckGroup(dir);
+    const laneX = dir === 1 ? 43.5 : 48.5;
+    group.position.set(laneX, 0, dir === 1 ? -42 : 42);
+    scene.add(group);
+
+    if (type === 'truck') showTip('🚚 Big delivery! A laundry truck is arriving with 10 customers!');
+
+    vehicles.push({
+        type, group, dir, laneX,
+        speed: type === 'truck' ? 8 : 10 + Math.random() * 5,
+        stopZ: type === 'truck' ? 4 : -16 + Math.random() * 26,
+        state: 'driving',
+        npcCount: type === 'truck' ? 10 : (Math.random() < 0.03 ? 2 : 1),
+        spawned: 0, returned: 0,
+        exitTimer: 0.6,
+        leaveSpeed: 1
+    });
+}
+setInterval(() => spawnVehicle('car'), 7000);
+setInterval(() => spawnVehicle('truck'), 900000); // laundry truck every 15 minutes
+
+function spawnNpc(v) {
+    const g = buildNpcModel();
+    const carZ = v.group.position.z;
+    // Spots cluster on the stretch of belt nearest the door, so customers
+    // walk in and stop right at the front of the conveyor instead of
+    // trekking down the whole laundromat
+    const spotTheta = v.type === 'truck'
+        ? 28 + (v.spawned / 10) * 11
+        : 30 + Math.random() * 9;
+    const spotP = carouselPos(spotTheta);
+    const spotOut = carouselOutward(spotTheta);
+    const path = [
+        { x: v.laneX - 1.8, z: carZ },  // step out beside the vehicle
+        { x: 37.5, z: carZ },           // onto the sidewalk
+        { x: 37.5, z: -8 },             // along to the doorway
+        { x: 31, z: -8 },               // through the door
+        {                               // up to the loop's edge
+            x: spotP.x + spotOut.x * 2.4,
+            z: spotP.z + spotOut.z * 2.4
+        }
+    ];
+    g.position.set(path[0].x, 0, path[0].z);
+    scene.add(g);
+    npcs.push({
+        group: g, vehicle: v, path, pathIdx: 1,
+        state: 'walk', theta: spotTheta,
+        dumpTimer: 0, dumped: false,
+        phase: Math.random() * 6
+    });
+}
+
+function npcDumpLaundry(n) {
+    n.group.userData.bundle.visible = false;
+    for (let k = 0; k < 3; k++) {
+        if (spawnedClothes.length + flyingClothes.length >= 45) return;
+        const type = getRandomClothType();
+        const mesh = createClothMesh(type);
+        mesh.position.set(n.group.position.x, 1.2, n.group.position.z);
+        scene.add(mesh);
+        flyingClothes.push({
+            mesh, type,
+            from: new THREE.Vector3(n.group.position.x, 1.2, n.group.position.z),
+            // Clamped to the straight so every throw lands ON the belt
+            toTheta: Math.max(1, Math.min(39, n.theta + (k - 1) * 1.2)),
+            t: 0, dur: 0.55 + k * 0.12, arc: 1.6
+        });
+    }
+}
+
+function updateVehicles(dt) {
+    for (let i = vehicles.length - 1; i >= 0; i--) {
+        const v = vehicles[i];
+        if (v.state === 'driving') {
+            const distToStop = (v.stopZ - v.group.position.z) * v.dir;
+            const eff = Math.min(v.speed, Math.max(2, distToStop * 2));
+            v.group.position.z += v.dir * eff * dt;
+            if (distToStop <= 0.1) v.state = 'unloading';
+        } else if (v.state === 'unloading') {
+            v.exitTimer -= dt;
+            if (v.exitTimer <= 0 && v.spawned < v.npcCount) {
+                spawnNpc(v);
+                v.spawned++;
+                v.exitTimer = 0.55;
+            }
+            if (v.returned >= v.npcCount) v.state = 'leaving';
+        } else { // leaving
+            v.leaveSpeed = Math.min(v.speed, v.leaveSpeed + dt * 6);
+            v.group.position.z += v.dir * v.leaveSpeed * dt;
+            if (Math.abs(v.group.position.z) > 44) {
+                scene.remove(v.group);
+                vehicles.splice(i, 1);
+            }
+        }
+    }
+}
+
+function updateNpcs(dt) {
+    for (let i = npcs.length - 1; i >= 0; i--) {
+        const n = npcs[i];
+
+        if (n.state === 'dump') {
+            n.dumpTimer -= dt;
+            const p = 1 - Math.max(0, n.dumpTimer) / 0.9;
+            n.group.rotation.x = Math.sin(Math.min(1, p) * Math.PI) * 0.45; // tipping bow
+            if (!n.dumped && p >= 0.5) {
+                n.dumped = true;
+                npcDumpLaundry(n);
+            }
+            if (n.dumpTimer <= 0) {
+                n.group.rotation.x = 0;
+                n.state = 'back';
+                n.path = [...n.path].reverse();
+                n.pathIdx = 1;
+            }
+            continue;
+        }
+
+        const target = n.path[n.pathIdx];
+        const dx = target.x - n.group.position.x;
+        const dz = target.z - n.group.position.z;
+        const dist = Math.hypot(dx, dz);
+        if (dist < 0.25) {
+            n.pathIdx++;
+            if (n.pathIdx >= n.path.length) {
+                if (n.state === 'walk') {
+                    n.state = 'dump';
+                    n.dumpTimer = 0.9;
+                } else {
+                    n.vehicle.returned++;
+                    scene.remove(n.group);
+                    npcs.splice(i, 1);
+                }
+            }
+            continue;
+        }
+        const step = Math.min(dist, 3.6 * dt);
+        n.group.position.x += (dx / dist) * step;
+        n.group.position.z += (dz / dist) * step;
+        n.group.rotation.y = Math.atan2(dx, dz);
+        n.phase += dt * 11;
+        n.group.position.y = Math.abs(Math.sin(n.phase)) * 0.07;
+    }
+}
+
+// --- PLOTS SETUP ---
+const plots = [];
+const plotPositions = [
+    { id: 1, x: -18, z: -14 },
+    { id: 2, x: 0,   z: -18 },
+    { id: 3, x: 18,  z: -14 },
+    { id: 4, x: -18, z: 14 },
+    { id: 5, x: 0,   z: 18 },
+    { id: 6, x: 18,  z: 14 }
+];
+
+plotPositions.forEach(pos => {
+    const pGroup = new THREE.Group();
+    pGroup.position.set(pos.x, 0, pos.z);
+
+    const pGeo = new THREE.BoxGeometry(12, 0.15, 12);
+    const pMat = new THREE.MeshStandardMaterial({ color: 0x161b26, roughness: 0.6 });
+    const pMesh = new THREE.Mesh(pGeo, pMat);
+    pMesh.position.y = 0.075;
+    pMesh.receiveShadow = true;
+    pGroup.add(pMesh);
+
+    // Glowing Plot Border Lines - every plot gets its own colour
+    const PLOT_COLORS = [0x3d5a80, 0x7a3d80, 0x3d8064, 0x80663d, 0x803d4a, 0x3d7a80];
+    const baseBorderColor = PLOT_COLORS[(pos.id - 1) % PLOT_COLORS.length];
+    const borderGeo = new THREE.BoxGeometry(12.4, 0.08, 12.4);
+    const borderMat = new THREE.MeshStandardMaterial({ color: baseBorderColor });
+    const borderMesh = new THREE.Mesh(borderGeo, borderMat);
+    pGroup.add(borderMesh);
+
+    scene.add(pGroup);
+
+    plots.push({
+        id: pos.id,
+        x: pos.x,
+        z: pos.z,
+        group: pGroup,
+        baseMesh: pMesh,
+        borderMesh: borderMesh,
+        owner: null,
+        expanded: false,
+        baseBorderColor: baseBorderColor,
+        machines: []
+    });
+});
+
+// --- REALISTIC HUMAN & ANIMAL AVATAR BUILDER ---
+const playerGroup = new THREE.Group();
+playerGroup.position.set(0, 0, 8);
+scene.add(playerGroup);
+
+let limbs = { leftArm: null, rightArm: null, leftLeg: null, rightLeg: null };
+let basketGroup = null;
+let basketItems = [];
+
+// Wicker laundry basket the player carries; picked-up laundry piles inside it
+function attachBasket(isAnimal) {
+    basketGroup = new THREE.Group();
+    basketItems = [];
+
+    const wickerMat = new THREE.MeshStandardMaterial({ color: 0xb5854b, roughness: 0.85 });
+
+    const bottom = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.08, 0.55), wickerMat);
+    basketGroup.add(bottom);
+
+    const wallFB = new THREE.BoxGeometry(0.85, 0.38, 0.06);
+    const wallLR = new THREE.BoxGeometry(0.06, 0.38, 0.55);
+    const wf = new THREE.Mesh(wallFB, wickerMat); wf.position.set(0, 0.2, 0.275);
+    const wb = new THREE.Mesh(wallFB, wickerMat); wb.position.set(0, 0.2, -0.275);
+    const wl = new THREE.Mesh(wallLR, wickerMat); wl.position.set(-0.42, 0.2, 0);
+    const wr = new THREE.Mesh(wallLR, wickerMat); wr.position.set(0.42, 0.2, 0);
+    basketGroup.add(wf, wb, wl, wr);
+
+    // Pool of laundry blobs shown as the basket fills (1 blob per 5 items)
+    for (let i = 0; i < 10; i++) {
+        const blob = new THREE.Mesh(
+            new THREE.SphereGeometry(0.11, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.6 })
+        );
+        blob.position.set(
+            ((i % 3) - 1) * 0.24,
+            0.14 + Math.floor(i / 3) * 0.09,
+            ((Math.floor(i / 3) % 2) - 0.5) * 0.22
+        );
+        blob.visible = false;
+        basketGroup.add(blob);
+        basketItems.push(blob);
+    }
+
+    basketGroup.traverse(o => { if (o.isMesh) o.castShadow = true; });
+
+    if (isAnimal) {
+        basketGroup.position.set(0, 0.85, 0.85); // held in front of the snout
+    } else {
+        basketGroup.position.set(0, 1.0, 0.5); // carried at waist height
+    }
+    playerGroup.add(basketGroup);
+}
+
+function updateBasket() {
+    if (!basketGroup) return;
+    const blobCount = Math.min(basketItems.length, Math.ceil(player.inventory.length / 5));
+    basketItems.forEach((b, i) => {
+        b.visible = i < blobCount;
+        // Each blob represents ~5 items; colour it from the item it stands for
+        const item = player.inventory[Math.min(i * 5, player.inventory.length - 1)];
+        if (item) {
+            b.material.color.setHex(item.color);
+            b.material.emissive.setHex(item.isWashed ? 0x223322 : 0x000000);
+        }
+    });
+}
+
+function buildRealisticAvatar() {
+    while (playerGroup.children.length > 0) playerGroup.remove(playerGroup.children[0]);
+    limbs = { leftArm: null, rightArm: null, leftLeg: null, rightLeg: null };
+
+    if (playerAvatar === 'boy' || playerAvatar === 'girl') {
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+        const clothMat = new THREE.MeshStandardMaterial({
+            color: playerAvatar === 'boy' ? 0x2980b9 : 0x8e44ad,
+            roughness: 0.5
+        });
+        const pantsMat = new THREE.MeshStandardMaterial({
+            color: playerAvatar === 'boy' ? 0x2c3e50 : 0x34495e,
+            roughness: 0.7
+        });
+
+        // Torso
+        const torsoGeo = new THREE.BoxGeometry(0.7, 1.1, 0.4);
+        const torso = new THREE.Mesh(torsoGeo, clothMat);
+        torso.position.y = 1.25;
+        torso.castShadow = true;
+        playerGroup.add(torso);
+
+        // Head
+        const headGeo = new THREE.SphereGeometry(0.32, 16, 16);
+        const head = new THREE.Mesh(headGeo, skinMat);
+        head.position.y = 2.05;
+        head.castShadow = true;
+        playerGroup.add(head);
+
+        // Hair
+        const hairGeo = new THREE.SphereGeometry(0.34, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2);
+        const hairMat = new THREE.MeshStandardMaterial({ color: playerAvatar === 'boy' ? 0x4a2e18 : 0x221100, roughness: 0.8 });
+        const hair = new THREE.Mesh(hairGeo, hairMat);
+        hair.position.y = 2.1;
+        hair.rotation.x = -0.2;
+        playerGroup.add(hair);
+
+        // Face: eyes and a small smile
+        const eyeMat = new THREE.MeshBasicMaterial({ color: 0x1b2631 });
+        [-1, 1].forEach(side => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), eyeMat);
+            eye.position.set(side * 0.12, 2.08, 0.28);
+            playerGroup.add(eye);
+        });
+        const smile = new THREE.Mesh(new THREE.TorusGeometry(0.09, 0.018, 6, 12, Math.PI), new THREE.MeshBasicMaterial({ color: 0xc0392b }));
+        smile.position.set(0, 1.97, 0.29);
+        smile.rotation.z = Math.PI;
+        playerGroup.add(smile);
+
+        // Arms reach forward to hold the basket
+        const armGeo = new THREE.CylinderGeometry(0.1, 0.1, 0.9);
+
+        const leftArm = new THREE.Mesh(armGeo, skinMat);
+        leftArm.position.set(-0.48, 1.25, 0.2);
+        leftArm.rotation.x = -0.9;
+        leftArm.castShadow = true;
+        playerGroup.add(leftArm);
+        limbs.leftArm = leftArm;
+
+        const rightArm = new THREE.Mesh(armGeo, skinMat);
+        rightArm.position.set(0.48, 1.25, 0.2);
+        rightArm.rotation.x = -0.9;
+        rightArm.castShadow = true;
+        playerGroup.add(rightArm);
+        limbs.rightArm = rightArm;
+
+        // Legs
+        const legGeo = new THREE.CylinderGeometry(0.12, 0.11, 1.0);
+
+        const leftLeg = new THREE.Mesh(legGeo, pantsMat);
+        leftLeg.position.set(-0.2, 0.5, 0);
+        leftLeg.castShadow = true;
+        playerGroup.add(leftLeg);
+        limbs.leftLeg = leftLeg;
+
+        const rightLeg = new THREE.Mesh(legGeo, pantsMat);
+        rightLeg.position.set(0.2, 0.5, 0);
+        rightLeg.castShadow = true;
+        playerGroup.add(rightLeg);
+        limbs.rightLeg = rightLeg;
+
+        attachBasket(false);
+
+    } else {
+        // Detailed Animal Models (Cat / Dog)
+        const furColor = playerAvatar === 'cat' ? 0xe67e22 : 0xd35400;
+        const furMat = new THREE.MeshStandardMaterial({ color: furColor, roughness: 0.8 });
+
+        // Body
+        const bodyGeo = new THREE.BoxGeometry(0.7, 0.6, 1.1);
+        const body = new THREE.Mesh(bodyGeo, furMat);
+        body.position.y = 0.65;
+        body.castShadow = true;
+        playerGroup.add(body);
+
+        // Head
+        const headGeo = new THREE.SphereGeometry(0.35, 16, 16);
+        const head = new THREE.Mesh(headGeo, furMat);
+        head.position.set(0, 1.05, 0.45);
+        head.castShadow = true;
+        playerGroup.add(head);
+
+        // Ears: pointy for the cat, floppy for the dog
+        if (playerAvatar === 'cat') {
+            const earGeo = new THREE.ConeGeometry(0.12, 0.3, 4);
+            const ear1 = new THREE.Mesh(earGeo, furMat); ear1.position.set(-0.2, 1.45, 0.45);
+            const ear2 = new THREE.Mesh(earGeo, furMat); ear2.position.set(0.2, 1.45, 0.45);
+            playerGroup.add(ear1, ear2);
+        } else {
+            const earGeo = new THREE.BoxGeometry(0.13, 0.34, 0.06);
+            const earMat = new THREE.MeshStandardMaterial({ color: 0x8e3b00, roughness: 0.85 });
+            const ear1 = new THREE.Mesh(earGeo, earMat); ear1.position.set(-0.3, 1.2, 0.45); ear1.rotation.z = 0.35;
+            const ear2 = new THREE.Mesh(earGeo, earMat); ear2.position.set(0.3, 1.2, 0.45); ear2.rotation.z = -0.35;
+            playerGroup.add(ear1, ear2);
+        }
+
+        // Face: eyes, snout and nose
+        const aEyeMat = new THREE.MeshBasicMaterial({ color: 0x101418 });
+        [-1, 1].forEach(side => {
+            const eye = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8), aEyeMat);
+            eye.position.set(side * 0.13, 1.15, 0.73);
+            playerGroup.add(eye);
+        });
+        const snout = new THREE.Mesh(new THREE.SphereGeometry(0.14, 10, 10),
+            new THREE.MeshStandardMaterial({ color: playerAvatar === 'cat' ? 0xf5cba7 : 0xa04000, roughness: 0.8 }));
+        snout.scale.set(1.2, 0.8, 1);
+        snout.position.set(0, 0.98, 0.75);
+        playerGroup.add(snout);
+        const nose = new THREE.Mesh(new THREE.SphereGeometry(0.05, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0x2d1608, roughness: 0.4 }));
+        nose.position.set(0, 1.02, 0.87);
+        playerGroup.add(nose);
+
+        // Tail held up happily
+        const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.7, 8), furMat);
+        tail.position.set(0, 0.95, -0.6);
+        tail.rotation.x = 0.7;
+        tail.castShadow = true;
+        playerGroup.add(tail);
+
+        // Legs
+        const legGeo = new THREE.CylinderGeometry(0.09, 0.08, 0.5);
+        const l1 = new THREE.Mesh(legGeo, furMat); l1.position.set(-0.25, 0.25, 0.35);
+        const l2 = new THREE.Mesh(legGeo, furMat); l2.position.set(0.25, 0.25, 0.35);
+        const l3 = new THREE.Mesh(legGeo, furMat); l3.position.set(-0.25, 0.25, -0.35);
+        const l4 = new THREE.Mesh(legGeo, furMat); l4.position.set(0.25, 0.25, -0.35);
+        playerGroup.add(l1); playerGroup.add(l2); playerGroup.add(l3); playerGroup.add(l4);
+
+        attachBasket(true);
+    }
+
+    updateBasket();
+}
+
+const player = {
+    x: 0, z: 8, y: 0,
+    vy: 0,
+    speed: 0.22,
+    inventory: [],
+    isGrounded: true,
+    knockTimer: 0, kvx: 0, kvz: 0,   // knocked over by a car
+    wasInShopZone: false
+};
+
+// Push the player out of a solid box, unless they're above it (jumped over)
+function collideBox(cx, cz, halfW, halfL, h) {
+    if (player.y > h) return;
+    const dxv = player.x - cx;
+    const dzv = player.z - cz;
+    if (Math.abs(dxv) < halfW && Math.abs(dzv) < halfL) {
+        const pushX = halfW - Math.abs(dxv);
+        const pushZ = halfL - Math.abs(dzv);
+        if (pushX < pushZ) player.x = cx + (dxv >= 0 ? halfW : -halfW);
+        else player.z = cz + (dzv >= 0 ? halfL : -halfL);
+    }
+}
+
+let cameraYaw = 0;      // orbit angle from the touch pan control
+let cameraPitch = 0.73; // camera elevation angle (vertical pan)
+let cameraDist = 24;    // pinch / wheel zoom distance
+
+window.addEventListener('wheel', e => {
+    cameraDist = Math.max(12, Math.min(40, cameraDist + e.deltaY * 0.02));
+}, { passive: true });
+
+const keys = { w: false, a: false, s: false, d: false, space: false };
+window.addEventListener('keydown', e => handleKey(e, true));
+window.addEventListener('keyup', e => handleKey(e, false));
+
+function handleKey(e, state) {
+    // Don't steal keys (especially Space) while typing a name or using a dropdown
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') keys.w = state;
+    if (k === 'a' || k === 'arrowleft') keys.a = state;
+    if (k === 's' || k === 'arrowdown') keys.s = state;
+    if (k === 'd' || k === 'arrowright') keys.d = state;
+    if (e.code === 'Space') {
+        // Stop Space from scrolling or re-activating a focused UI button
+        // (otherwise jumping after clicking "Buy" could buy another machine)
+        e.preventDefault();
+        keys.space = state;
+    }
+    if (k === 'e' && state) interact();
+}
+
+// --- TOUCH CONTROLS (phones / tablets) ---
+const touchMove = { x: 0, y: 0 };
+(function setupTouchControls() {
+    const zone = document.getElementById('move-zone');
+    const ring = document.getElementById('stick-ring');
+    const knob = document.getElementById('stick-knob');
+    let touchId = null, startX = 0, startY = 0;
+    const maxRadius = 55;
+
+    // Floating stick: the origin is wherever the finger lands on the left half
+    zone.addEventListener('touchstart', e => {
+        e.preventDefault();
+        if (touchId !== null) return;
+        const t = e.changedTouches[0];
+        touchId = t.identifier;
+        startX = t.clientX;
+        startY = t.clientY;
+        ring.style.left = startX + 'px';
+        ring.style.top = startY + 'px';
+        ring.style.display = 'block';
+        knob.style.transform = 'translate(0px, 0px)';
+    }, { passive: false });
+
+    // Right half: drag pans the camera around the player; double-tap jumps
+    const panZone = document.getElementById('pan-zone');
+    let panId = null, panLX = 0, panLY = 0;
+    let lastTapTime = 0;
+
+    // Two-finger pinch zooms the camera; it takes over from stick & pan
+    const allTouches = new Map();
+    let pinchDist = 0;
+    window.addEventListener('touchstart', e => {
+        for (const t of e.changedTouches) {
+            allTouches.set(t.identifier, { x: t.clientX, y: t.clientY, left: t.clientX < window.innerWidth / 2 });
+        }
+        // A pinch is two fingers on the SAME half of the screen. One finger
+        // per half means walking + panning, which must keep working.
+        if (allTouches.size === 2 && pinchDist === 0) {
+            const pts = [...allTouches.values()];
+            if (pts[0].left === pts[1].left) {
+                if (touchId !== null) {
+                    touchId = null;
+                    ring.style.display = 'none';
+                    touchMove.x = 0;
+                    touchMove.y = 0;
+                }
+                panId = null;
+                pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            }
+        }
+    }, { passive: true });
+
+    panZone.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        if (panId !== null) return; // a second simultaneous finger is a pinch, not a tap
+        const nowT = performance.now();
+        if (nowT - lastTapTime < 300) triggerJump();
+        lastTapTime = nowT;
+        panId = t.identifier;
+        panLX = t.clientX;
+        panLY = t.clientY;
+    }, { passive: false });
+
+    window.addEventListener('touchmove', e => {
+        for (const t of e.changedTouches) {
+            const at = allTouches.get(t.identifier);
+            if (at) { at.x = t.clientX; at.y = t.clientY; }
+        }
+        if (allTouches.size >= 2 && pinchDist > 0) {
+            const pts = [...allTouches.values()];
+            const spread = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            cameraDist = Math.max(12, Math.min(40, cameraDist - (spread - pinchDist) * 0.06));
+            pinchDist = spread;
+            return;
+        }
+        for (const t of e.changedTouches) {
+            if (t.identifier === touchId) {
+                let mx = t.clientX - startX;
+                let my = t.clientY - startY;
+                const dist = Math.hypot(mx, my);
+                if (dist > maxRadius) {
+                    mx = (mx / dist) * maxRadius;
+                    my = (my / dist) * maxRadius;
+                }
+                knob.style.transform = `translate(${mx}px, ${my}px)`;
+                touchMove.x = mx / maxRadius;
+                touchMove.y = my / maxRadius;
+            } else if (t.identifier === panId) {
+                cameraYaw -= (t.clientX - panLX) * 0.007 * touchSens;
+                cameraPitch += (t.clientY - panLY) * 0.005 * touchSens;
+                cameraPitch = Math.max(0.3, Math.min(1.25, cameraPitch));
+                panLX = t.clientX;
+                panLY = t.clientY;
+            }
+        }
+    }, { passive: false });
+
+    const handleEnd = e => {
+        for (const t of e.changedTouches) allTouches.delete(t.identifier);
+        if (allTouches.size < 2) pinchDist = 0;
+        for (const t of e.changedTouches) {
+            if (t.identifier === touchId) {
+                touchId = null;
+                ring.style.display = 'none';
+                touchMove.x = 0;
+                touchMove.y = 0;
+            } else if (t.identifier === panId) {
+                panId = null;
+            }
+        }
+    };
+    window.addEventListener('touchend', handleEnd);
+    window.addEventListener('touchcancel', handleEnd);
+
+    document.getElementById('jump-touch-btn').addEventListener('touchstart', e => {
+        e.preventDefault();
+        triggerJump();
+    });
+    document.getElementById('interact-touch-btn').addEventListener('touchstart', e => {
+        e.preventDefault();
+        interact();
+    });
+})();
+
+function triggerJump() {
+    if (gameStarted && player.isGrounded) {
+        player.vy = 0.25;
+        player.isGrounded = false;
+    }
+}
+
+// --- MOUSE CLICK-TO-INTERACT ---
+const raycaster = new THREE.Raycaster();
+const mouseVec = new THREE.Vector2();
+
+// Tapping outside an open menu closes it. Registered for BOTH click and
+// touchstart in the capture phase: the touch zones preventDefault their
+// touches (which suppresses synthesized clicks), so touchstart is the only
+// event guaranteed to arrive on tablets - and capture runs before the
+// zones, letting us stop the tap from also moving the player or
+// interacting with the world behind the menu.
+function anyModalOpen() {
+    return ['shop-modal', 'settings-modal', 'help-modal', 'controls-modal'].some(id => {
+        const el = document.getElementById(id);
+        return el && el.style.display === 'flex';
+    });
+}
+function closeMenusOnOutside(e) {
+    if (!anyModalOpen()) return;
+    if (e.target.closest('.modal, #settings-btn-icon, #cart-bar, #plot-tools')) return;
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault();
+    toggleShop(false);
+    toggleSettings(false);
+    toggleHelp(false);
+    toggleControls(false);
+}
+document.addEventListener('click', closeMenusOnOutside, true);
+document.addEventListener('touchstart', closeMenusOnOutside, { capture: true, passive: false });
+
+// Listen at the document level so taps landing on the (invisible) touch
+// movement zone still raycast into the world; real UI elements are excluded
+document.addEventListener('click', (e) => {
+    if (!gameStarted || editMode) return;
+    if (e.target.closest('button, select, input, .modal, #settings-btn-icon, #shop-room, #online-panel')) return;
+
+    mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouseVec, camera);
+
+    const targets = [chuteGroup, shopBuildingGroup];
+    spawnedClothes.forEach(c => targets.push(c.mesh));
+    plots.forEach(p => {
+        targets.push(p.baseMesh);
+        p.machines.forEach(m => targets.push(m.mesh));
+    });
+    if (inShopRoom) {
+        displayMachines.forEach(d => targets.push(d.group));
+        targets.push(shopkeeperGroup);
+    }
+
+    const hits = raycaster.intersectObjects(targets, true);
+    if (hits.length > 0) interact();
+});
+
+function selectAvatar(type, el) {
+    playerAvatar = type;
+    document.querySelectorAll('.avatar-btn').forEach(b => b.classList.remove('selected'));
+    if (el) el.classList.add('selected');
+    document.getElementById('avatar-setting-select').value = type;
+}
+
+function changeAvatarFromSettings(type) {
+    playerAvatar = type;
+    buildRealisticAvatar();
+    mpTrack();
+}
+
+function startGame() {
+    if (gameStarted) return;
+    buildRealisticAvatar();
+    document.getElementById('character-select').style.display = 'none';
+    gameStarted = true;
+    magnetRing.visible = magnetOwned;
+    updateUI();
+    mpConnect();
+    if (isTuesdayPerth()) setTimeout(() => showTip("🗓️ It's Tuesday — EVERYTHING in the shop is half price today!"), 1500);
+}
+document.getElementById('player-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startGame();
+});
+
+function getRandomClothType() {
+    const rand = Math.random();
+    let cumulative = 0;
+    for (const key in CLOTH_TYPES) {
+        cumulative += CLOTH_TYPES[key].chance;
+        if (rand <= cumulative) return CLOTH_TYPES[key];
+    }
+    return CLOTH_TYPES.STANDARD;
+}
+
+function spawnClothing() {
+    if (!gameStarted || gamePaused || spawnedClothes.length >= 12) return;
+
+    const type = getRandomClothType();
+    const mesh = createClothMesh(type);
+
+    const theta = Math.random() * CAROUSEL.perimeter;
+    const p = carouselPos(theta);
+    mesh.position.set(p.x, 0.78, p.z);
+    scene.add(mesh);
+
+    spawnedClothes.push({ mesh, type, theta });
+}
+setInterval(spawnClothing, 1500);
+
+// Free drum space across all machines (capacity minus laundry inside)
+function freeDrumSpace() {
+    if (!myPlot) return 0;
+    let cap = 0;
+    myPlot.machines.forEach(m => {
+        cap += m.capacity;
+        if (m.load) cap -= m.load.length;
+    });
+    return Math.max(0, cap);
+}
+
+// The basket itself: starts at 5, grows to 10 with a second machine, and
+// beyond that only via bought basket upgrades (15, then 20)
+function basketCapacity() {
+    if (basketLevel >= 15) return basketLevel;
+    return myPlot && myPlot.machines.length >= 2 ? 10 : 5;
+}
+
+// You can never carry more than the basket holds, nor more than your
+// machines could actually wash right now
+function dirtyCapacity() {
+    return Math.min(basketCapacity(), freeDrumSpace());
+}
+
+let hintTimeout = null;
+function showHint(text) {
+    const el = document.getElementById('hint-msg');
+    el.innerText = text;
+    el.style.display = 'block';
+    clearTimeout(hintTimeout);
+    hintTimeout = setTimeout(() => { el.style.display = 'none'; }, 2500);
+}
+
+// Collect the nearest garment in range, respecting every rule (plot claimed,
+// no dirty/clean mixing, machine capacity, pickup cooldown). Used by E/click
+// and, silently, by the Laundry Magnet's auto-collect.
+function tryPickup(silent, viaMagnet) {
+    const now = Date.now();
+    if (now < pickupCooldownUntil) return false;
+
+    let nearest = -1;
+    let nearestD = 3.2;
+    for (let i = 0; i < spawnedClothes.length; i++) {
+        const c = spawnedClothes[i];
+        const d = dist2D(player.x, player.z, c.mesh.position.x, c.mesh.position.z);
+        if (d < nearestD) {
+            nearestD = d;
+            nearest = i;
+        }
+    }
+    if (nearest < 0) return false;
+
+    const carryingClean = player.inventory.length > 0 && player.inventory[0].isWashed;
+    if (carryingClean) {
+        if (!silent) showHint('✨ Drop your clean laundry at the chute before collecting more!');
+        return false;
+    }
+    if (!myPlot) {
+        if (!silent) showHint('🏠 Claim a plot first! Walk to an empty plot and press E.');
+        return false;
+    }
+    if (player.inventory.length >= dirtyCapacity()) {
+        if (!silent) {
+            if (basketCapacity() <= freeDrumSpace()) {
+                showHint(basketLevel >= 20
+                    ? '🧺 Basket full! Load your laundry into a machine.'
+                    : '🧺 Basket full! Load a machine — or buy a bigger basket at the shop!');
+            } else {
+                const anyIdle = myPlot.machines.some(m => m.state === 'idle');
+                showHint(anyIdle
+                    ? '🧺 Machines can only take ' + freeDrumSpace() + ' more — load them up!'
+                    : '🫧 Washing machines are full! Wait for them to finish, or buy more at the shop.');
+            }
+        }
+        return false;
+    }
+
+    const c = spawnedClothes[nearest];
+    player.inventory.push({ ...c.type, isWashed: false });
+    scene.remove(c.mesh);
+    spawnedClothes.splice(nearest, 1);
+
+    if (viaMagnet) {
+        magnetBatchCounter++;
+        if (magnetBatchCounter >= 15) {
+            magnetBatchCounter = 0;
+            pickupCooldownUntil = now + 3000;
+        }
+    } else {
+        pickupBatchCounter++;
+        if (pickupBatchCounter >= 5) {
+            pickupBatchCounter = 0;
+            pickupCooldownUntil = now + 3000;
+        }
+    }
+
+    updateUI();
+    return true;
+}
+
+// --- INTERACTION LOGIC ---
+function interact() {
+    if (!gameStarted || editMode) return;
+
+    // Inside the shop room: displays add to cart, shopkeeper opens the
+    // buy menu, the exit mat leads back to the street
+    if (inShopRoom) {
+        for (const d of displayMachines) {
+            if (dist2D(player.x, player.z, d.x, d.z) < 2.6) {
+                addToCart(d.tierIndex);
+                return;
+            }
+        }
+        if (dist2D(player.x, player.z, keeperPos.x, keeperPos.z) < 3.2) {
+            toggleShop(true);
+        }
+        return;
+    }
+
+    // 1. Collect dirty clothes from the carousel
+    if (tryPickup(false)) return;
+
+    // 2. Claim Plot
+    if (!myPlot) {
+        plots.forEach(p => {
+            if (dist2D(player.x, player.z, p.x, p.z) >= 6) return;
+            if (!p.owner) {
+                p.owner = 'Player';
+                myPlot = p;
+                p.baseMesh.material.color.setHex(0x2c3e50);
+                p.borderMesh.material.color.setHex(0x00f2fe);
+                if (savedMachines.length > 0) {
+                    // Restore the machines from the last visit, in the same slots
+                    p.expanded = savedExpanded;
+                    if (savedExpanded) applyPlotExpansionVisual(p);
+                    savedMachines.forEach(e => addMachineToPlot(p, e.t, e.x, e.z));
+                } else {
+                    addMachineToPlot(p, 0);
+                }
+                updateUI();
+                saveProgress();
+                mpTrack();
+            } else if (String(p.owner).indexOf('peer:') === 0 && !myPlot) {
+                const owner = MP.peers.get(p.owner.slice(5));
+                showHint('🚧 This plot belongs to ' + (owner ? owner.name : 'another player') + '! Find an empty one.');
+            }
+        });
+    }
+
+    // 3. Interact with Owned Plot Machines
+    if (myPlot) {
+        myPlot.machines.forEach(m => {
+            if (dist2D(player.x, player.z, m.mesh.position.x, m.mesh.position.z) < 2.5) {
+
+                // LOAD DIRTY CLOTHES INTO MACHINE. The drum fills up load
+                // by load and the wash only starts once it's completely FULL.
+                if (m.state === 'idle' && player.inventory.length > 0 && !player.inventory[0].isWashed) {
+                    if (!m.load) m.load = [];
+                    const space = m.capacity - m.load.length;
+                    if (space > 0) {
+                        m.load.push(...player.inventory.splice(0, Math.min(space, player.inventory.length)));
+                        m.drumBlobs.forEach((b, i) => {
+                            b.visible = i < Math.ceil((m.load.length * m.drumBlobs.length) / m.capacity);
+                            if (m.load.length) b.material.color.setHex(m.load[i % m.load.length].color);
+                        });
+                        if (m.load.length >= m.capacity) {
+                            m.state = 'washing';
+                            m.timer = m.washTime;
+                            m.doorMesh.material.color.setHex(0x3498db); // Washing blue accent
+                        } else {
+                            showHint('🫧 ' + m.load.length + '/' + m.capacity + ' — fill the machine to start the wash!');
+                        }
+                        m.timerSprite.visible = true;
+                        updateUI();
+                    }
+                }
+                // UNLOAD CLEAN CLOTHES FROM MACHINE
+                // (only into an empty basket or one already holding clean laundry)
+                else if (m.state === 'done' && player.inventory.length + m.load.length <= 50) {
+                    const canTakeClean = player.inventory.length === 0 || player.inventory[0].isWashed;
+                    if (canTakeClean) {
+                        m.load.forEach(item => player.inventory.push({ ...item, isWashed: true }));
+                        m.state = 'idle';
+                        m.load = null;
+                        m.doorMesh.material.color.setHex(0x333333);
+                        m.drumBlobs.forEach(b => { b.visible = false; });
+                        m.timerSprite.visible = false;
+                        updateUI();
+                    }
+                }
+            }
+        });
+    }
+
+    // 4. Drop clean clothes in the SHARED chute at the end of the room
+    if (dist2D(player.x, player.z, chuteGroup.position.x, chuteGroup.position.z) < 4.5) {
+        const washedItems = player.inventory.filter(item => item.isWashed);
+        if (washedItems.length > 0) {
+            washedItems.forEach(item => {
+                points += 5 * item.mult;
+            });
+            player.inventory = player.inventory.filter(item => !item.isWashed);
+            updateUI();
+            saveProgress();
+            mpTrack();
+        }
+    }
+
+}
+
+// REALISTIC WASHING MACHINE MODEL BUILDER
+// Shared by in-game machines and the shop's product pictures. Higher tiers
+// get their own decoration and grow slightly bigger.
+function createMachineModel(tierIndex) {
+    const tier = MACHINE_TIERS[tierIndex];
+    const machineGroup = new THREE.Group();
+
+    // Main Body (tinted per tier)
+    const mGeo = new THREE.BoxGeometry(2.2, 2.6, 2.2);
+    const mMat = new THREE.MeshStandardMaterial({ color: tier.bodyColor, roughness: 0.15, metalness: 0.2 });
+    const mMesh = new THREE.Mesh(mGeo, mMat);
+    mMesh.castShadow = true;
+    mMesh.position.y = 1.3;
+    machineGroup.add(mMesh);
+
+    // Front Metallic Panel
+    const panelGeo = new THREE.BoxGeometry(2.0, 0.5, 0.1);
+    const panelMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, metalness: 0.8, roughness: 0.2 });
+    const panelMesh = new THREE.Mesh(panelGeo, panelMat);
+    panelMesh.position.set(0, 2.2, 1.1);
+    machineGroup.add(panelMesh);
+
+    // Tumbling drum behind the glass: laundry blobs orbit the door centre,
+    // spinning in the door's plane like a real front-loader
+    const drumGroup = new THREE.Group();
+    drumGroup.position.set(0, 1.1, 1.05);
+    const drumBlobs = [];
+    for (let i = 0; i < 3; i++) {
+        const blob = new THREE.Mesh(
+            new THREE.SphereGeometry(0.17, 8, 8),
+            new THREE.MeshStandardMaterial({ color: 0x3498db, roughness: 0.6 })
+        );
+        const a = (i / 3) * Math.PI * 2;
+        blob.position.set(Math.cos(a) * 0.38, Math.sin(a) * 0.38, 0);
+        blob.visible = false;
+        drumGroup.add(blob);
+        drumBlobs.push(blob);
+    }
+    machineGroup.add(drumGroup);
+
+    // Glass Porthole Door
+    const doorGeo = new THREE.CylinderGeometry(0.75, 0.75, 0.15, 24);
+    const doorMat = new THREE.MeshPhysicalMaterial({ color: 0x333333, metalness: 0.9, roughness: 0.1, transmission: 0.5 });
+    const doorMesh = new THREE.Mesh(doorGeo, doorMat);
+    doorMesh.rotation.x = Math.PI / 2;
+    doorMesh.position.set(0, 1.1, 1.12);
+    machineGroup.add(doorMesh);
+
+    // Chrome rim around the porthole
+    const rimGeo = new THREE.TorusGeometry(0.78, 0.07, 12, 32);
+    const rimMat = new THREE.MeshStandardMaterial({ color: 0xd5dbe0, metalness: 0.95, roughness: 0.15 });
+    const rimMesh = new THREE.Mesh(rimGeo, rimMat);
+    rimMesh.position.set(0, 1.1, 1.13);
+    machineGroup.add(rimMesh);
+
+    // Detergent drawer + control knobs + power button on the panel
+    const drawer = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.24, 0.06),
+        new THREE.MeshStandardMaterial({ color: 0xb2bec3, metalness: 0.5, roughness: 0.3 }));
+    drawer.position.set(-0.7, 2.2, 1.16);
+    machineGroup.add(drawer);
+
+    const knobMat = new THREE.MeshStandardMaterial({ color: 0xdfe6e9, metalness: 0.6, roughness: 0.3 });
+    for (let i = 0; i < 3; i++) {
+        const knob = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 0.08, 12), knobMat);
+        knob.rotation.x = Math.PI / 2;
+        knob.position.set(-0.1 + i * 0.35, 2.2, 1.18);
+        machineGroup.add(knob);
+    }
+    const powerBtn = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 0.06, 12),
+        new THREE.MeshStandardMaterial({ color: 0xe74c3c, emissive: 0x7c1d12, emissiveIntensity: 0.5 }));
+    powerBtn.rotation.x = Math.PI / 2;
+    powerBtn.position.set(0.85, 2.2, 1.18);
+    machineGroup.add(powerBtn);
+
+    // Per-tier decoration
+    if (tierIndex === 1) {
+        // Turbo: racing stripes across the top
+        const stripeMat = new THREE.MeshStandardMaterial({ color: 0x1b4f8a, roughness: 0.3 });
+        [-0.35, 0.35].forEach(sx => {
+            const stripe = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.06, 2.24), stripeMat);
+            stripe.position.set(sx, 2.63, 0);
+            machineGroup.add(stripe);
+        });
+    } else if (tierIndex === 2) {
+        // Deluxe: gold trim band and a gold ring around the door
+        const goldMat = new THREE.MeshStandardMaterial({ color: 0xf1c40f, metalness: 0.9, roughness: 0.2 });
+        const band = new THREE.Mesh(new THREE.BoxGeometry(2.26, 0.16, 2.26), goldMat);
+        band.position.y = 2.56;
+        machineGroup.add(band);
+        const goldRing = new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.05, 10, 28), goldMat);
+        goldRing.position.set(0, 1.1, 1.14);
+        machineGroup.add(goldRing);
+    } else if (tierIndex === 3) {
+        // Quantum: glowing cyan circuit lines and a glowing door ring
+        const glowMat = new THREE.MeshStandardMaterial({ color: 0x00f2fe, emissive: 0x00c8d7, emissiveIntensity: 1.0, roughness: 0.2 });
+        for (let i = 0; i < 3; i++) {
+            const line = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, 2.24), glowMat);
+            line.position.set(-0.6 + i * 0.6, 2.64, 0);
+            machineGroup.add(line);
+        }
+        [-0.95, 0.95].forEach(sx => {
+            const vline = new THREE.Mesh(new THREE.BoxGeometry(0.06, 2.2, 0.06), glowMat);
+            vline.position.set(sx, 1.3, 1.11);
+            machineGroup.add(vline);
+        });
+        const glowRing = new THREE.Mesh(new THREE.TorusGeometry(0.88, 0.05, 10, 28), glowMat);
+        glowRing.position.set(0, 1.1, 1.14);
+        machineGroup.add(glowRing);
+    }
+
+    // Each tier is slightly bigger than the last
+    machineGroup.scale.setScalar(1 + tierIndex * 0.08);
+
+    return { group: machineGroup, doorMesh: doorMesh, drumGroup: drumGroup, drumBlobs: drumBlobs };
+}
+
+function addMachineToPlot(plot, tierIndex, savedX, savedZ) {
+    const tier = MACHINE_TIERS[tierIndex];
+    const model = createMachineModel(tierIndex);
+    const machineGroup = model.group;
+
+    // Floating countdown timer above the machine
+    const timerCanvas = document.createElement('canvas');
+    timerCanvas.width = 256;
+    timerCanvas.height = 128;
+    const timerCtx = timerCanvas.getContext('2d');
+    const timerTex = new THREE.CanvasTexture(timerCanvas);
+    const timerSprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: timerTex, transparent: true, depthTest: false }));
+    timerSprite.scale.set(2.4, 1.2, 1);
+    timerSprite.position.set(0, 3.5, 0);
+    timerSprite.visible = false;
+    machineGroup.add(timerSprite);
+
+    const MACHINE_SPOTS = [
+        [2.8, 2.8], [-2.8, 2.8], [2.8, -2.8], [-2.8, -2.8],
+        [5.6, 2.8], [-5.6, 2.8], [5.6, -2.8], [-5.6, -2.8]
+    ];
+    const slotFree = (ox, oz) =>
+        !plot.machines.some(m => Math.abs(m.homeX - (plot.x + ox)) < 0.1 && Math.abs(m.homeZ - (plot.z + oz)) < 0.1);
+    // A saved slot offset wins if it's a real drag-grid cell on this plot
+    // and nothing occupies it; otherwise fall back to the first free spot
+    let spot = null;
+    if (typeof savedX === 'number' && typeof savedZ === 'number') {
+        const GRID = 2.8;
+        const maxX = plot.expanded ? GRID * 2 : GRID;
+        const onGrid = v => Math.abs(v - Math.round(v / GRID) * GRID) < 0.11;
+        if (onGrid(savedX) && onGrid(savedZ) && Math.abs(savedX) <= maxX + 0.11 &&
+            Math.abs(savedZ) <= GRID + 0.11 && slotFree(savedX, savedZ)) {
+            spot = [savedX, savedZ];
+        }
+    }
+    if (!spot) {
+        spot = MACHINE_SPOTS.find(sp => slotFree(sp[0], sp[1])) ||
+            MACHINE_SPOTS[Math.min(plot.machines.length, MACHINE_SPOTS.length - 1)];
+    }
+    const offsetX = spot[0];
+    const offsetZ = spot[1];
+
+    machineGroup.position.set(plot.x + offsetX, 0, plot.z + offsetZ);
+    scene.add(machineGroup);
+
+    plot.machines.push({
+        mesh: machineGroup,
+        tierIndex: tierIndex,
+        homeX: plot.x + offsetX,
+        homeZ: plot.z + offsetZ,
+        doorMesh: model.doorMesh,
+        drumGroup: model.drumGroup,
+        drumBlobs: model.drumBlobs,
+        timerSprite: timerSprite,
+        timerCtx: timerCtx,
+        timerTex: timerTex,
+        lastLabel: '',
+        washTime: tier.washTime,
+        capacity: tier.capacity,
+        state: 'idle',
+        timer: 0,
+        load: null
+    });
+}
+
+function drawMachineLabel(m, text, color) {
+    const ctx = m.timerCtx;
+    ctx.clearRect(0, 0, 256, 128);
+    ctx.fillStyle = 'rgba(10, 14, 25, 0.85)';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(28, 20, 200, 88, 18) : ctx.rect(28, 20, 200, 88);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.font = 'bold 56px Segoe UI, Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 128, 66);
+    m.timerTex.needsUpdate = true;
+    m.lastLabel = text;
+}
+
+// --- LOYALTY DISCOUNT, SALES & TIPS ---
+let playTime = 0;              // seconds actually played (pause excluded)
+let loyaltyTipShown = false;
+let tipsEnabled = true;
+let tipTimer = null;
+const sale = { active: false, pct: 0, until: 0 };
+
+// --- TOUCH SENSITIVITY ---
+let touchSens = 1;
+function setTouchSens(v) {
+    touchSens = v / 100;
+    document.getElementById('sens-value').textContent = v;
+    scheduleSave();
+}
+
+// --- SAVE / LOAD PROGRESS (localStorage) ---
+let savedMachines = [];
+let savedExpanded = false;
+let saveTimer = null;
+
+const SAVE_KEY = 'laundrySave';
+let autoSaveOn = AndySave.isEnabled(SAVE_KEY);
+
+// Machines save as {t: tier, x, z} with the slot offset relative to the
+// plot centre, so a rearranged plot comes back exactly as it was left
+function machineSaveList() {
+    if (!myPlot) return savedMachines;
+    return myPlot.machines.map(m => ({
+        t: m.tierIndex,
+        x: +(m.homeX - myPlot.x).toFixed(1),
+        z: +(m.homeZ - myPlot.z).toFixed(1)
+    }));
+}
+
+function collectSave() {
+    return {
+        points: points,
+        playTime: Math.round(playTime),
+        magnetOwned: magnetOwned,
+        basketLevel: basketLevel,
+        machines: machineSaveList(),
+        expanded: myPlot ? myPlot.expanded : savedExpanded,
+        avatar: playerAvatar,
+        name: MP.name || document.getElementById('player-name').value || '',
+        tipsEnabled: tipsEnabled,
+        sens: Math.round(touchSens * 100)
+    };
+}
+
+function saveHasProgress(d) {
+    return !!d && (d.points > 0 || d.magnetOwned || d.basketLevel > 0 || d.expanded ||
+        (Array.isArray(d.machines) &&
+            (d.machines.length > 1 || d.machines.some(e => (typeof e === 'number' ? e : e && e.t) > 0))));
+}
+
+function writeSave() {
+    try {
+        const data = collectSave();
+        // Never replace a save that has real progress with an empty one —
+        // protects the save if a fresh or half-loaded page writes first
+        if (!saveHasProgress(data)) {
+            const prev = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+            if (saveHasProgress(prev)) return;
+        }
+        localStorage.setItem(SAVE_KEY, JSON.stringify(data));
+    } catch (e) {}
+}
+
+function saveProgress() {
+    if (autoSaveOn) writeSave();
+}
+
+function scheduleSave() {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(saveProgress, 800);
+}
+
+function setAutoSave(on) {
+    autoSaveOn = on;
+    AndySave.setEnabled(SAVE_KEY, on);
+    if (on) writeSave();
+}
+
+function saveNowClicked(btn) {
+    writeSave();
+    AndySave.flashButton(btn, '✅ Saved!');
+}
+
+function copySaveCode(btn) {
+    AndySave.copyText(AndySave.makeCode('laundry', collectSave()), function (ok) {
+        if (ok) AndySave.flashButton(btn, '✅ Copied!');
+    });
+}
+
+function enterSaveCode() {
+    const code = window.prompt('Paste a Laundry Simulator save code from your other device:');
+    if (!code) return;
+    const payload = AndySave.readCode('laundry', code);
+    if (!payload) { alert('That code is not a valid Laundry Simulator save code.'); return; }
+    if (!confirm('Load this save? It replaces the progress on this device.')) return;
+    autoSaveOn = false; // stop the pagehide saver clobbering the imported save
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(payload.d)); } catch (e) {}
+    location.reload();
+}
+
+function resetLaundrySave() {
+    if (!confirm('Really wipe your points, machines and upgrades on this device?')) return;
+    autoSaveOn = false; // stop the pagehide saver re-writing the wiped save
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    location.reload();
+}
+
+window.addEventListener('pagehide', function () { if (autoSaveOn) writeSave(); });
+// visibilitychange fires more reliably than pagehide on iPads/home-screen
+// apps, and the heartbeat covers a game that gets killed without either
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && autoSaveOn) writeSave();
+});
+setInterval(function () { if (gameStarted) saveProgress(); }, 5000);
+
+(function loadProgress() {
+    document.getElementById('device-id-label').textContent = AndySave.deviceId();
+    document.getElementById('autosave-select').value = autoSaveOn ? 'on' : 'off';
+    try {
+        const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+        if (!d) return;
+        points = d.points || 0;
+        playTime = d.playTime || 0;
+        magnetOwned = !!d.magnetOwned;
+        basketLevel = d.basketLevel === 20 || d.basketLevel === 15 ? d.basketLevel : 0;
+        // Accept both save formats: plain tier numbers (older saves and
+        // transfer codes) and {t, x, z} objects that carry the slot layout
+        savedMachines = (Array.isArray(d.machines) ? d.machines.slice(0, 8) : [])
+            .map(e => (typeof e === 'number') ? { t: e } : { t: (e && e.t) | 0, x: e && e.x, z: e && e.z })
+            .filter(e => e.t >= 0 && e.t < MACHINE_TIERS.length);
+        savedExpanded = !!d.expanded;
+        tipsEnabled = d.tipsEnabled !== false;
+        document.getElementById('tips-select').value = tipsEnabled ? 'on' : 'off';
+        if (d.sens) {
+            touchSens = d.sens / 100;
+            document.getElementById('sens-slider').value = d.sens;
+            document.getElementById('sens-value').textContent = d.sens;
+        }
+        if (d.avatar) {
+            playerAvatar = d.avatar;
+            document.getElementById('avatar-setting-select').value = d.avatar;
+        }
+        if (d.name) document.getElementById('player-name').value = d.name;
+    } catch (e) {}
+})();
+
+function setTipsEnabled(on) {
+    tipsEnabled = on;
+    if (!on) document.getElementById('tip-bar').classList.remove('show');
+    scheduleSave();
+}
+
+function showTip(text) {
+    if (!tipsEnabled) return;
+    const el = document.getElementById('tip-bar');
+    el.textContent = text;
+    el.classList.add('show');
+    clearTimeout(tipTimer);
+    tipTimer = setTimeout(() => el.classList.remove('show'), 6000);
+}
+
+function saleActive() {
+    if (sale.active && Date.now() > sale.until) sale.active = false;
+    return sale.active;
+}
+
+// Occasionally a sale starts; you only GET the sale price by talking
+// to the shopkeeper (display-machine cart purchases stay list price)
+setInterval(() => {
+    if (!gameStarted || gamePaused || saleActive()) return;
+    if (Math.random() < 0.25) {
+        sale.active = true;
+        sale.pct = [20, 30, 50][Math.floor(Math.random() * 3)];
+        sale.until = Date.now() + 120000;
+        showTip('🏷️ SALE! Talk to the shopkeeper for ' + sale.pct + '% off washing machines — 2 minutes only!');
+    }
+}, 60000);
+
+// Tuesdays (Perth / WAST time) everything is half price
+function isTuesdayPerth() {
+    try {
+        return new Intl.DateTimeFormat('en-US', { timeZone: 'Australia/Perth', weekday: 'short' }).format(new Date()) === 'Tue';
+    } catch (e) {
+        return new Date().getDay() === 2;
+    }
+}
+
+// Loyalty (1+ hour) gives 25% off everywhere; a flash sale stacks on top
+// but only via the shopkeeper; Tuesday halves whatever is left.
+function discountedPrice(base, viaShopkeeper) {
+    let price = base;
+    if (playTime > 3600) price = Math.round(price * 0.75);
+    if (viaShopkeeper && saleActive()) price = Math.round(price * (1 - sale.pct / 100));
+    if (isTuesdayPerth()) price = Math.round(price * 0.5);
+    return price;
+}
+
+function machinePrice(tierIndex, viaShopkeeper) {
+    return discountedPrice(MACHINE_TIERS[tierIndex].cost, viaShopkeeper);
+}
+
+const BASKET_PRICES = { 15: 750, 20: 1800 };
+function buyBasket(level) {
+    if (basketLevel >= level) return;
+    const price = discountedPrice(BASKET_PRICES[level], true);
+    if (points < price) return;
+    points -= price;
+    basketLevel = level;
+    showHint('🧺 New basket! You can now carry up to ' + level + ' laundry.');
+    updateUI();
+    saveProgress();
+    mpTrack();
+}
+
+function toggleShop(open) {
+    document.getElementById('shop-modal').style.display = open ? 'flex' : 'none';
+    if (open) {
+        const parts = [];
+        if (playTime > 3600) parts.push('🎖️ Loyalty reward: 25% off!');
+        if (saleActive()) parts.push('🏷️ SALE: extra ' + sale.pct + '% off!');
+        if (isTuesdayPerth()) parts.push('🗓️ TUESDAY: everything half price!');
+        const banner = document.getElementById('sale-banner');
+        if (parts.length) {
+            banner.style.display = 'block';
+            banner.textContent = parts.join('  ·  ');
+        } else {
+            banner.style.display = 'none';
+        }
+    }
+    updateShopButtons();
+}
+
+// --- SHOP ROOM STATE & CART ---
+let inShopRoom = false;
+let cart = [];
+
+function cartTotal() {
+    return cart.reduce((sum, i) => sum + machinePrice(i, false), 0);
+}
+
+function addToCart(tierIndex) {
+    const tier = MACHINE_TIERS[tierIndex];
+    if (!myPlot) { showHint('🏠 Claim a plot first, then come shopping!'); return; }
+    if (myPlot.machines.length + cart.length >= plotCap()) { showHint('🧺 Your plot only fits ' + plotCap() + ' machines!' + (myPlot.expanded ? '' : ' Expand it from your plot for 3000 pts.')); return; }
+    if (cartTotal() + machinePrice(tierIndex, false) > points) { showHint('💰 Not enough points for that! (cart would be ' + (cartTotal() + machinePrice(tierIndex, false)) + ' pts)'); return; }
+    cart.push(tierIndex);
+    showHint('🛒 ' + tier.name + ' added to your cart!');
+    updateCartBar();
+}
+
+function checkoutCart() {
+    if (cart.length === 0) return;
+    cart.forEach(i => {
+        const price = machinePrice(i, false);
+        if (points >= price && myPlot && myPlot.machines.length < plotCap()) {
+            points -= price;
+            addMachineToPlot(myPlot, i);
+        }
+    });
+    cart = [];
+    updateCartBar();
+    updateUI();
+    saveProgress();
+    mpTrack();
+    showHint('✅ Machines delivered to your plot!');
+}
+
+function clearCart() {
+    cart = [];
+    updateCartBar();
+}
+
+function updateCartBar() {
+    const bar = document.getElementById('cart-bar');
+    if (!inShopRoom || cart.length === 0) { bar.style.display = 'none'; return; }
+    bar.style.display = 'flex';
+    document.getElementById('cart-text').textContent =
+        '🛒 ' + cart.map(i => MACHINE_TIERS[i].name).join(' + ') + ' — ' + cartTotal() + ' pts';
+}
+
+// --- PLOT EDIT MODE & EXPANSION ---
+let editMode = false;
+let draggingMachine = null;
+const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+const dragPoint = new THREE.Vector3();
+renderer.domElement.style.touchAction = 'none';
+
+function toggleEditMode() {
+    editMode = !editMode;
+    document.getElementById('edit-plot-btn').textContent = editMode ? '✅ Done' : '🔧 Edit Plot';
+    // Hide movement controls so drags reach the machines
+    document.getElementById('touch-controls').style.visibility = editMode ? 'hidden' : '';
+    if (editMode) showHint('🔧 Drag your washing machines to rearrange them!');
+    if (!editMode && draggingMachine) {
+        draggingMachine.mesh.position.y = 0;
+        draggingMachine = null;
+    }
+}
+
+function applyPlotExpansionVisual(plot) {
+    plot.baseMesh.geometry.dispose();
+    plot.baseMesh.geometry = new THREE.BoxGeometry(18, 0.15, 12);
+    plot.borderMesh.geometry.dispose();
+    plot.borderMesh.geometry = new THREE.BoxGeometry(18.4, 0.08, 12.4);
+}
+
+function expandPlot() {
+    if (!myPlot || myPlot.expanded) return;
+    if (points < 3000) {
+        showHint('💰 You need 3000 points to expand your plot!');
+        return;
+    }
+    points -= 3000;
+    myPlot.expanded = true;
+    applyPlotExpansionVisual(myPlot);
+    showHint('🎉 Plot expanded! You now have room for 8 washing machines.');
+    updateUI();
+    saveProgress();
+    mpTrack();
+}
+
+function editRaycastFromEvent(e) {
+    mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouseVec, camera);
+}
+
+window.addEventListener('pointerdown', e => {
+    if (!editMode || !myPlot) return;
+    editRaycastFromEvent(e);
+    const hits = raycaster.intersectObjects(myPlot.machines.map(m => m.mesh), true);
+    if (hits.length) {
+        let obj = hits[0].object;
+        while (obj && !myPlot.machines.some(m => m.mesh === obj)) obj = obj.parent;
+        draggingMachine = myPlot.machines.find(m => m.mesh === obj) || null;
+        if (draggingMachine) draggingMachine.mesh.position.y = 0.5;
+    }
+});
+
+window.addEventListener('pointermove', e => {
+    if (!editMode || !draggingMachine || !myPlot) return;
+    editRaycastFromEvent(e);
+    if (raycaster.ray.intersectPlane(dragPlane, dragPoint)) {
+        // Machines snap to a grid so they can sit flush side by side
+        // without ever overlapping
+        const GRID = 2.8;
+        const hx = (myPlot.expanded ? 9 : 6) - 1.6;
+        const hz = 6 - 1.6;
+        const cellsX = Math.floor(hx / GRID);
+        const cellsZ = Math.floor(hz / GRID);
+        const gx = Math.max(-cellsX, Math.min(cellsX, Math.round((dragPoint.x - myPlot.x) / GRID)));
+        const gz = Math.max(-cellsZ, Math.min(cellsZ, Math.round((dragPoint.z - myPlot.z) / GRID)));
+        const nx = myPlot.x + gx * GRID;
+        const nz = myPlot.z + gz * GRID;
+        const occupied = myPlot.machines.some(m =>
+            m !== draggingMachine && Math.abs(m.homeX - nx) < 0.1 && Math.abs(m.homeZ - nz) < 0.1);
+        if (!occupied) {
+            draggingMachine.mesh.position.x = nx;
+            draggingMachine.mesh.position.z = nz;
+            draggingMachine.homeX = nx;
+            draggingMachine.homeZ = nz;
+            scheduleSave();
+        }
+    }
+});
+
+window.addEventListener('pointerup', () => {
+    if (draggingMachine) draggingMachine.mesh.position.y = 0;
+    draggingMachine = null;
+});
+
+// inShopRoom is now purely positional: you walk in and out through the
+// shop's front door, and the building shell hides while you're inside.
+
+function plotCap() {
+    return myPlot && myPlot.expanded ? 8 : 4;
+}
+
+function updateShopButtons() {
+    // Basket upgrades: bought levels (and lower) disappear from the shop
+    Object.keys(BASKET_PRICES).forEach(lvlStr => {
+        const lvl = parseInt(lvlStr, 10);
+        const row = document.getElementById('basket-row-' + lvl);
+        if (!row) return;
+        row.style.display = basketLevel >= lvl ? 'none' : 'flex';
+        const btn = document.getElementById('buy-basket-' + lvl);
+        const price = discountedPrice(BASKET_PRICES[lvl], true);
+        btn.innerText = 'Buy (' + price + ' Pts)';
+        btn.disabled = points < price;
+    });
+    MACHINE_TIERS.forEach((tier, i) => {
+        const btn = document.getElementById('buy-tier-' + i);
+        if (!btn) return;
+        const price = machinePrice(i, true);
+        btn.innerText = 'Buy (' + price + ' Pts)';
+        btn.disabled = points < price || !myPlot || myPlot.machines.length >= plotCap();
+    });
+}
+
+function toggleSettings(open) {
+    document.getElementById('settings-modal').style.display = open ? 'flex' : 'none';
+}
+
+function toggleHelp(open) {
+    document.getElementById('help-modal').style.display = open ? 'flex' : 'none';
+}
+
+function toggleControls(open) {
+    document.getElementById('controls-modal').style.display = open ? 'flex' : 'none';
+}
+
+// Glowing ring under the player while the Laundry Magnet is active
+const magnetRing = new THREE.Mesh(
+    new THREE.TorusGeometry(1.2, 0.05, 8, 32),
+    new THREE.MeshStandardMaterial({ color: 0x00f2fe, emissive: 0x00c8d7, emissiveIntensity: 0.8, transparent: true, opacity: 0.7 })
+);
+magnetRing.rotation.x = Math.PI / 2;
+magnetRing.visible = false;
+scene.add(magnetRing);
+
+function buyMagnet() {
+    if (!magnetOwned && points >= 25) {
+        points -= 25;
+        magnetOwned = true;
+        magnetRing.visible = true;
+        showHint('🧲 Laundry Magnet active! Walk near the carousel to auto-collect.');
+        updateUI();
+        saveProgress();
+        mpTrack();
+    }
+}
+
+function buyMachine(tierIndex) {
+    const price = machinePrice(tierIndex, true);
+    if (points >= price && myPlot && myPlot.machines.length < plotCap()) {
+        points -= price;
+        addMachineToPlot(myPlot, tierIndex);
+        updateUI();
+        saveProgress();
+        mpTrack();
+    }
+}
+
+function updateUI() {
+    document.getElementById('pts').innerText = points;
+    document.getElementById('holding-count').innerText = player.inventory.length;
+    // Carrying clean laundry uses the big basket cap; dirty laundry is
+    // limited to what your machines can wash
+    const carryingCleanNow = player.inventory.length > 0 && player.inventory[0].isWashed;
+    document.getElementById('holding-max').innerText = carryingCleanNow ? 50 : dirtyCapacity();
+    document.getElementById('holding-type').innerText = player.inventory.length > 0 ? `(${player.inventory[0].isWashed ? 'Clean' : 'Dirty'})` : '';
+    document.getElementById('plot-status').innerText = myPlot ? `Plot #${myPlot.id}` : 'None';
+    const magnetBtn = document.getElementById('buy-magnet-btn');
+    if (magnetOwned) {
+        magnetBtn.disabled = true;
+        magnetBtn.innerText = 'Owned ✓';
+    } else {
+        magnetBtn.disabled = points < 25;
+    }
+    updateShopButtons();
+    updateBasket();
+    mpRenderOnline();
+    scheduleSave();
+}
+
+function dist2D(x1, z1, x2, z2) {
+    return Math.hypot(x2 - x1, z2 - z1);
+}
+
+// --- SHOP PRODUCT PICTURES ---
+// Render each machine tier once with a small offscreen renderer and use the
+// snapshots as the shop's product pictures, so they always match the real
+// in-game models.
+(function generateMachineThumbnails() {
+    try {
+        const prevRenderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+        prevRenderer.setSize(200, 200);
+        prevRenderer.setPixelRatio(1);
+        const prevScene = new THREE.Scene();
+        const prevCam = new THREE.PerspectiveCamera(35, 1, 0.1, 50);
+        const amb = new THREE.AmbientLight(0xffffff, 0.85);
+        const dir = new THREE.DirectionalLight(0xffffff, 1.1);
+        dir.position.set(4, 6, 5);
+        prevScene.add(amb, dir);
+
+        MACHINE_TIERS.forEach((tier, i) => {
+            const model = createMachineModel(i);
+            prevScene.add(model.group);
+            const s = 1 + i * 0.08;
+            prevCam.position.set(2.6 * s, 2.9 * s, 4.6 * s);
+            prevCam.lookAt(0, 1.3 * s, 0);
+            prevRenderer.render(prevScene, prevCam);
+            const img = document.getElementById('tier-img-' + i);
+            if (img) img.src = prevRenderer.domElement.toDataURL();
+            prevScene.remove(model.group);
+        });
+        prevRenderer.dispose();
+    } catch (err) {
+        // Pictures are decorative; the shop still works without them
+    }
+})();
+
+// ================================================================
+// MULTIPLAYER · Supabase Realtime (presence + broadcast, no tables)
+// Same project + publishable key as workspace/whiteboard.html.
+// Everything is ephemeral: presence carries name/avatar/plot/points,
+// broadcast streams positions. If Supabase can't load, the game
+// silently stays single-player.
+// ================================================================
+const MP_URL = 'https://xlrqciiaofizzxyjumrf.supabase.co';
+const MP_KEY = 'sb_publishable_R4Uj4APVGOJvKLFDwdKLiw_i0SHOnX8';
+
+const MP = {
+    client: null, channel: null, connected: false,
+    id: 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+    name: '',
+    peers: new Map(),
+    lastSent: { x: 0, y: 0, z: 0, rot: 0, t: 0 }
+};
+
+function mpCleanName(n) {
+    return String(n || '').replace(/\s+/g, ' ').trim().slice(0, 14);
+}
+
+function mpConnect() {
+    if (!window.supabase || MP.channel) return;
+    MP.name = mpCleanName(document.getElementById('player-name').value) || ('Player' + Math.floor(Math.random() * 90 + 10));
+    try {
+        MP.client = window.supabase.createClient(MP_URL, MP_KEY, {
+            realtime: { params: { eventsPerSecond: 15 } }
+        });
+        MP.channel = MP.client.channel('andy-laundry-v1', {
+            config: { broadcast: { self: false }, presence: { key: MP.id } }
+        });
+        MP.channel
+            .on('presence', { event: 'sync' }, mpPresenceSync)
+            .on('broadcast', { event: 'pos' }, ({ payload }) => {
+                const peer = payload && MP.peers.get(payload.id);
+                if (peer) peer.target = payload;
+            })
+            .subscribe(status => {
+                if (status === 'SUBSCRIBED') {
+                    MP.connected = true;
+                    mpTrack();
+                    mpRenderOnline();
+                }
+            });
+    } catch (err) {
+        MP.connected = false;
+    }
+}
+
+// Publish my current profile through presence (called on any change)
+function mpTrack() {
+    if (!MP.connected || !MP.channel) return;
+    MP.channel.track({
+        name: MP.name,
+        avatar: playerAvatar,
+        plotId: myPlot ? myPlot.id : 0,
+        points: points
+    });
+}
+
+function mpPresenceSync() {
+    if (!MP.channel) return;
+    const state = MP.channel.presenceState();
+    const seen = new Set();
+    for (const key in state) {
+        if (key === MP.id) continue;
+        const meta = state[key][0];
+        if (!meta) continue;
+        seen.add(key);
+        let peer = MP.peers.get(key);
+        if (!peer) {
+            peer = mpCreatePeer(key, meta);
+            MP.peers.set(key, peer);
+        }
+        if (peer.avatarType !== (meta.avatar || 'boy')) mpRebuildPeerAvatar(peer, meta.avatar || 'boy');
+        peer.points = meta.points || 0;
+        mpSetPeerPlot(peer, meta.plotId || 0);
+    }
+    for (const [key, peer] of MP.peers) {
+        if (!seen.has(key)) {
+            unmarkPeerPlot(peer);
+            if (peer.group) scene.remove(peer.group);
+            MP.peers.delete(key);
+        }
+    }
+    mpConflictCheck();
+    mpRenderOnline();
+}
+
+function mpCreatePeer(id, meta) {
+    const peer = { id: id, name: mpCleanName(meta.name) || 'Player', points: meta.points || 0, plotId: 0, avatarType: null, group: null, target: null, plotLabel: null };
+    mpRebuildPeerAvatar(peer, meta.avatar || 'boy');
+    return peer;
+}
+
+function mpRebuildPeerAvatar(peer, type) {
+    const pos = peer.group ? peer.group.position.clone() : new THREE.Vector3(0, 0, 8);
+    const rotY = peer.group ? peer.group.rotation.y : 0;
+    if (peer.group) scene.remove(peer.group);
+    peer.avatarType = type;
+    peer.group = buildRemoteAvatarModel(type);
+    const tag = makeNameSprite(peer.name, '#ffffff');
+    tag.position.y = (type === 'boy' || type === 'girl') ? 2.9 : 2.2;
+    peer.group.add(tag);
+    peer.group.position.copy(pos);
+    peer.group.rotation.y = rotY;
+    scene.add(peer.group);
+}
+
+// Compact stand-in models for other players (name tag does the identifying)
+function buildRemoteAvatarModel(type) {
+    const g = new THREE.Group();
+    if (type === 'boy' || type === 'girl') {
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+        const clothMat = new THREE.MeshStandardMaterial({ color: type === 'boy' ? 0x2980b9 : 0x8e44ad, roughness: 0.5 });
+        const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 });
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), clothMat);
+        torso.position.y = 1.25;
+        g.add(torso);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 14), skinMat);
+        head.position.y = 2.05;
+        g.add(head);
+        const hair = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+            new THREE.MeshStandardMaterial({ color: type === 'boy' ? 0x4a2e18 : 0x221100, roughness: 0.8 }));
+        hair.position.y = 2.1;
+        hair.rotation.x = -0.2;
+        g.add(hair);
+        [-0.2, 0.2].forEach(lx => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.11, 1.0), pantsMat);
+            leg.position.set(lx, 0.5, 0);
+            g.add(leg);
+        });
+    } else {
+        const furMat = new THREE.MeshStandardMaterial({ color: type === 'cat' ? 0xe67e22 : 0xd35400, roughness: 0.8 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 1.1), furMat);
+        body.position.y = 0.65;
+        g.add(body);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 14, 14), furMat);
+        head.position.set(0, 1.05, 0.45);
+        g.add(head);
+        [-0.2, 0.2].forEach(ex => {
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 4), furMat);
+            ear.position.set(ex, 1.45, 0.45);
+            g.add(ear);
+        });
+        [[-0.25, 0.35], [0.25, 0.35], [-0.25, -0.35], [0.25, -0.35]].forEach(lp => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.5), furMat);
+            leg.position.set(lp[0], 0.25, lp[1]);
+            g.add(leg);
+        });
+        const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.7, 8), furMat);
+        tail.position.set(0, 0.95, -0.6);
+        tail.rotation.x = 0.7;
+        g.add(tail);
+    }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return g;
+}
+
+function makeNameSprite(text, color) {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 96;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = 'rgba(10, 14, 25, 0.75)';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(60, 12, 392, 72, 20) : ctx.rect(60, 12, 392, 72);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.font = 'bold 42px Segoe UI, Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 50);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    spr.scale.set(3, 0.56, 1);
+    return spr;
+}
+
+function mpSetPeerPlot(peer, plotId) {
+    if (peer.plotId === plotId) return;
+    unmarkPeerPlot(peer);
+    peer.plotId = plotId;
+    if (!plotId) return;
+    const plot = plots.find(p => p.id === plotId);
+    if (!plot || plot.owner === 'Player') return; // Player conflicts settle in mpConflictCheck
+    markPeerPlot(plot, peer);
+}
+
+function markPeerPlot(plot, peer) {
+    plot.owner = 'peer:' + peer.id;
+    plot.baseMesh.material.color.setHex(0x2e2438);
+    plot.borderMesh.material.color.setHex(0xf39c12);
+    peer.plotLabel = makeNameSprite(peer.name + "'s plot", '#f39c12');
+    peer.plotLabel.position.set(plot.x, 3.4, plot.z);
+    scene.add(peer.plotLabel);
+}
+
+function unmarkPeerPlot(peer) {
+    const plot = plots.find(p => p.owner === 'peer:' + peer.id);
+    if (plot) {
+        plot.owner = null;
+        plot.baseMesh.material.color.setHex(0x161b26);
+        plot.borderMesh.material.color.setHex(plot.baseBorderColor);
+    }
+    if (peer.plotLabel) {
+        scene.remove(peer.plotLabel);
+        peer.plotLabel = null;
+    }
+}
+
+// If two players grabbed the same plot in the same instant, the lower id keeps it
+function mpConflictCheck() {
+    if (!myPlot) return;
+    for (const [key, peer] of MP.peers) {
+        if (peer.plotId === myPlot.id && key < MP.id) {
+            const plot = myPlot;
+            releaseMyPlot('⚠️ ' + peer.name + ' claimed that plot first! Pick another one.');
+            markPeerPlot(plot, peer);
+            break;
+        }
+    }
+}
+
+function releaseMyPlot(msg) {
+    if (!myPlot) return;
+    savedMachines = machineSaveList();
+    savedExpanded = myPlot.expanded;
+    myPlot.machines.forEach(m => scene.remove(m.mesh));
+    myPlot.machines = [];
+    myPlot.owner = null;
+    if (myPlot.expanded) {
+        myPlot.expanded = false;
+        myPlot.baseMesh.geometry.dispose();
+        myPlot.baseMesh.geometry = new THREE.BoxGeometry(12, 0.15, 12);
+        myPlot.borderMesh.geometry.dispose();
+        myPlot.borderMesh.geometry = new THREE.BoxGeometry(12.4, 0.08, 12.4);
+    }
+    myPlot.baseMesh.material.color.setHex(0x161b26);
+    myPlot.borderMesh.material.color.setHex(myPlot.baseBorderColor);
+    myPlot = null;
+    if (msg) showHint(msg);
+    updateUI();
+    mpTrack();
+}
+
+function mpRenderOnline() {
+    const el = document.getElementById('online-panel');
+    if (!el) return;
+    if (!MP.connected) { el.style.display = 'none'; return; }
+    // No banner when playing solo - it only appears once friends are here
+    if (MP.peers.size === 0) {
+        el.style.display = 'none';
+        return;
+    }
+    el.style.display = 'block';
+    const parts = ['🟢 ' + MP.name + ' (You' + (myPlot ? ', Plot ' + myPlot.id : '') + '): ' + points + ' pts'];
+    MP.peers.forEach(peer => {
+        parts.push('👤 ' + peer.name + (peer.plotId ? ' (Plot ' + peer.plotId + ')' : '') + ': ' + peer.points + ' pts');
+    });
+    el.textContent = parts.join('  ·  ');
+}
+
+// Called every frame: send my position (throttled) and glide peers toward theirs
+function mpUpdate(dt, now) {
+    if (!MP.connected) return;
+
+    const moved = Math.abs(player.x - MP.lastSent.x) > 0.02 ||
+                  Math.abs(player.z - MP.lastSent.z) > 0.02 ||
+                  Math.abs(player.y - MP.lastSent.y) > 0.02 ||
+                  Math.abs(playerGroup.rotation.y - MP.lastSent.rot) > 0.05;
+    if ((moved && now - MP.lastSent.t > 100) || now - MP.lastSent.t > 1500) {
+        MP.lastSent = { x: player.x, y: player.y, z: player.z, rot: playerGroup.rotation.y, t: now };
+        MP.channel.send({
+            type: 'broadcast', event: 'pos',
+            payload: { id: MP.id, x: player.x, y: player.y, z: player.z, rot: playerGroup.rotation.y }
+        });
+    }
+
+    const ease = Math.min(1, dt * 10);
+    MP.peers.forEach(peer => {
+        if (!peer.target || !peer.group) return;
+        const t = peer.target;
+        peer.group.position.x += (t.x - peer.group.position.x) * ease;
+        peer.group.position.y += (t.y - peer.group.position.y) * ease;
+        peer.group.position.z += (t.z - peer.group.position.z) * ease;
+        let diff = t.rot - peer.group.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        peer.group.rotation.y += diff * ease;
+    });
+}
+
+// --- AFK AUTO-PAUSE (3 minutes without any input) ---
+let lastActivity = Date.now();
+let gamePaused = false;
+function markActivity() {
+    lastActivity = Date.now();
+    if (gamePaused) {
+        gamePaused = false;
+        document.getElementById('pause-overlay').style.display = 'none';
+    }
+}
+['keydown', 'mousedown', 'mousemove', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, markActivity, { passive: true }));
+
+// --- GAME LOOP ---
+let clock = new THREE.Clock();
+let animTime = 0;
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    const dt = clock.getDelta();
+    animTime += dt;
+    const now = Date.now();
+
+    // Pause everything after 3 minutes without input
+    if (gameStarted && !gamePaused && now - lastActivity > 180000) {
+        gamePaused = true;
+        document.getElementById('pause-overlay').style.display = 'flex';
+    }
+    if (gamePaused) {
+        renderer.render(scene, camera);
+        return;
+    }
+
+    if (now < pickupCooldownUntil) {
+        const remaining = ((pickupCooldownUntil - now) / 1000).toFixed(1);
+        document.getElementById('cd-timer').innerText = remaining;
+        document.getElementById('cooldown-msg').style.display = 'block';
+    } else {
+        document.getElementById('cooldown-msg').style.display = 'none';
+    }
+
+    if (gameStarted) {
+        // Loyalty clock: after an hour of actual play, machines go 25% off
+        playTime += dt;
+        if (!loyaltyTipShown && playTime > 3600) {
+            loyaltyTipShown = true;
+            showTip('🎖️ You have played for an hour — washing machines are now 25% off!');
+        }
+
+        let dx = 0;
+        let dz = 0;
+
+        if (keys.a) dx -= 1;
+        if (keys.d) dx += 1;
+        if (keys.w) dz -= 1;
+        if (keys.s) dz += 1;
+
+        if (dx !== 0 && dz !== 0) {
+            dx *= 0.7071;
+            dz *= 0.7071;
+        }
+
+        // Touch joystick takes over while it is being used (analog magnitude)
+        if (Math.abs(touchMove.x) > 0.12 || Math.abs(touchMove.y) > 0.12) {
+            dx = touchMove.x;
+            dz = touchMove.y;
+        }
+
+        // Camera-relative movement so panning doesn't scramble the controls
+        if (cameraYaw !== 0) {
+            const wx = dx * Math.cos(cameraYaw) + dz * Math.sin(cameraYaw);
+            const wz = -dx * Math.sin(cameraYaw) + dz * Math.cos(cameraYaw);
+            dx = wx;
+            dz = wz;
+        }
+
+        // Knocked over by a car: no control until back on your feet
+        if (player.knockTimer > 0) {
+            player.knockTimer -= dt;
+            dx = 0;
+            dz = 0;
+        }
+
+        // Frozen in place while rearranging machines
+        if (editMode) {
+            dx = 0;
+            dz = 0;
+        }
+
+        const isMoving = (dx !== 0 || dz !== 0);
+
+        const prevX = player.x;
+        player.x += dx * player.speed;
+        player.z += dz * player.speed;
+
+        if (player.knockTimer > 0) {
+            player.x += player.kvx * dt;
+            player.z += player.kvz * dt;
+            player.kvx *= Math.max(0, 1 - 2.5 * dt);
+            player.kvz *= Math.max(0, 1 - 2.5 * dt);
+        }
+
+        if (inShopRoom) {
+            // Walls keep you in, except through the door gap on the west side
+            if (!(player.z > -11 && player.z < -5)) player.x = Math.max(55.8, player.x);
+            player.x = Math.min(74.2, player.x);
+            player.z = Math.max(-15.2, Math.min(-0.8, player.z));
+        } else {
+            player.x = Math.max(-32, Math.min(77, player.x));
+            player.z = Math.max(-32, Math.min(32, player.z));
+
+            // The laundromat's right wall is solid except for the doorway
+            if ((prevX < 35) !== (player.x < 35)) {
+                const inDoorway = player.z > -13 && player.z < -3;
+                if (!inDoorway) player.x = prevX;
+            }
+
+            // Parked vehicles are solid - walk around them, not through them
+            for (const v of vehicles) {
+                if (v.state !== 'unloading') continue;
+                const halfW = 1.6;
+                const halfL = v.type === 'truck' ? 4.6 : 2.8;
+                const dxv = player.x - v.group.position.x;
+                const dzv = player.z - v.group.position.z;
+                if (Math.abs(dxv) < halfW && Math.abs(dzv) < halfL) {
+                    const pushX = halfW - Math.abs(dxv);
+                    const pushZ = halfL - Math.abs(dzv);
+                    if (pushX < pushZ) player.x = v.group.position.x + (dxv >= 0 ? halfW : -halfW);
+                    else player.z = v.group.position.z + (dzv >= 0 ? halfL : -halfL);
+                }
+            }
+        }
+
+        // Solid objects. Tall things (machines, the chute) always block;
+        // low things (carousel island, the belt, the shop counter) can be
+        // JUMPED over - collideBox ignores them while you're airborne above.
+        if (inShopRoom) {
+            displayMachines.forEach(d => collideBox(d.x, d.z, 1.9, 1.9, 3.2));
+            collideBox(SHOP_ROOM.cx + 6, SHOP_ROOM.cz + 4, 2.6, 1.15, 1.5); // counter
+        } else {
+            if (myPlot) {
+                myPlot.machines.forEach(m => {
+                    const half = 1.1 * (1 + m.tierIndex * 0.08) + 0.45;
+                    collideBox(m.homeX, m.homeZ, half, half, 3.4);
+                });
+            }
+            collideBox(0, -31, 3.9, 1.7, 5);    // laundry chute
+
+            // The carousel belt ring itself: hop over it or walk around
+            if (player.y < 0.75) {
+                const sx2 = Math.max(-CAROUSEL.half, Math.min(CAROUSEL.half, player.x));
+                const rdx = player.x - sx2;
+                const rdz = player.z;
+                const rd = Math.hypot(rdx, rdz);
+                const innerR = CAROUSEL.r - 1.85;
+                const outerR = CAROUSEL.r + 1.85;
+                if (rd > innerR && rd < outerR && rd > 0.0001) {
+                    if (rd < CAROUSEL.r) {
+                        player.x = sx2 + (rdx / rd) * innerR;
+                        player.z = (rdz / rd) * innerR;
+                    } else {
+                        player.x = sx2 + (rdx / rd) * outerR;
+                        player.z = (rdz / rd) * outerR;
+                    }
+                }
+            }
+        }
+
+        if (keys.space && player.isGrounded) {
+            player.vy = 0.25;
+            player.isGrounded = false;
+        }
+
+        if (!player.isGrounded) {
+            player.y += player.vy;
+            player.vy -= 0.015;
+            if (player.y <= 0) {
+                player.y = 0;
+                player.vy = 0;
+                player.isGrounded = true;
+            }
+        }
+
+        if (isMoving) {
+            const angle = Math.atan2(dx, dz);
+            playerGroup.rotation.y = angle;
+
+            // Legs walk; arms stay forward holding the basket
+            if (limbs.leftLeg && limbs.rightLeg) {
+                const swing = Math.sin(animTime * 12) * 0.6;
+                limbs.leftLeg.rotation.x = -swing;
+                limbs.rightLeg.rotation.x = swing;
+            }
+        } else {
+            if (limbs.leftLeg && limbs.rightLeg) {
+                limbs.leftLeg.rotation.x = 0;
+                limbs.rightLeg.rotation.x = 0;
+            }
+        }
+
+        playerGroup.position.set(player.x, player.y, player.z);
+
+        // Laundry Magnet: hoover up nearby laundry automatically (silently
+        // obeys the same rules and cooldown as manual pickup)
+        if (magnetOwned) {
+            // The magnet grabs one piece every 0.1s (15 pieces, then cooldown)
+            if (now - lastMagnetPick >= 100 && tryPickup(true, true)) {
+                lastMagnetPick = now;
+            }
+            magnetRing.position.set(player.x, 0.08 + Math.sin(animTime * 3) * 0.03, player.z);
+            magnetRing.rotation.z += dt * 1.5;
+        }
+
+        mpUpdate(dt, now);
+
+        camera.position.x = player.x + Math.sin(cameraYaw) * Math.cos(cameraPitch) * cameraDist;
+        camera.position.y = player.y + Math.sin(cameraPitch) * cameraDist;
+        camera.position.z = player.z + Math.cos(cameraYaw) * Math.cos(cameraPitch) * cameraDist;
+        camera.lookAt(player.x, player.y, player.z);
+
+        // Carousel: slats and laundry ride around the loop together
+        const dTheta = dt * CAROUSEL.speed;
+        slats.forEach(s => {
+            s.theta += dTheta;
+            const sp = carouselPos(s.theta);
+            s.mesh.position.x = sp.x;
+            s.mesh.position.z = sp.z;
+            // Align each slat with the track's direction of travel
+            const ahead = carouselPos(s.theta + 0.2);
+            s.mesh.rotation.y = Math.atan2(-(ahead.z - sp.z), ahead.x - sp.x);
+        });
+        spawnedClothes.forEach(c => {
+            c.theta += dTheta;
+            const cp = carouselPos(c.theta);
+            c.mesh.position.x = cp.x;
+            c.mesh.position.z = cp.z;
+        });
+
+        // Traffic: vehicles pull up, customers walk in and tip their laundry
+        updateVehicles(dt);
+        updateNpcs(dt);
+
+        // Getting hit by a moving car: bounce off, fall over, get back up
+        if (player.knockTimer <= 0) {
+            for (const v of vehicles) {
+                if (v.state === 'unloading') continue; // parked vehicles are safe
+                const cdx = player.x - v.group.position.x;
+                const cdz = player.z - v.group.position.z;
+                const halfL = v.type === 'truck' ? 4.4 : 2.6;
+                if (Math.abs(cdx) < 1.7 && Math.abs(cdz) < halfL) {
+                    player.knockTimer = 1.6;
+                    player.kvx = (cdx >= 0 ? 1 : -1) * 7;
+                    player.kvz = v.dir * 5;
+                    player.vy = 0.22;
+                    player.isGrounded = false;
+                    showHint('🚗 Ouch! Look both ways before crossing!');
+                    break;
+                }
+            }
+        }
+        // Fall-over / get-up animation while knocked
+        if (player.knockTimer > 0) {
+            const kt = 1.6 - player.knockTimer;
+            let fall = 1;
+            if (kt < 0.35) fall = kt / 0.35;
+            else if (player.knockTimer < 0.45) fall = Math.max(0, player.knockTimer / 0.45);
+            playerGroup.rotation.x = -1.45 * fall;
+        } else if (playerGroup.rotation.x !== 0) {
+            playerGroup.rotation.x = 0;
+        }
+
+        // Plot tools appear while standing on your own plot
+        const plotTools = document.getElementById('plot-tools');
+        const inMyPlot = myPlot && !inShopRoom &&
+            Math.abs(player.x - myPlot.x) < (myPlot.expanded ? 9.5 : 6.5) &&
+            Math.abs(player.z - myPlot.z) < 6.5;
+        if (inMyPlot || editMode) {
+            plotTools.style.display = 'flex';
+            document.getElementById('expand-plot-btn').style.display =
+                (myPlot && myPlot.machines.length >= 4 && !myPlot.expanded) ? 'inline-block' : 'none';
+        } else {
+            plotTools.style.display = 'none';
+        }
+
+        // Inside the shop building? The shell hides so the interior (and the
+        // world around it) stays visible; walking out the door restores it.
+        const nowInsideShop = player.x > 55 && player.x < 75 && player.z > -16 && player.z < 0;
+        if (nowInsideShop !== inShopRoom) {
+            inShopRoom = nowInsideShop;
+            shopBuildingGroup.visible = !nowInsideShop;
+            if (nowInsideShop) {
+                showHint('🛒 Welcome! Tap a machine to add it to your cart, or talk to the shopkeeper.');
+            } else {
+                cart = [];
+                toggleShop(false);
+            }
+            updateCartBar();
+        }
+
+        // Tipped laundry hops from the customer's arms onto the carousel
+        for (let i = flyingClothes.length - 1; i >= 0; i--) {
+            const f = flyingClothes[i];
+            f.t += dt / f.dur;
+            const lp = carouselPos(f.toTheta);
+            if (f.t >= 1) {
+                f.mesh.position.set(lp.x, 0.78, lp.z);
+                spawnedClothes.push({ mesh: f.mesh, type: f.type, theta: f.toTheta });
+                flyingClothes.splice(i, 1);
+                continue;
+            }
+            f.mesh.position.set(
+                f.from.x + (lp.x - f.from.x) * f.t,
+                0.78 + (f.from.y - 0.78) * (1 - f.t) + Math.sin(f.t * Math.PI) * f.arc,
+                f.from.z + (lp.z - f.from.z) * f.t
+            );
+            f.mesh.rotation.z += dt * 6;
+        }
+
+        plots.forEach(p => {
+            p.machines.forEach(m => {
+                if (m.state === 'idle') {
+                    const fillLabel = (m.load ? m.load.length : 0) + '/' + m.capacity;
+                    if (fillLabel !== m.lastLabel) {
+                        drawMachineLabel(m, fillLabel, '#cdd6f4');
+                        m.timerSprite.visible = true;
+                    }
+                }
+                if (m.state === 'washing') {
+                    m.timer -= dt;
+                    // Tumble the drum in the door's plane (like a real front-loader)
+                    m.drumGroup.rotation.z -= dt * 7;
+                    // Gentle vibration while the cycle runs
+                    m.mesh.position.x = m.homeX + Math.sin(animTime * 45) * 0.02;
+                    m.mesh.position.z = m.homeZ + Math.cos(animTime * 38) * 0.02;
+
+                    const label = Math.max(0, Math.ceil(m.timer)) + 's';
+                    if (label !== m.lastLabel) drawMachineLabel(m, label, '#4facfe');
+
+                    if (m.timer <= 0) {
+                        m.timer = 0;
+                        m.state = 'done';
+                        m.doorMesh.material.color.setHex(0x2ecc71); // Clean green state
+                        drawMachineLabel(m, 'READY!', '#2ecc71');
+                        m.mesh.position.set(m.homeX, 0, m.homeZ);
+                    }
+                }
+            });
+        });
+    }
+
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    const res = document.getElementById('res-select').value;
+    changeResolution(res);
+});
+
+animate();
+</script>
+</body>
+</html>

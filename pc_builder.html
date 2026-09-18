@@ -1,0 +1,2389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>PC Builder Tycoon — Play Centre</title>
+    <meta name="description" content="Multiplayer 3D PC building tycoon in your browser: collect CPUs, GPUs, motherboards and power supplies from the shop, build computers at your workbench and sell them. Start with an i3-4170 — work up to an i9-14900KF with an RTX 5090!">
+    <link rel="canonical" href="https://bethqzak.github.io/andy/pc_builder.html">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon-192.png">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#0b0d1a">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+        body { background: #0a0a12; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 100vh; overflow: hidden; }
+
+        /* 100dvh tracks the real visible height on mobile Chrome, where 100vh
+           includes the space hidden behind the collapsible URL bar */
+        #game-container { position: relative; width: 100vw; height: 100vh; height: 100dvh; }
+        canvas { display: block; width: 100%; height: 100%; image-rendering: pixelated; }
+
+        /* UI Overlays */
+        .ui-panel { position: absolute; padding: 12px 22px; background: rgba(12, 16, 28, 0.88); backdrop-filter: blur(10px); border-radius: 12px; border: 1px solid rgba(255,255,255,0.15); box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        #stats-bar { top: calc(28px + env(safe-area-inset-top, 0px)); left: calc(28px + env(safe-area-inset-left, 0px)); display: flex; gap: 20px; font-weight: 600; font-size: 16px; pointer-events: none; }
+        #stats-bar span { color: #00f2fe; font-weight: bold; }
+
+        #settings-btn-icon { position: absolute; top: calc(28px + env(safe-area-inset-top, 0px)); right: calc(28px + env(safe-area-inset-right, 0px)); background: rgba(12, 16, 28, 0.88); border: 1px solid rgba(255,255,255,0.2); padding: 10px 18px; border-radius: 10px; cursor: pointer; font-size: 16px; font-weight: 600; z-index: 30; transition: all 0.2s; backdrop-filter: blur(10px); }
+        #settings-btn-icon:hover { background: rgba(255,255,255,0.15); transform: translateY(-2px); }
+
+        #character-select { position: absolute; inset: 0; background: radial-gradient(circle at center, #1a1e36 0%, #080914 100%); display: flex; flex-direction: column; align-items: center; justify-content: center; z-index: 10; }
+        #character-select h1 { font-size: 3.2rem; margin-bottom: 10px; color: #2eff7b; text-shadow: 0 0 25px rgba(46,255,123,0.55); letter-spacing: 2px; text-align: center; }
+
+        .avatar-options { display: flex; gap: 20px; margin: 30px 0; }
+        .avatar-btn { background: rgba(255,255,255,0.05); border: 2px solid rgba(255,255,255,0.15); border-radius: 14px; padding: 20px 25px; text-align: center; cursor: pointer; transition: all 0.25s ease; min-width: 130px; }
+        .avatar-btn:hover { transform: translateY(-6px); border-color: #00f2fe; background: rgba(0, 242, 254, 0.1); }
+        .avatar-btn.selected { border-color: #00f2fe; box-shadow: 0 0 20px rgba(0,242,254,0.4); background: rgba(0, 242, 254, 0.15); }
+        .avatar-btn div { font-size: 45px; margin-bottom: 10px; }
+
+        button.start-btn { padding: 16px 55px; font-size: 20px; border: none; background: linear-gradient(135deg, #2eff7b, #00b894); color: #06121f; font-weight: bold; border-radius: 30px; cursor: pointer; transition: all 0.25s; box-shadow: 0 4px 20px rgba(46,255,123,0.4); text-transform: uppercase; letter-spacing: 1px; }
+        button.start-btn:hover { transform: scale(1.05); box-shadow: 0 6px 25px rgba(46,255,123,0.6); }
+
+        .modal { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 500px; max-height: 85vh; overflow-y: auto; background: rgba(12, 16, 28, 0.95); border: 1px solid rgba(0, 242, 254, 0.4); border-radius: 16px; padding: 25px; display: none; z-index: 20; flex-direction: column; gap: 14px; box-shadow: 0 15px 40px rgba(0,0,0,0.8); backdrop-filter: blur(12px); }
+        .modal h2 { text-align: center; color: #00f2fe; font-size: 24px; }
+        .modal-item { display: flex; justify-content: space-between; align-items: center; background: rgba(255,255,255,0.04); padding: 12px 16px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.06); gap: 10px; }
+        .modal-btn { padding: 10px 20px; background: linear-gradient(135deg, #27ae60, #2ecc71); border: none; color: white; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 14px; transition: opacity 0.2s; white-space: nowrap; }
+        .modal-btn:disabled { background: #444; opacity: 0.6; cursor: not-allowed; }
+        .close-btn { background: rgba(231, 76, 60, 0.8); border: none; padding: 12px; color: white; border-radius: 8px; cursor: pointer; width: 100%; font-weight: bold; margin-top: 5px; transition: background 0.2s; }
+        .close-btn:hover { background: #e74c3c; }
+
+        select.setting-select { background: #1a1e36; color: white; border: 1px solid #4facfe; padding: 8px 12px; border-radius: 8px; font-size: 14px; outline: none; cursor: pointer; max-width: 220px; }
+
+        /* Shop tabs */
+        .shop-tabs { display: flex; gap: 8px; justify-content: center; flex-wrap: wrap; }
+        .tab-btn { padding: 9px 16px; border-radius: 999px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.05); color: #9aa3c7; font-weight: 700; font-size: 13px; cursor: pointer; transition: all 0.15s; }
+        .tab-btn.active { background: rgba(0,242,254,0.18); color: #00f2fe; border-color: #00f2fe; }
+        .free-tag { color: #2eff7b; font-weight: 800; }
+        .owned-tag { color: #ffd60a; font-size: 12px; font-weight: 700; }
+        .spec-line { color: #9aa3c7; font-size: 12px; }
+
+        /* Build modal */
+        .build-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: rgba(255,255,255,0.04); padding: 10px 14px; border-radius: 10px; }
+        .build-row label { font-weight: 700; font-size: 14px; }
+        #compat-box { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.1); border-radius: 10px; padding: 12px 16px; font-size: 13px; line-height: 1.7; }
+        .compat-ok { color: #2eff7b; }
+        .compat-bad { color: #ff6b6b; }
+
+        #controls-hint { position: absolute; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); left: 50%; transform: translateX(-50%); font-size: 14px; color: #bbb; background: rgba(12, 16, 28, 0.85); padding: 10px 22px; border-radius: 20px; pointer-events: none; border: 1px solid rgba(255,255,255,0.1); backdrop-filter: blur(8px); text-align: center; }
+        #hint-msg { pointer-events: none; }
+
+        /* Touch controls: only shown on phones/tablets */
+        #touch-controls { display: none; }
+        @media (hover: none) and (pointer: coarse) {
+            #touch-controls { display: block; }
+            #controls-hint { display: none; }
+        }
+        @media (max-width: 760px) {
+            #stats-bar { font-size: 13px; gap: 10px; padding: 8px 12px; top: 12px; left: 12px; }
+            #settings-btn-icon { top: 12px; right: 12px; padding: 8px 12px; font-size: 14px; }
+            .modal { width: 92vw; }
+            #character-select h1 { font-size: 2rem; }
+            .avatar-options { flex-wrap: wrap; justify-content: center; }
+        }
+        /* Touch anywhere on the left half of the screen to walk; a floating
+           stick appears under the finger. Right half keeps the buttons. */
+        #move-zone {
+            position: absolute; top: 0; bottom: 0; left: 0; width: 50%;
+            touch-action: none; z-index: 6;
+        }
+        /* Right half pans the camera; double-tap it to jump (buttons sit on top) */
+        #pan-zone {
+            position: absolute; top: 0; bottom: 0; right: 0; width: 50%;
+            touch-action: none; z-index: 5;
+        }
+        #stick-ring {
+            position: absolute; display: none;
+            width: 130px; height: 130px; margin: -65px 0 0 -65px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.3);
+            z-index: 7; pointer-events: none;
+        }
+        #stick-knob {
+            position: absolute; top: 50%; left: 50%;
+            width: 54px; height: 54px; margin: -27px 0 0 -27px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.4);
+            border: 2px solid rgba(255,255,255,0.85);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .touch-btn {
+            position: absolute; right: calc(30px + env(safe-area-inset-right, 0px));
+            width: 78px; height: 78px; border-radius: 50%;
+            backdrop-filter: blur(8px);
+            border: 2px solid rgba(255,255,255,0.4);
+            color: #fff; font-size: 15px; font-weight: bold;
+            cursor: pointer; z-index: 6;
+            touch-action: manipulation;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        .touch-btn:active { transform: scale(0.92); }
+        #interact-touch-btn { bottom: calc(36px + env(safe-area-inset-bottom, 0px)); background: rgba(0, 190, 210, 0.65); }
+        #jump-touch-btn { bottom: calc(136px + env(safe-area-inset-bottom, 0px)); background: rgba(79, 172, 254, 0.55); }
+
+        /* Multiplayer */
+        #player-name { margin-top: 8px; padding: 12px 18px; font-size: 17px; border-radius: 12px; border: 2px solid rgba(0,242,254,0.4); background: rgba(255,255,255,0.07); color: white; text-align: center; outline: none; width: 280px; max-width: 80vw; }
+        #player-name:focus { border-color: #00f2fe; box-shadow: 0 0 14px rgba(0,242,254,0.3); }
+    </style>
+    <!-- Three.js Library -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="save-tools.js"></script>
+    <script src="webgl-check.js"></script>
+    <!-- Supabase (multiplayer presence + broadcast, same project as the other Play Centre games) -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+</head>
+<body>
+
+<div id="game-container">
+    <!-- Top UI Bar -->
+    <div id="stats-bar" class="ui-panel">
+        <div>Money: $<span id="money">0</span></div>
+        <div>Parts: <span id="part-count">0</span> 🎒</div>
+        <div>PCs Sold: <span id="pcs-built">0</span> 🖥️</div>
+        <div><span id="clock-icon">☀️</span> <span id="clock">09:00</span></div>
+    </div>
+
+    <!-- Gameplay Hint Toast -->
+    <div id="hint-msg" style="position:absolute; top:calc(128px + env(safe-area-inset-top, 0px)); left:50%; transform:translateX(-50%); display:none; color:#ffd60a; font-weight:bold; font-size:16px; background:rgba(12,16,28,0.92); padding:10px 22px; border-radius:12px; border:1px solid #ffd60a; backdrop-filter:blur(8px); z-index:5; text-align:center; max-width:88vw;"></div>
+
+    <!-- AFK Pause Overlay -->
+    <div id="pause-overlay" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(5,8,16,0.82); z-index:40; text-align:center; backdrop-filter:blur(6px);">
+        <div style="color:#fff; font-size:24px; font-weight:700; line-height:1.7;">⏸️ Game paused<br><span style="font-size:16px; color:#9aa3c7; font-weight:400;">You were away for a while — tap or press any key to continue</span></div>
+    </div>
+
+    <!-- Settings Icon -->
+    <div id="settings-btn-icon" onclick="toggleSettings(true)">⚙️ Settings</div>
+
+    <!-- Islands / Teleport Icon -->
+    <div id="islands-btn-icon" style="position:absolute; top:calc(84px + env(safe-area-inset-top, 0px)); right:calc(28px + env(safe-area-inset-right, 0px)); background:rgba(12,16,28,0.88); border:1px solid rgba(255,255,255,0.2); padding:10px 18px; border-radius:10px; cursor:pointer; font-size:16px; font-weight:600; z-index:30; backdrop-filter:blur(10px);" onclick="toggleIslands(true)">🏝️ Islands</div>
+
+    <!-- Controls Hint -->
+    <div id="controls-hint">
+        WASD: Move | SPACE: Jump | E or Click: Interact (Build / Shop / Sell)<br>
+        Grab FREE starter parts from the PART SHOP, build a PC on your table, sell it at the SHIPPING dock — hire workers to do it all for you!
+    </div>
+
+    <!-- Touch Controls (phones / tablets) -->
+    <div id="touch-controls">
+        <div id="move-zone"></div>
+        <div id="pan-zone"></div>
+        <div id="stick-ring"><div id="stick-knob"></div></div>
+        <button id="jump-touch-btn" class="touch-btn">JUMP</button>
+        <button id="interact-touch-btn" class="touch-btn">USE</button>
+    </div>
+
+    <!-- Character Selection Screen -->
+    <div id="character-select">
+        <h1>🖥️ PC BUILDER TYCOON</h1>
+        <p style="color: #aaa; font-size: 18px; margin-top: 5px; text-align:center;">Collect parts, build computers, sell them for cash!<br>Select your avatar:</p>
+        <input id="player-name" maxlength="14" placeholder="Type your name (multiplayer!)" autocomplete="off">
+        <div class="avatar-options">
+            <div class="avatar-btn selected" onclick="selectAvatar('boy', this)">
+                <div>👦</div>
+                Alex (Boy)
+            </div>
+            <div class="avatar-btn" onclick="selectAvatar('girl', this)">
+                <div>👧</div>
+                Maya (Girl)
+            </div>
+            <div class="avatar-btn" onclick="selectAvatar('cat', this)">
+                <div>🐱</div>
+                Tabby Cat
+            </div>
+            <div class="avatar-btn" onclick="selectAvatar('dog', this)">
+                <div>🐶</div>
+                Retriever
+            </div>
+        </div>
+        <button class="start-btn" onclick="startGame()">PLAY GAME</button>
+    </div>
+
+    <!-- Part Shop Modal -->
+    <div id="shop-modal" class="modal">
+        <h2 id="shop-title">🛒 Part Shop</h2>
+        <div class="shop-tabs">
+            <button class="tab-btn" id="tab-0" onclick="shopTab(0)">🧠 CPU</button>
+            <button class="tab-btn" id="tab-1" onclick="shopTab(1)">🎮 GPU</button>
+            <button class="tab-btn" id="tab-2" onclick="shopTab(2)">🔌 Board</button>
+            <button class="tab-btn" id="tab-3" onclick="shopTab(3)">⚡ PSU</button>
+            <button class="tab-btn" id="tab-4" onclick="shopTab(4)">💾 SSD</button>
+            <button class="tab-btn" id="tab-5" onclick="shopTab(5)">🐏 RAM</button>
+            <button class="tab-btn" id="tab-6" onclick="shopTab(6)">👷 Workers</button>
+        </div>
+        <p id="shop-money-line" style="text-align:center; color:#ffd60a; font-weight:700; font-size:14px;"></p>
+        <div id="shop-items" style="display:flex; flex-direction:column; gap:10px;"></div>
+        <button class="close-btn" onclick="toggleShop(false)">Close Shop</button>
+    </div>
+
+    <!-- Build PC Modal -->
+    <div id="build-modal" class="modal">
+        <h2>🔧 Build a PC</h2>
+        <p style="text-align:center; color:#9aa3c7; font-size:13px;">You need a CPU, motherboard and power supply — the CPU must fit the board's socket, and the power supply must be strong enough. A GPU is optional, but it makes the PC worth a lot more!</p>
+        <div class="build-row"><label>🧠 CPU</label><select id="build-cpu" class="setting-select" onchange="updateCompat()"></select></div>
+        <div class="build-row"><label>🎮 GPU</label><select id="build-gpu" class="setting-select" onchange="updateCompat()"></select></div>
+        <div class="build-row"><label>🔌 Motherboard</label><select id="build-mobo" class="setting-select" onchange="updateCompat()"></select></div>
+        <div class="build-row"><label>⚡ Power Supply</label><select id="build-psu" class="setting-select" onchange="updateCompat()"></select></div>
+        <div class="build-row"><label>💾 SSD</label><select id="build-ssd" class="setting-select" onchange="updateCompat()"></select></div>
+        <div class="build-row"><label>🐏 RAM</label><select id="build-ram" class="setting-select" onchange="updateCompat()"></select></div>
+        <div id="compat-box"></div>
+        <button class="modal-btn" id="build-btn" onclick="doBuild()" style="padding:14px; font-size:16px;">🔨 BUILD PC</button>
+        <button class="close-btn" onclick="toggleBuild(false)">Close</button>
+    </div>
+
+    <!-- Islands / Teleport Modal -->
+    <div id="islands-modal" class="modal">
+        <h2>🏝️ Islands</h2>
+        <p style="text-align:center; color:#9aa3c7; font-size:13px;">Every builder has their own island. Teleport over to visit a friend — their shop and dock work for you too, but only they can use their tables!</p>
+        <div id="island-list" style="display:flex; flex-direction:column; gap:10px;"></div>
+        <button class="close-btn" onclick="toggleIslands(false)">Close</button>
+    </div>
+
+    <!-- Teleport Confirmation Modal -->
+    <div id="teleport-confirm" class="modal" style="width:400px;">
+        <h2>🌀 Teleport?</h2>
+        <p id="teleport-question" style="text-align:center; font-size:15px; line-height:1.6;"></p>
+        <button class="modal-btn" id="teleport-yes-btn" style="padding:14px; font-size:16px;">✅ Yes, teleport!</button>
+        <button class="close-btn" onclick="setModal('teleport-confirm', false)">❌ No, stay here</button>
+    </div>
+
+    <!-- Buy Table Confirmation Modal -->
+    <div id="table-confirm" class="modal" style="width:400px;">
+        <h2>🪑 New Workbench?</h2>
+        <p id="table-question" style="text-align:center; font-size:15px; line-height:1.6;"></p>
+        <button class="modal-btn" style="padding:14px; font-size:16px;" onclick="doBuyTable()">✅ Yes, build it!</button>
+        <button class="close-btn" onclick="setModal('table-confirm', false)">❌ Not yet</button>
+    </div>
+
+    <!-- Reset Save Confirmation Modal -->
+    <div id="reset-confirm" class="modal" style="width:420px; border-color:rgba(231,76,60,0.6);">
+        <h2 style="color:#ff6b6b;">⚠️ Reset EVERYTHING?</h2>
+        <p style="text-align:center; font-size:15px; line-height:1.7;">This wipes <strong>all</strong> your progress forever:<br>💰 your money · 🎒 every part in your backpack · 🖥️ your PCs-sold count.<br><br><strong>Are you REALLY sure?</strong></p>
+        <button class="modal-btn" style="padding:14px; font-size:16px; background:linear-gradient(135deg,#e74c3c,#c0392b);" onclick="doResetSave()">🗑️ Yes, wipe it all</button>
+        <button class="close-btn" style="background:linear-gradient(135deg,#27ae60,#2ecc71);" onclick="setModal('reset-confirm', false)">↩️ No! Keep my stuff</button>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="modal">
+        <h2>Settings & Customization</h2>
+        <div class="modal-item">
+            <div>
+                <strong>👆 Touch Sensitivity</strong><br>
+                <small style="color: #aaa;">Camera pan speed: <span id="sens-value">100</span>%</small>
+            </div>
+            <input id="sens-slider" type="range" min="50" max="200" value="100" style="width:130px;" oninput="setTouchSens(this.value)">
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>Character Avatar</strong><br>
+                <small style="color: #aaa;">Change player model instantly</small>
+            </div>
+            <select id="avatar-setting-select" class="setting-select" onchange="changeAvatarFromSettings(this.value)">
+                <option value="boy">Alex (Boy)</option>
+                <option value="girl">Maya (Girl)</option>
+                <option value="cat">Tabby Cat</option>
+                <option value="dog">Retriever</option>
+            </select>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>Render Resolution</strong><br>
+                <small style="color: #aaa;">Adjust graphic fidelity</small>
+            </div>
+            <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
+                <select id="res-select" class="setting-select" onchange="changeResolution(this.value)">
+                    <option value="720">720p</option>
+                    <option value="900">900p</option>
+                    <option value="1050">1050p</option>
+                    <option value="1080" selected>1080p</option>
+                    <option value="1200">1200p</option>
+                    <option value="1440">1440p</option>
+                    <option value="1800">1800p</option>
+                    <option value="2160">2160p (4K)</option>
+                    <option value="custom">Custom…</option>
+                </select>
+                <input id="res-custom" type="number" min="240" max="4320" step="10" value="1080"
+                       class="setting-select" style="display:none; width:110px;"
+                       onchange="changeResolution('custom')" placeholder="height px">
+            </div>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>💾 Save Progress</strong><br>
+                <small style="color: #aaa;">Auto-save to this device (<span id="device-id-label"></span>)</small>
+            </div>
+            <select id="autosave-select" class="setting-select" onchange="setAutoSave(this.value === 'on')">
+                <option value="on" selected>On</option>
+                <option value="off">Off</option>
+            </select>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>🔁 Transfer Progress</strong><br>
+                <small style="color: #aaa;">Move your save between devices with a code</small>
+            </div>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:flex-end;">
+                <button class="modal-btn" onclick="saveNowClicked(this)">💾 Save now</button>
+                <button class="modal-btn" onclick="copySaveCode(this)">📋 Copy code</button>
+                <button class="modal-btn" onclick="enterSaveCode()">⌨️ Enter code</button>
+            </div>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>🗑️ Reset Save</strong><br>
+                <small style="color: #aaa;">Wipe money, parts &amp; PC count</small>
+            </div>
+            <button class="modal-btn" style="background:linear-gradient(135deg,#e74c3c,#c0392b);" onclick="resetSave()">Reset</button>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>🏠 Play Centre</strong><br>
+                <small style="color: #aaa;">Back to the games menu</small>
+            </div>
+            <button class="modal-btn" onclick="location.href='./'">🏠 Home</button>
+        </div>
+        <div class="modal-item">
+            <div>
+                <strong>📖 How to Play</strong><br>
+                <small style="color: #aaa;">Controls &amp; game guide</small>
+            </div>
+            <div style="display:flex; gap:8px;">
+                <button class="modal-btn" onclick="toggleSettings(false); toggleControls(true);">🎮 Controls</button>
+                <button class="modal-btn" onclick="toggleSettings(false); toggleHelp(true);">📖 Guide</button>
+            </div>
+        </div>
+        <button class="close-btn" onclick="toggleSettings(false)">Save & Close</button>
+    </div>
+
+    <!-- How to Play Modal -->
+    <div id="help-modal" class="modal">
+        <h2>📖 How to Play</h2>
+        <div style="font-size: 14px; line-height: 1.75; color: #cdd6f4;">
+            <p>🏝️ <strong>Your island</strong> — every builder gets their own island. You start with one workbench; buy more (walk to a faint pad, press E) so more PCs can be built at once.</p>
+            <p>🛒 <strong>Collect parts</strong> from the PART SHOP — it has tabs for CPUs, GPUs, Motherboards, Power Supplies, SSDs and RAM. The worst parts are FREE — you already own an Intel i3-4170!</p>
+            <p>🔧 <strong>Build</strong> — press E at your bench and pick one of each part. But watch out:</p>
+            <p style="padding-left:16px;">🔌 The CPU must fit the board's socket — Socket 1 fits 4th–7th gen, Socket 2 fits 8th–11th gen, Socket 3 fits 12th–14th gen.<br>⚡ The power supply must cover the CPU + GPU wattage (plus ~75W for the rest).<br>🎮 A GPU is optional — an office build works without one, but a graphics card makes the PC worth much more!</p>
+            <p>📦 <strong>Sell</strong> — grab the finished PC off your bench and carry it to the SHIPPING dock. Better parts = way more money!</p>
+            <p>👑 <strong>The dream PC</strong>: an i9-14900KF with an RTX 5090 on a Socket 3 board earns a huge bonus.</p>
+            <p>👷 <strong>Hire workers</strong> in the shop's Workers tab! The 🛒 Part Buyer buys a part every cycle, the 🔧 PC Builder starts builds on free tables, and the 🚚 Shipper sells finished PCs. They do one job every 15 seconds — upgrade them (it costs more each time) to work faster, and the Buyer shops for better parts too.</p>
+            <p>🌀 <strong>Visit friends</strong> — the 🏝️ Islands button lists everyone online. Teleport to a friend's island to hang out (it always asks "are you sure?" first). Their shop and dock work for you, but only they can use their tables — and your builds and workers keep going while you're away!</p>
+        </div>
+        <button class="close-btn" onclick="toggleHelp(false)">Got it!</button>
+    </div>
+
+    <!-- Controls Modal -->
+    <div id="controls-modal" class="modal">
+        <h2>🎮 Controls</h2>
+        <div style="font-size: 14px; line-height: 1.75; color: #cdd6f4;">
+            <p><strong>💻 Computer</strong><br>
+            WASD / Arrow keys — walk<br>
+            SPACE — jump &nbsp;·&nbsp; E — interact<br>
+            Click things — interact &nbsp;·&nbsp; Mouse wheel — zoom</p>
+            <p><strong>📱 Tablet / Phone</strong><br>
+            Touch &amp; drag the LEFT half — walk<br>
+            Drag the RIGHT half — look around (up/down too!)<br>
+            Double-tap the right half — jump<br>
+            Pinch with two fingers — zoom in/out<br>
+            Tap benches, shops &amp; the dock — interact<br>
+            JUMP / USE buttons — same as Space / E</p>
+        </div>
+        <button class="close-btn" onclick="toggleControls(false)">Got it!</button>
+    </div>
+</div>
+
+<script>
+// ================================================================
+// PART CATALOGUE
+// price 0 = free starter junk. gen drives the socket check;
+// watts drives the power supply check.
+// ================================================================
+const CPUS = [
+    { name: 'Intel i3-4170',    gen: 4,  watts: 55,  price: 0 },
+    { name: 'Intel i5-4460',    gen: 4,  watts: 84,  price: 40 },
+    { name: 'Intel i3-8100',    gen: 8,  watts: 65,  price: 90 },
+    { name: 'Intel i5-9400F',   gen: 9,  watts: 65,  price: 150 },
+    { name: 'Intel i7-9700K',   gen: 9,  watts: 95,  price: 230 },
+    { name: 'Intel i5-11600K',  gen: 11, watts: 125, price: 320 },
+    { name: 'Intel i5-12600K',  gen: 12, watts: 125, price: 450 },
+    { name: 'Intel i7-13700K',  gen: 13, watts: 125, price: 600 },
+    { name: 'Intel i9-13900K',  gen: 13, watts: 125, price: 800 },
+    { name: 'Intel i9-14900KF', gen: 14, watts: 150, price: 1100 }
+];
+const GPUS = [
+    { name: 'Nvidia GT 710',         watts: 19,  price: 0 },
+    { name: 'Nvidia GT 1030',        watts: 30,  price: 35 },
+    { name: 'Nvidia GTX 1050 Ti',    watts: 75,  price: 80 },
+    { name: 'Nvidia GTX 1660 Super', watts: 125, price: 140 },
+    { name: 'Nvidia RTX 2060',       watts: 160, price: 220 },
+    { name: 'Nvidia RTX 3060',       watts: 170, price: 320 },
+    { name: 'Nvidia RTX 3070 Ti',    watts: 290, price: 480 },
+    { name: 'Nvidia RTX 4070',       watts: 200, price: 650 },
+    { name: 'Nvidia RTX 4080 Super', watts: 320, price: 900 },
+    { name: 'Nvidia RTX 5090',       watts: 575, price: 1400 }
+];
+const MOBOS = [
+    { name: 'Socket 1 Board', minGen: 4,  maxGen: 7,  price: 0 },
+    { name: 'Socket 2 Board', minGen: 8,  maxGen: 11, price: 70 },
+    { name: 'Socket 3 Board', minGen: 12, maxGen: 14, price: 150 }
+];
+const PSUS = [
+    { name: '250W Power Supply',  watts: 250,  price: 0 },
+    { name: '450W Power Supply',  watts: 450,  price: 30 },
+    { name: '600W Power Supply',  watts: 600,  price: 60 },
+    { name: '750W Power Supply',  watts: 750,  price: 100 },
+    { name: '1000W Power Supply', watts: 1000, price: 160 },
+    { name: '1200W Power Supply', watts: 1200, price: 250 }
+];
+const SSDS = [
+    { name: '64 GB SSD',  price: 0 },
+    { name: '128 GB SSD', price: 15 },
+    { name: '256 GB SSD', price: 30 },
+    { name: '512 GB SSD', price: 55 },
+    { name: '1 TB SSD',   price: 90 },
+    { name: '2 TB SSD',   price: 150 },
+    { name: '4 TB SSD',   price: 250 }
+];
+const RAMS = [
+    { name: '4 GB RAM',   price: 0 },
+    { name: '8 GB RAM',   price: 20 },
+    { name: '16 GB RAM',  price: 40 },
+    { name: '32 GB RAM',  price: 75 },
+    { name: '64 GB RAM',  price: 130 },
+    { name: '128 GB RAM', price: 220 }
+];
+const CATS = [
+    { key: 'cpu',  label: 'CPU Shop',          list: CPUS,  base: 20, icon: '🧠' },
+    { key: 'gpu',  label: 'GPU Shop',          list: GPUS,  base: 15, icon: '🎮' },
+    { key: 'mobo', label: 'Motherboard Shop',  list: MOBOS, base: 25, icon: '🔌' },
+    { key: 'psu',  label: 'Power Supply Shop', list: PSUS,  base: 20, icon: '⚡' },
+    { key: 'ssd',  label: 'SSD Shop',          list: SSDS,  base: 10, icon: '💾' },
+    { key: 'ram',  label: 'RAM Shop',          list: RAMS,  base: 10, icon: '🐏' }
+];
+const BASE_WATTS = 75;      // fans, drives, RAM, RGB bling…
+const SELL_MULT = 1.6;      // profit margin when a PC ships
+const BUILD_TIME = 8;       // seconds of screwdriver action
+const DREAM_BONUS = 500;    // i9-14900KF + RTX 5090 celebration
+const TABLE_COSTS = [0, 500, 1000, 2000, 4000, 8000]; // price of your 2nd..6th table
+
+// Workers do one thing per cycle; upgrades make them faster (and the
+// Part Buyer shops for better parts). Each upgrade costs more.
+const WORKER_TYPES = {
+    buyer:   { name: 'Part Buyer', icon: '🛒', hire: 300, color: 0x2eff7b, desc: 'Buys one part per cycle (better parts at higher levels)' },
+    builder: { name: 'PC Builder', icon: '🔧', hire: 400, color: 0xf39c12, desc: 'Starts a build on a free table when you have the parts' },
+    shipper: { name: 'Shipper',    icon: '🚚', hire: 350, color: 0x4facfe, desc: 'Carries finished PCs to the dock and sells them' }
+};
+const WORKER_MAX_LEVEL = 6;
+function workerCycle(level) { return Math.max(5, 15 - (level - 1) * 2); }   // 15s → 5s
+function workerUpgradeCost(level) { return 200 * level; }                   // $200, $400, …
+
+// Free parts still count for something when the PC sells
+function partValue(cat, idx) {
+    const p = CATS[cat].list[idx];
+    return p.price > 0 ? p.price : CATS[cat].base;
+}
+
+// --- GAME STATE ---
+let money = 0;
+let pcsBuilt = 0;
+let inv = {};
+CATS.forEach(c => { inv[c.key] = new Array(c.list.length).fill(0); });
+let workers = { buyer: null, builder: null, shipper: null }; // {level, timer, group}
+let savedTables = 1;      // how many workbenches you own (you start with one)
+let savedWorkerLevels = { buyer: 0, builder: 0, shipper: 0 };
+let carriedPC = null;       // { value, dream, label }
+let activeBench = null;     // the bench the build modal was opened at
+let currentIsland = null;   // MP.id = home; a peer's id = visiting them (set at startup below)
+let playerAvatar = 'boy';
+let gameStarted = false;
+let touchSens = 1;
+
+function partCount() {
+    let n = 0;
+    CATS.forEach(c => inv[c.key].forEach(x => n += x));
+    return n;
+}
+
+// --- SAVE / LOAD (money + backpack survive refreshes) ---
+const SAVE_KEY = 'andy-pc-builder-save';
+let autoSaveOn = AndySave.isEnabled(SAVE_KEY);
+function collectSave() {
+    return {
+        m: money, b: pcsBuilt, inv: inv,
+        tables: benches.filter ? benches.filter(x => x.owned).length : savedTables,
+        workers: {
+            buyer: workers.buyer ? workers.buyer.level : 0,
+            builder: workers.builder ? workers.builder.level : 0,
+            shipper: workers.shipper ? workers.shipper.level : 0
+        }
+    };
+}
+function writeSave() {
+    try {
+        localStorage.setItem(SAVE_KEY, JSON.stringify(collectSave()));
+    } catch (e) { /* private mode etc. — play on without saving */ }
+}
+function saveGame() {
+    if (autoSaveOn) writeSave();
+}
+function setAutoSave(on) {
+    autoSaveOn = on;
+    AndySave.setEnabled(SAVE_KEY, on);
+    if (on) writeSave();
+}
+function saveNowClicked(btn) {
+    writeSave();
+    AndySave.flashButton(btn, '✅ Saved!');
+}
+function copySaveCode(btn) {
+    AndySave.copyText(AndySave.makeCode('pcbuilder', collectSave()), function (ok) {
+        if (ok) AndySave.flashButton(btn, '✅ Copied!');
+    });
+}
+function enterSaveCode() {
+    const code = window.prompt('Paste a PC Builder save code from your other device:');
+    if (!code) return;
+    const payload = AndySave.readCode('pcbuilder', code);
+    if (!payload) { alert('That code is not a valid PC Builder save code.'); return; }
+    if (!confirm('Load this save? It replaces the progress on this device.')) return;
+    autoSaveOn = false; // stop the pagehide saver clobbering the imported save
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(payload.d)); } catch (e) {}
+    location.reload();
+}
+window.addEventListener('pagehide', function () { if (autoSaveOn) writeSave(); });
+// visibilitychange fires more reliably than pagehide on iPads/home-screen apps
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && autoSaveOn) writeSave();
+});
+function loadGame() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) { inv.cpu[0] = 1; return; }   // brand-new builder starts holding the i3-4170
+        const s = JSON.parse(raw);
+        money = s.m || 0;
+        pcsBuilt = s.b || 0;
+        savedTables = Math.max(1, Math.min(6, s.tables | 0 || 1));
+        if (s.workers) {
+            ['buyer', 'builder', 'shipper'].forEach(k => {
+                savedWorkerLevels[k] = Math.max(0, Math.min(WORKER_MAX_LEVEL, s.workers[k] | 0));
+            });
+        }
+        CATS.forEach(c => {
+            if (s.inv && Array.isArray(s.inv[c.key])) {
+                s.inv[c.key].forEach((n, i) => { if (i < inv[c.key].length) inv[c.key][i] = Math.max(0, n | 0); });
+            }
+        });
+    } catch (e) { inv.cpu[0] = 1; }
+}
+// The reset button only opens the warning — nothing is wiped until the
+// player confirms in the big red "are you REALLY sure?" dialog
+function resetSave() {
+    toggleSettings(false);
+    setModal('reset-confirm', true);
+}
+function doResetSave() {
+    autoSaveOn = false; // stop the pagehide saver re-writing the wiped save
+    try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+    location.reload();
+}
+loadGame();
+document.getElementById('device-id-label').textContent = AndySave.deviceId();
+document.getElementById('autosave-select').value = autoSaveOn ? 'on' : 'off';
+
+// --- THREE.JS SCENE SETUP ---
+const container = document.getElementById('game-container');
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x101a2e);
+// Light haze only — you should be able to see the ocean and far-off islands
+scene.fog = new THREE.FogExp2(0x101a2e, 0.004);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+// No WebGL means three.js throws on the next line and nothing below
+// runs, so say so on the start screen rather than leave a dead button.
+if (!AndyWebGL.require('character-select')) throw new Error('WebGL is not available');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+container.appendChild(renderer.domElement);
+
+function changeResolution(res) {
+    const customInput = document.getElementById('res-custom');
+    let targetHeight;
+    if (res === 'custom') {
+        customInput.style.display = 'inline-block';
+        targetHeight = parseInt(customInput.value, 10);
+    } else {
+        customInput.style.display = 'none';
+        targetHeight = parseInt(res, 10);
+    }
+    if (!isFinite(targetHeight)) targetHeight = window.innerHeight;
+    targetHeight = Math.max(240, Math.min(4320, targetHeight));
+
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    // Cap the ratio so small phone screens don't render a huge supersampled buffer
+    renderer.setPixelRatio(Math.min(targetHeight / window.innerHeight, 2.5));
+}
+changeResolution('1080');
+
+// --- LIGHTING ---
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.65);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xfff5ea, 1.15);
+dirLight.position.set(25, 45, 20);
+dirLight.castShadow = true;
+dirLight.shadow.mapSize.width = 2048;
+dirLight.shadow.mapSize.height = 2048;
+dirLight.shadow.camera.near = 0.5;
+dirLight.shadow.camera.far = 200;
+dirLight.shadow.camera.left = -75;
+dirLight.shadow.camera.right = 75;
+dirLight.shadow.camera.top = 75;
+dirLight.shadow.camera.bottom = -75;
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0x80a0ff, 0.4);
+fillLight.position.set(-25, 20, -20);
+scene.add(fillLight);
+
+// --- DAY / NIGHT CYCLE: 1 real minute = 1 game hour, so a full day
+// lasts 24 minutes and night rolls in every 12 minutes ---
+let gameHours = 9; // start mid-morning
+const DAY_SKY = new THREE.Color(0x87bde8);
+const NIGHT_SKY = new THREE.Color(0x0a1024);
+const DAY_SUN = new THREE.Color(0xfff5ea);
+const NIGHT_SUN = new THREE.Color(0x8fa3ff);
+
+// Stars only come out after dark
+const starGeo = new THREE.BufferGeometry();
+const starPos = [];
+for (let i = 0; i < 350; i++) {
+    const a = Math.random() * Math.PI * 2;
+    const e = Math.random() * Math.PI * 0.48 + 0.06; // keep them above the horizon
+    const r = 420;
+    starPos.push(Math.cos(a) * Math.cos(e) * r, Math.sin(e) * r, Math.sin(a) * Math.cos(e) * r);
+}
+starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPos, 3));
+const starMat = new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: 0, fog: false });
+const stars = new THREE.Points(starGeo, starMat);
+scene.add(stars);
+
+let lastClockText = '';
+function updateDayNight(dt) {
+    gameHours = (gameHours + dt / 60) % 24;
+    // Fully bright 07:00-17:00, fully dark 19:00-05:00, smooth in between
+    const h = gameHours;
+    let d;
+    if (h < 5 || h >= 19) d = 0;
+    else if (h < 7) d = (h - 5) / 2;
+    else if (h < 17) d = 1;
+    else d = 1 - (h - 17) / 2;
+    const s = d * d * (3 - 2 * d); // smoothstep
+
+    ambientLight.intensity = 0.22 + 0.43 * s;
+    dirLight.intensity = 0.18 + 0.97 * s;
+    dirLight.color.copy(NIGHT_SUN).lerp(DAY_SUN, s);
+    fillLight.intensity = 0.15 + 0.25 * s;
+    scene.background.copy(NIGHT_SKY).lerp(DAY_SKY, s);
+    scene.fog.color.copy(scene.background);
+    starMat.opacity = (1 - s) * 0.9;
+
+    // The clock in the stats bar (game time)
+    const hh = Math.floor(h);
+    const mm = Math.floor((h - hh) * 60);
+    const text = (hh < 10 ? '0' : '') + hh + ':' + (mm < 10 ? '0' : '') + mm;
+    if (text !== lastClockText) {
+        lastClockText = text;
+        document.getElementById('clock').innerText = text;
+        document.getElementById('clock-icon').innerText = s > 0.5 ? '☀️' : (s > 0 ? '🌇' : '🌙');
+    }
+}
+
+// --- THE ISLAND: grass on sand, surrounded by open ocean ---
+function generateGrassTexture() {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 512;
+    const ctx = c.getContext('2d');
+    ctx.fillStyle = '#2c6e3a';
+    ctx.fillRect(0, 0, 512, 512);
+    for (let i = 0; i < 2600; i++) {
+        const g = 90 + Math.random() * 70;
+        ctx.fillStyle = 'rgba(' + Math.floor(g * 0.35) + ',' + Math.floor(g) + ',' + Math.floor(g * 0.42) + ',0.25)';
+        ctx.fillRect(Math.random() * 512, Math.random() * 512, 3, 3);
+    }
+    // A few worn dirt patches where builders trudge around
+    for (let i = 0; i < 8; i++) {
+        ctx.fillStyle = 'rgba(120, 96, 60, 0.12)';
+        ctx.beginPath();
+        ctx.ellipse(Math.random() * 512, Math.random() * 512, 20 + Math.random() * 30, 12 + Math.random() * 20, Math.random() * 3, 0, Math.PI * 2);
+        ctx.fill();
+    }
+    const t = new THREE.CanvasTexture(c);
+    t.wrapS = t.wrapT = THREE.RepeatWrapping;
+    t.repeat.set(6, 6);
+    return t;
+}
+const floor = new THREE.Mesh(
+    new THREE.PlaneGeometry(56, 56),
+    new THREE.MeshStandardMaterial({ map: generateGrassTexture(), roughness: 0.9, metalness: 0 })
+);
+floor.rotation.x = -Math.PI / 2;
+floor.receiveShadow = true;
+scene.add(floor);
+
+// Sandy beach ring around the grass, then ocean to the horizon
+const beach = new THREE.Mesh(
+    new THREE.CylinderGeometry(41, 45, 1.4, 48),
+    new THREE.MeshStandardMaterial({ color: 0xd6ba85, roughness: 0.95 })
+);
+beach.position.y = -0.72;
+beach.receiveShadow = true;
+scene.add(beach);
+const ocean = new THREE.Mesh(
+    new THREE.PlaneGeometry(1600, 1600),
+    new THREE.MeshStandardMaterial({ color: 0x1b6ba8, roughness: 0.35, metalness: 0.3 })
+);
+ocean.rotation.x = -Math.PI / 2;
+ocean.position.y = -1.3;
+scene.add(ocean);
+// Gentle foam line where the waves lap the beach
+const foam = new THREE.Mesh(
+    new THREE.RingGeometry(44.5, 47, 48),
+    new THREE.MeshStandardMaterial({ color: 0xbfe8ff, roughness: 0.6, transparent: true, opacity: 0.55 })
+);
+foam.rotation.x = -Math.PI / 2;
+foam.position.y = -1.25;
+scene.add(foam);
+
+// Palm trees around the edge of the island
+const palmTrunks = [];
+function makePalm(x, z, lean) {
+    const g = new THREE.Group();
+    const trunk = new THREE.Mesh(
+        new THREE.CylinderGeometry(0.16, 0.3, 4.6, 8),
+        new THREE.MeshStandardMaterial({ color: 0x8a6642, roughness: 0.9 })
+    );
+    trunk.position.y = 2.3;
+    trunk.rotation.z = lean;
+    trunk.castShadow = true;
+    g.add(trunk);
+    const topX = Math.sin(lean) * -4.2, topY = 4.5;
+    for (let i = 0; i < 6; i++) {
+        const leaf = new THREE.Mesh(
+            new THREE.BoxGeometry(2.6, 0.07, 0.6),
+            new THREE.MeshStandardMaterial({ color: 0x2f9e50, roughness: 0.8 })
+        );
+        const a = (i / 6) * Math.PI * 2;
+        leaf.position.set(topX + Math.cos(a) * 1.1, topY, Math.sin(a) * 1.1);
+        leaf.rotation.y = -a;
+        leaf.rotation.z = 0.45;
+        leaf.castShadow = true;
+        g.add(leaf);
+    }
+    const coconut = new THREE.Mesh(new THREE.SphereGeometry(0.16, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0x5b4327, roughness: 0.9 }));
+    coconut.position.set(topX + 0.3, topY - 0.3, 0.2);
+    g.add(coconut);
+    g.position.set(x, 0, z);
+    scene.add(g);
+    palmTrunks.push({ x: x, z: z });
+}
+[
+    [-24, -18, 0.12], [24, -18, -0.1], [-26, 2, 0.15], [26, 2, -0.14],
+    [-22, 20, 0.1], [22, 20, -0.12], [-10, -26, 0.08], [10, -26, -0.09]
+].forEach(p => makePalm(p[0], p[1], p[2]));
+
+// Far-off islands on the horizon — your friends live out there!
+[[150, -120], [-190, -60], [120, 190], [-150, 150]].forEach(pos => {
+    const islet = new THREE.Mesh(
+        new THREE.SphereGeometry(14, 16, 12),
+        new THREE.MeshStandardMaterial({ color: 0x9b8760, roughness: 1 })
+    );
+    islet.scale.set(1.6, 0.22, 1.2);
+    islet.position.set(pos[0], -1.2, pos[1]);
+    scene.add(islet);
+    const bump = new THREE.Mesh(
+        new THREE.SphereGeometry(6, 12, 10),
+        new THREE.MeshStandardMaterial({ color: 0x2c6e3a, roughness: 1 })
+    );
+    bump.scale.set(1.4, 0.5, 1.1);
+    bump.position.set(pos[0], 0.4, pos[1]);
+    scene.add(bump);
+});
+
+// --- TEXT SPRITES ---
+function makeNameSprite(text, color) {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 96;
+    const ctx = c.getContext('2d');
+    // Shrink long labels (shop signs) until they fit the canvas
+    let size = 42;
+    ctx.font = 'bold ' + size + 'px Segoe UI, Arial';
+    while (size > 20 && ctx.measureText(text).width > 430) {
+        size -= 2;
+        ctx.font = 'bold ' + size + 'px Segoe UI, Arial';
+    }
+    const w = Math.min(480, ctx.measureText(text).width + 48);
+    ctx.fillStyle = 'rgba(10, 14, 25, 0.75)';
+    ctx.beginPath();
+    ctx.roundRect ? ctx.roundRect(256 - w / 2, 12, w, 72, 20) : ctx.rect(256 - w / 2, 12, w, 72);
+    ctx.fill();
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, 256, 50);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+    spr.scale.set(3, 0.56, 1);
+    return spr;
+}
+
+// A label whose text can be redrawn cheaply (bench countdowns)
+function makeDynamicLabel() {
+    const c = document.createElement('canvas');
+    c.width = 512; c.height = 96;
+    const ctx = c.getContext('2d');
+    const tex = new THREE.CanvasTexture(c);
+    const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, transparent: true, depthTest: false }));
+    spr.scale.set(3.4, 0.64, 1);
+    return {
+        sprite: spr,
+        draw(text, color) {
+            ctx.clearRect(0, 0, 512, 96);
+            if (text) {
+                ctx.fillStyle = 'rgba(10, 14, 25, 0.8)';
+                ctx.beginPath();
+                ctx.roundRect ? ctx.roundRect(40, 10, 432, 76, 20) : ctx.rect(40, 10, 432, 76);
+                ctx.fill();
+                ctx.fillStyle = color;
+                ctx.font = 'bold 44px Segoe UI, Arial';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(text, 256, 50);
+            }
+            tex.needsUpdate = true;
+        }
+    };
+}
+
+// --- PC TOWER MESH (tint gets fancier with better parts) ---
+function buildPCMesh(tier) { // tier 0..1 = how high-end the build is
+    const g = new THREE.Group();
+    const caseColor = tier > 0.75 ? 0x1a1a2e : tier > 0.4 ? 0x22303f : 0x33383f;
+    const body = new THREE.Mesh(
+        new THREE.BoxGeometry(0.55, 1.0, 0.95),
+        new THREE.MeshStandardMaterial({ color: caseColor, roughness: 0.35, metalness: 0.55 })
+    );
+    body.position.y = 0.5;
+    body.castShadow = true;
+    g.add(body);
+    // Glass side panel
+    const glass = new THREE.Mesh(
+        new THREE.BoxGeometry(0.03, 0.85, 0.8),
+        new THREE.MeshStandardMaterial({ color: 0x88ccff, transparent: true, opacity: 0.28, roughness: 0.05, metalness: 0.8 })
+    );
+    glass.position.set(0.29, 0.52, 0);
+    g.add(glass);
+    // RGB fans (spin in the game loop via userData)
+    const fanColors = [0x00f2fe, 0xff2e88, 0x2eff7b];
+    for (let i = 0; i < 3; i++) {
+        const fan = new THREE.Mesh(
+            new THREE.TorusGeometry(0.1, 0.028, 8, 20),
+            new THREE.MeshStandardMaterial({ color: fanColors[i], emissive: fanColors[i], emissiveIntensity: tier > 0.4 ? 1.4 : 0.5 })
+        );
+        fan.position.set(0.31, 0.78 - i * 0.26, 0.28);
+        fan.rotation.y = Math.PI / 2;
+        g.add(fan);
+        g.userData.fans = g.userData.fans || [];
+        g.userData.fans.push(fan);
+    }
+    // Power LED
+    const led = new THREE.Mesh(
+        new THREE.SphereGeometry(0.03, 8, 8),
+        new THREE.MeshStandardMaterial({ color: 0x2eff7b, emissive: 0x2eff7b, emissiveIntensity: 2 })
+    );
+    led.position.set(0.1, 1.0, 0.49);
+    g.add(led);
+    return g;
+}
+
+// --- WORKBENCHES ---
+const benches = [];
+const woodMat = new THREE.MeshStandardMaterial({ color: 0x7a5a3a, roughness: 0.8 });
+const legMat = new THREE.MeshStandardMaterial({ color: 0x3d4457, roughness: 0.6, metalness: 0.4 });
+const BENCH_POS = [
+    { x: 0, z: -2 }, { x: -11, z: -2 }, { x: 11, z: -2 },
+    { x: -11, z: 8 }, { x: 0, z: 8 }, { x: 11, z: 8 }
+];
+BENCH_POS.forEach((p, i) => {
+    const group = new THREE.Group();
+    const top = new THREE.Mesh(new THREE.BoxGeometry(3.6, 0.18, 1.9), woodMat);
+    top.position.y = 1.05;
+    top.castShadow = true;
+    top.receiveShadow = true;
+    group.add(top);
+    [[-1.6, -0.75], [1.6, -0.75], [-1.6, 0.75], [1.6, 0.75]].forEach(lp => {
+        const leg = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.05, 0.16), legMat);
+        leg.position.set(lp[0], 0.52, lp[1]);
+        group.add(leg);
+    });
+    // Toolbox + screwdriver decoration
+    const toolbox = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.28, 0.35),
+        new THREE.MeshStandardMaterial({ color: 0xc0392b, roughness: 0.5 }));
+    toolbox.position.set(-1.25, 1.28, -0.5);
+    group.add(toolbox);
+    group.position.set(p.x, 0, p.z);
+    scene.add(group);
+
+    // Stone work-pad under each bench (faint until you buy this table)
+    const owned = i < savedTables;
+    const border = new THREE.Mesh(
+        new THREE.BoxGeometry(6.2, 0.06, 5.2),
+        new THREE.MeshStandardMaterial({ color: 0x8d939f, roughness: 0.85, transparent: true, opacity: owned ? 1 : 0.3 })
+    );
+    border.position.set(p.x, 0.03, p.z);
+    border.receiveShadow = true;
+    scene.add(border);
+
+    const label = makeDynamicLabel();
+    label.sprite.position.set(p.x, 3.3, p.z);
+    scene.add(label.sprite);
+
+    group.visible = owned;
+    benches.push({
+        id: i + 1, x: p.x, z: p.z,
+        group, border, label,
+        owned,
+        state: null,       // null | 'building' | 'done'
+        timer: 0,
+        buildValue: 0, buildDream: false, buildTier: 0, buildLabel: '',
+        pcGroup: null
+    });
+});
+function nextTableCost() {
+    const ownedCount = benches.filter(b => b.owned).length;
+    return ownedCount >= TABLE_COSTS.length ? null : TABLE_COSTS[ownedCount];
+}
+function drawBenchIdleLabel(b) {
+    if (b.owned) b.label.draw('Table ' + b.id, '#2eff7b');
+    else {
+        const cost = nextTableCost();
+        b.label.draw(cost === null ? '' : '🔒 Buy Table — $' + cost, '#8a93bb');
+    }
+}
+benches.forEach(drawBenchIdleLabel);
+
+// Big floating sign naming whose island this is
+const islandSign = makeDynamicLabel();
+islandSign.sprite.position.set(0, 12, 14);
+islandSign.sprite.scale.set(5.4, 1.0, 1);
+islandSign.sprite.material.depthTest = true; // don't paint over the whole scene up close
+scene.add(islandSign.sprite);
+islandSign.draw("🏝️ My Island", '#00f2fe');
+
+// --- THE PART SHOP (one stall, tabs inside) ---
+const kiosks = [];
+(function buildShopStall() {
+    const g = new THREE.Group();
+    const stallMat = new THREE.MeshStandardMaterial({ color: 0x232946, roughness: 0.7 });
+    const counter = new THREE.Mesh(new THREE.BoxGeometry(8.5, 1.15, 1.8), stallMat);
+    counter.position.y = 0.57;
+    counter.castShadow = true;
+    g.add(counter);
+    const canopy = new THREE.Mesh(new THREE.BoxGeometry(9.4, 0.24, 2.8),
+        new THREE.MeshStandardMaterial({ color: 0x00f2fe, emissive: 0x00f2fe, emissiveIntensity: 0.4 }));
+    canopy.position.y = 3.2;
+    g.add(canopy);
+    [[-4.2, 0], [4.2, 0]].forEach(pp => {
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.08, 3.2), legMat);
+        post.position.set(pp[0], 1.6, pp[1]);
+        g.add(post);
+    });
+    // One coloured box per part category on the counter
+    [0x4facfe, 0x2eff7b, 0xffd60a, 0xff2e88, 0xa06bff, 0xff8c42].forEach((col, b) => {
+        const box = new THREE.Mesh(new THREE.BoxGeometry(0.6, 0.45, 0.6),
+            new THREE.MeshStandardMaterial({ color: col, roughness: 0.6 }));
+        box.position.set(-3.1 + b * 1.24, 1.38, 0);
+        box.rotation.y = b * 0.35;
+        box.castShadow = true;
+        g.add(box);
+    });
+    g.position.set(0, 0, -18);
+    scene.add(g);
+
+    const sign = makeNameSprite('🛒 PART SHOP', '#00f2fe');
+    sign.position.set(0, 4.3, -18);
+    sign.scale.set(4.8, 0.9, 1);
+    scene.add(sign);
+
+    kiosks.push({ x: 0, z: -18, group: g });
+})();
+
+// --- SHIPPING DOCK ---
+const dock = { x: 0, z: 18 };
+const dockGroup = new THREE.Group();
+const platform = new THREE.Mesh(new THREE.BoxGeometry(10, 0.35, 4.5),
+    new THREE.MeshStandardMaterial({ color: 0x39404f, roughness: 0.6, metalness: 0.3 }));
+platform.position.set(0, 0.17, 0);
+platform.receiveShadow = true;
+dockGroup.add(platform);
+// Hazard stripes on the front edge
+const stripes = new THREE.Mesh(new THREE.BoxGeometry(10, 0.36, 0.5),
+    new THREE.MeshStandardMaterial({ color: 0xffd60a, roughness: 0.6 }));
+stripes.position.set(0, 0.175, -2.25);
+dockGroup.add(stripes);
+// Delivery truck backed up to the dock
+const truck = new THREE.Group();
+const cargo = new THREE.Mesh(new THREE.BoxGeometry(4.2, 3, 7),
+    new THREE.MeshStandardMaterial({ color: 0xdfe6ee, roughness: 0.5 }));
+cargo.position.set(0, 1.85, 1.8);
+cargo.castShadow = true;
+truck.add(cargo);
+const cab = new THREE.Mesh(new THREE.BoxGeometry(4.2, 1.9, 2.2),
+    new THREE.MeshStandardMaterial({ color: 0x2980b9, roughness: 0.45 }));
+cab.position.set(0, 1.3, 6.2);
+cab.castShadow = true;
+truck.add(cab);
+[[-1.7, 0.6], [1.7, 0.6], [-1.7, 4.2], [1.7, 4.2], [-1.7, 6.4], [1.7, 6.4]].forEach(wp => {
+    const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.55, 0.55, 0.4, 16),
+        new THREE.MeshStandardMaterial({ color: 0x111111, roughness: 0.9 }));
+    wheel.rotation.z = Math.PI / 2;
+    wheel.position.set(wp[0], 0.55, wp[1] - 1.5);
+    truck.add(wheel);
+});
+truck.position.set(0, 0, 1.2);
+dockGroup.add(truck);
+dockGroup.position.set(dock.x, 0, dock.z);
+scene.add(dockGroup);
+const dockSign = makeNameSprite('📦 SHIPPING — SELL PCs', '#ffd60a');
+dockSign.position.set(dock.x, 4.6, dock.z - 1);
+dockSign.scale.set(5, 0.94, 1);
+scene.add(dockSign);
+
+// --- WORKERS: little helpers who each do one thing per cycle ---
+const WORKER_HOMES = { buyer: { x: 4.5, z: -15 }, builder: { x: 4.5, z: -2 }, shipper: { x: 3.5, z: 14 } };
+
+function makeWorkerMesh(type, level) {
+    const def = WORKER_TYPES[type];
+    const g = new THREE.Group();
+    const body = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.85, 0.35),
+        new THREE.MeshStandardMaterial({ color: def.color, roughness: 0.6 }));
+    body.position.y = 0.95;
+    body.castShadow = true;
+    g.add(body);
+    const head = new THREE.Mesh(new THREE.SphereGeometry(0.24, 12, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 }));
+    head.position.y = 1.6;
+    g.add(head);
+    const hat = new THREE.Mesh(new THREE.CylinderGeometry(0.26, 0.28, 0.14, 12),
+        new THREE.MeshStandardMaterial({ color: 0xffd60a, roughness: 0.5 }));
+    hat.position.y = 1.78;
+    g.add(hat);
+    [-0.15, 0.15].forEach(lx => {
+        const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.55),
+            new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 }));
+        leg.position.set(lx, 0.28, 0);
+        g.add(leg);
+    });
+    const tag = makeNameSprite(def.icon + ' ' + def.name + ' Lv' + level, '#ffd60a');
+    tag.position.y = 2.35;
+    tag.scale.set(2.4, 0.45, 1);
+    g.add(tag);
+    g.userData.tag = tag;
+    const home = WORKER_HOMES[type];
+    g.position.set(home.x, 0, home.z);
+    g.visible = (currentIsland === MP.id);
+    scene.add(g);
+    return g;
+}
+
+function refreshWorkerTag(type) {
+    const w = workers[type];
+    if (!w || !w.group) return;
+    const old = w.group.userData.tag;
+    if (old) w.group.remove(old);
+    const def = WORKER_TYPES[type];
+    const tag = makeNameSprite(def.icon + ' ' + def.name + ' Lv' + w.level, '#ffd60a');
+    tag.position.y = 2.35;
+    tag.scale.set(2.4, 0.45, 1);
+    w.group.add(tag);
+    w.group.userData.tag = tag;
+}
+
+function hireWorker(type) {
+    const def = WORKER_TYPES[type];
+    if (workers[type]) return;
+    if (money < def.hire) { showHint('💸 Not enough money — the ' + def.name + ' costs $' + def.hire + '!'); return; }
+    money -= def.hire;
+    workers[type] = { level: 1, timer: workerCycle(1), group: makeWorkerMesh(type, 1) };
+    saveGame();
+    updateUI();
+    renderShop();
+    showHint('👷 Hired a ' + def.name + '! They do one job every ' + workerCycle(1) + ' seconds.');
+}
+
+function upgradeWorker(type) {
+    const w = workers[type];
+    if (!w || w.level >= WORKER_MAX_LEVEL) return;
+    const cost = workerUpgradeCost(w.level);
+    if (money < cost) { showHint('💸 The upgrade costs $' + cost + '!'); return; }
+    money -= cost;
+    w.level++;
+    refreshWorkerTag(type);
+    saveGame();
+    updateUI();
+    renderShop();
+    showHint('⬆️ ' + WORKER_TYPES[type].name + ' is now level ' + w.level + ' — one job every ' + workerCycle(w.level) + 's' + (type === 'buyer' ? ' and better parts!' : '!'));
+}
+
+function initWorkersFromSave() {
+    ['buyer', 'builder', 'shipper'].forEach(k => {
+        if (savedWorkerLevels[k] > 0) {
+            workers[k] = { level: savedWorkerLevels[k], timer: workerCycle(savedWorkerLevels[k]), group: makeWorkerMesh(k, savedWorkerLevels[k]) };
+        }
+    });
+}
+
+function bestOwned(key) {
+    const arr = inv[key];
+    for (let i = arr.length - 1; i >= 0; i--) if (arr[i] > 0) return i;
+    return -1;
+}
+
+// The Buyer aims for a matched, compatible kit at their level
+function buyerKit(level) {
+    const t = level - 1;
+    const cpuI = Math.min(t, CPUS.length - 1);
+    const gen = CPUS[cpuI].gen;
+    const moboI = MOBOS.findIndex(m => gen >= m.minGen && gen <= m.maxGen);
+    const gpuI = Math.min(t, GPUS.length - 1);
+    const need = CPUS[cpuI].watts + GPUS[gpuI].watts + BASE_WATTS;
+    let psuI = PSUS.findIndex(p => p.watts >= need);
+    if (psuI < 0) psuI = PSUS.length - 1;
+    return [
+        ['cpu', cpuI], ['gpu', gpuI], ['mobo', moboI], ['psu', psuI],
+        ['ssd', Math.min(t, SSDS.length - 1)], ['ram', Math.min(t, RAMS.length - 1)]
+    ];
+}
+
+// The Builder finds the best compatible set in the backpack
+function findAutoBuild() {
+    const ssd = bestOwned('ssd'), ram = bestOwned('ram');
+    if (ssd < 0 || ram < 0) return null;
+    for (let c = CPUS.length - 1; c >= 0; c--) {
+        if (!inv.cpu[c]) continue;
+        const gen = CPUS[c].gen;
+        let mobo = -1;
+        for (let m = MOBOS.length - 1; m >= 0; m--) {
+            if (inv.mobo[m] && gen >= MOBOS[m].minGen && gen <= MOBOS[m].maxGen) { mobo = m; break; }
+        }
+        if (mobo < 0) continue;
+        for (let g = GPUS.length - 1; g >= -1; g--) {
+            if (g >= 0 && !inv.gpu[g]) continue;
+            const need = CPUS[c].watts + (g >= 0 ? GPUS[g].watts : 0) + BASE_WATTS;
+            let psu = -1;
+            for (let p = 0; p < PSUS.length; p++) {
+                if (inv.psu[p] && PSUS[p].watts >= need) { psu = p; break; }
+            }
+            if (psu >= 0) return { cpu: c, gpu: g, mobo: mobo, psu: psu, ssd: ssd, ram: ram };
+        }
+    }
+    return null;
+}
+
+function workerAct(type, w) {
+    if (type === 'buyer') {
+        const kit = buyerKit(w.level);
+        // Buy whichever kit part the backpack has fewest of
+        let pick = null, low = Infinity;
+        kit.forEach(entry => {
+            const n = inv[entry[0]][entry[1]];
+            if (n < low) { low = n; pick = entry; }
+        });
+        if (!pick) return;
+        const catIdx = CATS.findIndex(c => c.key === pick[0]);
+        const price = CATS[catIdx].list[pick[1]].price;
+        if (price > money) return; // saving up — try again next cycle
+        money -= price;
+        inv[pick[0]][pick[1]]++;
+        saveGame();
+        updateUI();
+    } else if (type === 'builder') {
+        const bench = benches.find(b => b.owned && !b.state);
+        if (!bench) return;
+        const s = findAutoBuild();
+        if (!s) return;
+        const r = checkCompat(s);
+        if (!r.ok) return;
+        startBuild(bench, s, r);
+    } else if (type === 'shipper') {
+        const bench = benches.find(b => b.owned && b.state === 'done');
+        if (!bench) return;
+        money += bench.buildValue;
+        pcsBuilt++;
+        if (bench.pcGroup) { scene.remove(bench.pcGroup); bench.pcGroup = null; }
+        bench.state = null;
+        if (currentIsland === MP.id) drawBenchIdleLabel(bench);
+        saveGame();
+        updateUI();
+        mpTrack();
+    }
+}
+
+// --- PLAYER AVATAR ---
+let playerGroup = new THREE.Group();
+scene.add(playerGroup);
+const limbs = { leftLeg: null, rightLeg: null };
+let carriedPCMesh = null;
+
+function buildAvatarModel(type) {
+    const g = new THREE.Group();
+    if (type === 'boy' || type === 'girl') {
+        const skinMat = new THREE.MeshStandardMaterial({ color: 0xffdbac, roughness: 0.6 });
+        const clothMat = new THREE.MeshStandardMaterial({ color: type === 'boy' ? 0x2980b9 : 0x8e44ad, roughness: 0.5 });
+        const pantsMat = new THREE.MeshStandardMaterial({ color: 0x2c3e50, roughness: 0.7 });
+        const torso = new THREE.Mesh(new THREE.BoxGeometry(0.7, 1.1, 0.4), clothMat);
+        torso.position.y = 1.25;
+        g.add(torso);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.32, 14, 14), skinMat);
+        head.position.y = 2.05;
+        g.add(head);
+        const hair = new THREE.Mesh(new THREE.SphereGeometry(0.34, 14, 14, 0, Math.PI * 2, 0, Math.PI / 2),
+            new THREE.MeshStandardMaterial({ color: type === 'boy' ? 0x4a2e18 : 0x221100, roughness: 0.8 }));
+        hair.position.y = 2.1;
+        hair.rotation.x = -0.2;
+        g.add(hair);
+        const legs = [];
+        [-0.2, 0.2].forEach(lx => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.11, 1.0), pantsMat);
+            leg.geometry.translate(0, -0.5, 0);
+            leg.position.set(lx, 1.0, 0);
+            g.add(leg);
+            legs.push(leg);
+        });
+        g.userData.legs = legs;
+    } else {
+        const furMat = new THREE.MeshStandardMaterial({ color: type === 'cat' ? 0xe67e22 : 0xd35400, roughness: 0.8 });
+        const body = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.6, 1.1), furMat);
+        body.position.y = 0.65;
+        g.add(body);
+        const head = new THREE.Mesh(new THREE.SphereGeometry(0.35, 14, 14), furMat);
+        head.position.set(0, 1.05, 0.45);
+        g.add(head);
+        [-0.2, 0.2].forEach(ex => {
+            const ear = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.3, 4), furMat);
+            ear.position.set(ex, 1.45, 0.45);
+            g.add(ear);
+        });
+        const legs = [];
+        [[-0.25, 0.35], [0.25, 0.35], [-0.25, -0.35], [0.25, -0.35]].forEach(lp => {
+            const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.08, 0.5), furMat);
+            leg.geometry.translate(0, -0.25, 0);
+            leg.position.set(lp[0], 0.5, lp[1]);
+            g.add(leg);
+            legs.push(leg);
+        });
+        g.userData.legs = legs;
+        const tail = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.08, 0.7, 8), furMat);
+        tail.position.set(0, 0.95, -0.6);
+        tail.rotation.x = 0.7;
+        g.add(tail);
+    }
+    g.traverse(o => { if (o.isMesh) o.castShadow = true; });
+    return g;
+}
+
+function buildPlayerAvatar() {
+    const pos = playerGroup.position.clone();
+    const rotY = playerGroup.rotation.y;
+    scene.remove(playerGroup);
+    playerGroup = buildAvatarModel(playerAvatar);
+    playerGroup.position.copy(pos);
+    playerGroup.rotation.y = rotY;
+    scene.add(playerGroup);
+    const legs = playerGroup.userData.legs || [];
+    limbs.leftLeg = legs[0] || null;
+    limbs.rightLeg = legs[1] || null;
+    updateCarriedPCMesh();
+}
+
+function updateCarriedPCMesh() {
+    if (carriedPCMesh) { carriedPCMesh.parent && carriedPCMesh.parent.remove(carriedPCMesh); carriedPCMesh = null; }
+    if (!carriedPC) return;
+    carriedPCMesh = buildPCMesh(carriedPC.tier);
+    carriedPCMesh.scale.set(0.8, 0.8, 0.8);
+    const humanoid = playerAvatar === 'boy' || playerAvatar === 'girl';
+    carriedPCMesh.position.set(0, humanoid ? 1.55 : 1.0, humanoid ? 0.55 : 0.85);
+    playerGroup.add(carriedPCMesh);
+}
+
+const player = {
+    x: 0, z: -9, y: 0,   // spawn between the shop and the tables
+    vy: 0,
+    speed: 0.22,
+    isGrounded: true
+};
+
+function dist2D(x1, z1, x2, z2) { return Math.hypot(x1 - x2, z1 - z2); }
+
+// Push the player out of a solid box, unless they're above it (jumped over)
+function collideBox(cx, cz, halfW, halfL, h) {
+    if (player.y > h) return;
+    const dxv = player.x - cx;
+    const dzv = player.z - cz;
+    if (Math.abs(dxv) < halfW && Math.abs(dzv) < halfL) {
+        const pushX = halfW - Math.abs(dxv);
+        const pushZ = halfL - Math.abs(dzv);
+        if (pushX < pushZ) player.x = cx + (dxv >= 0 ? halfW : -halfW);
+        else player.z = cz + (dzv >= 0 ? halfL : -halfL);
+    }
+}
+
+let cameraYaw = 0;   // start looking toward the benches and shops
+let cameraPitch = 0.73;
+let cameraDist = 20;
+
+window.addEventListener('wheel', e => {
+    cameraDist = Math.max(12, Math.min(40, cameraDist + e.deltaY * 0.02));
+}, { passive: true });
+
+const keys = { w: false, a: false, s: false, d: false, space: false };
+window.addEventListener('keydown', e => handleKey(e, true));
+window.addEventListener('keyup', e => handleKey(e, false));
+
+function handleKey(e, state) {
+    // Don't steal keys (especially Space) while typing a name or using a dropdown
+    if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+    const k = e.key.toLowerCase();
+    if (k === 'w' || k === 'arrowup') keys.w = state;
+    if (k === 'a' || k === 'arrowleft') keys.a = state;
+    if (k === 's' || k === 'arrowdown') keys.s = state;
+    if (k === 'd' || k === 'arrowright') keys.d = state;
+    if (e.code === 'Space') {
+        // Stop Space from scrolling or re-activating a focused UI button
+        e.preventDefault();
+        keys.space = state;
+    }
+    if (k === 'e' && state) interact();
+}
+
+// --- TOUCH CONTROLS (phones / tablets) ---
+const touchMove = { x: 0, y: 0 };
+(function setupTouchControls() {
+    const zone = document.getElementById('move-zone');
+    const ring = document.getElementById('stick-ring');
+    const knob = document.getElementById('stick-knob');
+    let touchId = null, startX = 0, startY = 0;
+    const maxRadius = 55;
+
+    // Floating stick: the origin is wherever the finger lands on the left half
+    zone.addEventListener('touchstart', e => {
+        e.preventDefault();
+        if (touchId !== null) return;
+        const t = e.changedTouches[0];
+        touchId = t.identifier;
+        startX = t.clientX;
+        startY = t.clientY;
+        ring.style.left = startX + 'px';
+        ring.style.top = startY + 'px';
+        ring.style.display = 'block';
+        knob.style.transform = 'translate(0px, 0px)';
+    }, { passive: false });
+
+    // Right half: drag pans the camera around the player; double-tap jumps
+    const panZone = document.getElementById('pan-zone');
+    let panId = null, panLX = 0, panLY = 0;
+    let lastTapTime = 0;
+
+    // Two-finger pinch zooms the camera; it takes over from stick & pan
+    const allTouches = new Map();
+    let pinchDist = 0;
+    window.addEventListener('touchstart', e => {
+        for (const t of e.changedTouches) {
+            allTouches.set(t.identifier, { x: t.clientX, y: t.clientY, left: t.clientX < window.innerWidth / 2 });
+        }
+        // A pinch is two fingers on the SAME half of the screen. One finger
+        // per half means walking + panning, which must keep working.
+        if (allTouches.size === 2 && pinchDist === 0) {
+            const pts = [...allTouches.values()];
+            if (pts[0].left === pts[1].left) {
+                if (touchId !== null) {
+                    touchId = null;
+                    ring.style.display = 'none';
+                    touchMove.x = 0;
+                    touchMove.y = 0;
+                }
+                panId = null;
+                pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            }
+        }
+    }, { passive: true });
+
+    panZone.addEventListener('touchstart', e => {
+        e.preventDefault();
+        const t = e.changedTouches[0];
+        if (panId !== null) return; // a second simultaneous finger is a pinch, not a tap
+        const nowT = performance.now();
+        if (nowT - lastTapTime < 300) triggerJump();
+        lastTapTime = nowT;
+        panId = t.identifier;
+        panLX = t.clientX;
+        panLY = t.clientY;
+    }, { passive: false });
+
+    window.addEventListener('touchmove', e => {
+        for (const t of e.changedTouches) {
+            const at = allTouches.get(t.identifier);
+            if (at) { at.x = t.clientX; at.y = t.clientY; }
+        }
+        if (allTouches.size >= 2 && pinchDist > 0) {
+            const pts = [...allTouches.values()];
+            const spread = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+            cameraDist = Math.max(12, Math.min(40, cameraDist - (spread - pinchDist) * 0.06));
+            pinchDist = spread;
+            return;
+        }
+        for (const t of e.changedTouches) {
+            if (t.identifier === touchId) {
+                let mx = t.clientX - startX;
+                let my = t.clientY - startY;
+                const dist = Math.hypot(mx, my);
+                if (dist > maxRadius) {
+                    mx = (mx / dist) * maxRadius;
+                    my = (my / dist) * maxRadius;
+                }
+                knob.style.transform = `translate(${mx}px, ${my}px)`;
+                touchMove.x = mx / maxRadius;
+                touchMove.y = my / maxRadius;
+            } else if (t.identifier === panId) {
+                cameraYaw -= (t.clientX - panLX) * 0.007 * touchSens;
+                cameraPitch += (t.clientY - panLY) * 0.005 * touchSens;
+                cameraPitch = Math.max(0.3, Math.min(1.25, cameraPitch));
+                panLX = t.clientX;
+                panLY = t.clientY;
+            }
+        }
+    }, { passive: false });
+
+    const handleEnd = e => {
+        for (const t of e.changedTouches) allTouches.delete(t.identifier);
+        if (allTouches.size < 2) pinchDist = 0;
+        for (const t of e.changedTouches) {
+            if (t.identifier === touchId) {
+                touchId = null;
+                ring.style.display = 'none';
+                touchMove.x = 0;
+                touchMove.y = 0;
+            } else if (t.identifier === panId) {
+                panId = null;
+            }
+        }
+    };
+    window.addEventListener('touchend', handleEnd);
+    window.addEventListener('touchcancel', handleEnd);
+
+    document.getElementById('jump-touch-btn').addEventListener('touchstart', e => {
+        e.preventDefault();
+        triggerJump();
+    });
+    document.getElementById('interact-touch-btn').addEventListener('touchstart', e => {
+        e.preventDefault();
+        interact();
+    });
+})();
+
+function setTouchSens(v) {
+    touchSens = v / 100;
+    document.getElementById('sens-value').innerText = v;
+}
+
+function triggerJump() {
+    if (gameStarted && player.isGrounded) {
+        player.vy = 0.25;
+        player.isGrounded = false;
+    }
+}
+
+// --- MOUSE CLICK-TO-INTERACT ---
+const raycaster = new THREE.Raycaster();
+const mouseVec = new THREE.Vector2();
+
+function anyModalOpen() {
+    return ['shop-modal', 'build-modal', 'settings-modal', 'help-modal', 'controls-modal', 'islands-modal', 'teleport-confirm', 'reset-confirm', 'table-confirm'].some(id => {
+        const el = document.getElementById(id);
+        return el && el.style.display === 'flex';
+    });
+}
+// Clicking OR tapping anywhere outside an open menu closes it. The
+// capture-phase listeners run first and stop the press from also
+// interacting with the world (or grabbing the touch joystick) behind
+// the menu. Touch needs its own listener because the joystick/pan zones
+// preventDefault their touches, which swallows the synthesized click.
+function closeAllMenus() {
+    toggleShop(false);
+    toggleBuild(false);
+    toggleSettings(false);
+    toggleHelp(false);
+    toggleControls(false);
+    toggleIslands(false);
+    setModal('teleport-confirm', false);
+    setModal('reset-confirm', false);
+    setModal('table-confirm', false);
+}
+function outsideMenuPress(e) {
+    if (!anyModalOpen()) return;
+    if (e.target.closest('.modal, #settings-btn-icon, #islands-btn-icon')) return;
+    e.stopPropagation();
+    if (e.cancelable) e.preventDefault(); // the closing tap shouldn't also walk/jump
+    closeAllMenus();
+}
+document.addEventListener('click', outsideMenuPress, true);
+document.addEventListener('touchstart', outsideMenuPress, { capture: true, passive: false });
+
+// Listen at the document level so taps landing on the (invisible) touch
+// movement zone still raycast into the world; real UI elements are excluded
+document.addEventListener('click', (e) => {
+    if (!gameStarted) return;
+    if (e.target.closest('button, select, input, .modal, #settings-btn-icon, #islands-btn-icon')) return;
+
+    mouseVec.x = (e.clientX / window.innerWidth) * 2 - 1;
+    mouseVec.y = -(e.clientY / window.innerHeight) * 2 + 1;
+    raycaster.setFromCamera(mouseVec, camera);
+
+    const targets = [dockGroup];
+    kiosks.forEach(k => targets.push(k.group));
+    benches.forEach(b => {
+        targets.push(b.group);
+        targets.push(b.border);
+        if (b.pcGroup) targets.push(b.pcGroup);
+    });
+
+    const hits = raycaster.intersectObjects(targets, true);
+    if (hits.length > 0) interact();
+});
+
+function selectAvatar(type, el) {
+    playerAvatar = type;
+    document.querySelectorAll('.avatar-btn').forEach(b => b.classList.remove('selected'));
+    if (el) el.classList.add('selected');
+    document.getElementById('avatar-setting-select').value = type;
+}
+
+function changeAvatarFromSettings(type) {
+    playerAvatar = type;
+    buildPlayerAvatar();
+    mpTrack();
+}
+
+function startGame() {
+    if (gameStarted) return;
+    buildPlayerAvatar();
+    document.getElementById('character-select').style.display = 'none';
+    gameStarted = true;
+    MP.name = mpCleanName(document.getElementById('player-name').value) || ('Player' + Math.floor(Math.random() * 90 + 10));
+    updateUI();
+    mpConnect();
+    applyIslandView();
+    showHint('🏝️ Welcome to YOUR island! Grab FREE parts from the PART SHOP and build your first PC on your table!');
+}
+document.getElementById('player-name').addEventListener('keydown', e => {
+    if (e.key === 'Enter') startGame();
+});
+
+let hintTimeout = null;
+function showHint(text) {
+    const el = document.getElementById('hint-msg');
+    el.innerText = text;
+    el.style.display = 'block';
+    clearTimeout(hintTimeout);
+    hintTimeout = setTimeout(() => { el.style.display = 'none'; }, 3200);
+}
+
+function updateUI() {
+    document.getElementById('money').innerText = money;
+    document.getElementById('part-count').innerText = partCount();
+    document.getElementById('pcs-built').innerText = pcsBuilt;
+}
+
+// --- MODALS ---
+function setModal(id, show) {
+    document.getElementById(id).style.display = show ? 'flex' : 'none';
+}
+function toggleSettings(show) { setModal('settings-modal', show); }
+function toggleHelp(show) { setModal('help-modal', show); }
+function toggleControls(show) { setModal('controls-modal', show); }
+function toggleShop(show) { setModal('shop-modal', show); }
+function toggleBuild(show) {
+    if (show) refreshBuildModal();
+    setModal('build-modal', show);
+}
+
+// --- SHOP ---
+let currentTab = 0;
+function shopTab(t) {
+    currentTab = t;
+    renderShop();
+}
+function openShop(tab) {
+    currentTab = tab;
+    renderShop();
+    toggleShop(true);
+}
+function renderShop() {
+    for (let i = 0; i <= CATS.length; i++) {
+        document.getElementById('tab-' + i).classList.toggle('active', i === currentTab);
+    }
+    document.getElementById('shop-money-line').innerText = '💰 You have $' + money + ' · ' + partCount() + ' parts in your backpack';
+    const box = document.getElementById('shop-items');
+    box.innerHTML = '';
+    if (currentTab === 6) { renderWorkersTab(box); return; }
+    const cat = CATS[currentTab];
+    document.getElementById('shop-title').innerText = '🛒 ' + cat.icon + ' ' + cat.label;
+    cat.list.forEach((p, i) => {
+        const owned = inv[cat.key][i];
+        let spec = '';
+        if (cat.key === 'cpu') spec = p.gen + 'th gen · ' + p.watts + 'W · needs Socket ' + (p.gen <= 7 ? 1 : p.gen <= 11 ? 2 : 3);
+        else if (cat.key === 'gpu') spec = 'Uses ' + p.watts + 'W';
+        else if (cat.key === 'mobo') spec = 'Fits ' + p.minGen + 'th–' + p.maxGen + 'th gen CPUs';
+        else if (cat.key === 'psu') spec = 'Provides ' + p.watts + 'W';
+        else if (cat.key === 'ssd') spec = 'Storage for games & files';
+        else spec = 'Memory — more = smoother';
+
+        const row = document.createElement('div');
+        row.className = 'modal-item';
+        const info = document.createElement('div');
+        info.style.flex = '1';
+        info.innerHTML = '<strong>' + p.name + '</strong> ' +
+            (owned ? '<span class="owned-tag">×' + owned + ' owned</span>' : '') +
+            '<br><span class="spec-line">' + spec + '</span>';
+        const btn = document.createElement('button');
+        btn.className = 'modal-btn';
+        if (p.price === 0) {
+            btn.innerHTML = 'Take <span class="free-tag">FREE</span>';
+        } else {
+            btn.innerText = 'Buy ($' + p.price + ')';
+            if (money < p.price) btn.disabled = true;
+        }
+        btn.onclick = () => buyPart(currentTab, i);
+        row.appendChild(info);
+        row.appendChild(btn);
+        box.appendChild(row);
+    });
+}
+function renderWorkersTab(box) {
+    document.getElementById('shop-title').innerText = '🛒 👷 Hire Workers';
+    const intro = document.createElement('div');
+    intro.className = 'modal-item';
+    intro.innerHTML = '<div class="spec-line">Workers each do <strong>one job per cycle</strong> (15s at level 1). Upgrades make them faster — the Part Buyer also shops for better parts. Each upgrade costs more!</div>';
+    box.appendChild(intro);
+    Object.keys(WORKER_TYPES).forEach(k => {
+        const def = WORKER_TYPES[k];
+        const w = workers[k];
+        const row = document.createElement('div');
+        row.className = 'modal-item';
+        const info = document.createElement('div');
+        info.style.flex = '1';
+        info.innerHTML = '<strong>' + def.icon + ' ' + def.name + '</strong> ' +
+            (w ? '<span class="owned-tag">Lv' + w.level + ' · every ' + workerCycle(w.level) + 's</span>' : '') +
+            '<br><span class="spec-line">' + def.desc + '</span>';
+        const btn = document.createElement('button');
+        btn.className = 'modal-btn';
+        if (!w) {
+            btn.innerText = 'Hire ($' + def.hire + ')';
+            if (money < def.hire) btn.disabled = true;
+            btn.onclick = () => hireWorker(k);
+        } else if (w.level >= WORKER_MAX_LEVEL) {
+            btn.innerText = '⭐ MAX';
+            btn.disabled = true;
+        } else {
+            btn.innerText = 'Upgrade ($' + workerUpgradeCost(w.level) + ')';
+            if (money < workerUpgradeCost(w.level)) btn.disabled = true;
+            btn.onclick = () => upgradeWorker(k);
+        }
+        row.appendChild(info);
+        row.appendChild(btn);
+        box.appendChild(row);
+    });
+    const tables = document.createElement('div');
+    tables.className = 'modal-item';
+    const cost = nextTableCost();
+    tables.innerHTML = '<div class="spec-line">🪑 <strong>More tables</strong> = your PC Builder can have more PCs going at once. Walk to a faint pad next to your table and press E' + (cost !== null ? ' — the next one costs <strong>$' + cost + '</strong>.' : ' — you own them all!') + '</div>';
+    box.appendChild(tables);
+}
+
+function buyPart(catIdx, i) {
+    const cat = CATS[catIdx];
+    const p = cat.list[i];
+    if (p.price > money) { showHint('💸 Not enough money for the ' + p.name + '!'); return; }
+    money -= p.price;
+    inv[cat.key][i]++;
+    saveGame();
+    updateUI();
+    renderShop();
+    showHint((p.price === 0 ? '🆓 Took a free ' : '🛍️ Bought a ') + p.name + '!');
+    mpTrack();
+}
+
+// --- BUILD ---
+function fillBuildSelect(id, catIdx) {
+    const cat = CATS[catIdx];
+    const sel = document.getElementById(id);
+    const prev = sel.value;
+    sel.innerHTML = '';
+    let any = false;
+    cat.list.forEach((p, i) => {
+        if (inv[cat.key][i] > 0) {
+            const o = document.createElement('option');
+            o.value = i;
+            o.textContent = p.name + ' ×' + inv[cat.key][i];
+            sel.appendChild(o);
+            any = true;
+        }
+    });
+    // A GPU is optional — the CPU's built-in graphics carry an office build
+    if (cat.key === 'gpu') {
+        const o = document.createElement('option');
+        o.value = 'none';
+        o.textContent = '— no GPU (office build) —';
+        sel.appendChild(o);
+        any = true;
+    }
+    if (!any) {
+        const o = document.createElement('option');
+        o.value = '-1';
+        o.textContent = '— none in backpack —';
+        sel.appendChild(o);
+    } else if (prev && [...sel.options].some(o => o.value === prev)) {
+        sel.value = prev;
+    }
+}
+function refreshBuildModal() {
+    fillBuildSelect('build-cpu', 0);
+    fillBuildSelect('build-gpu', 1);
+    fillBuildSelect('build-mobo', 2);
+    fillBuildSelect('build-psu', 3);
+    fillBuildSelect('build-ssd', 4);
+    fillBuildSelect('build-ram', 5);
+    updateCompat();
+}
+function getBuildSelection() {
+    const gpuRaw = document.getElementById('build-gpu').value;
+    return {
+        cpu: parseInt(document.getElementById('build-cpu').value, 10),
+        gpu: gpuRaw === 'none' ? -1 : parseInt(gpuRaw, 10), // -1 = building without a GPU
+        mobo: parseInt(document.getElementById('build-mobo').value, 10),
+        psu: parseInt(document.getElementById('build-psu').value, 10),
+        ssd: parseInt(document.getElementById('build-ssd').value, 10),
+        ram: parseInt(document.getElementById('build-ram').value, 10)
+    };
+}
+function checkCompat(s) {
+    const result = { ok: true, lines: [] };
+    if (s.cpu < 0 || s.mobo < 0 || s.psu < 0 || s.ssd < 0 || s.ram < 0) {
+        result.ok = false;
+        result.lines.push('<span class="compat-bad">❌ You need a CPU, motherboard, power supply, SSD and RAM — visit the PART SHOP!</span>');
+        return result;
+    }
+    const cpu = CPUS[s.cpu], gpu = s.gpu >= 0 ? GPUS[s.gpu] : null, mobo = MOBOS[s.mobo], psu = PSUS[s.psu];
+    if (cpu.gen >= mobo.minGen && cpu.gen <= mobo.maxGen) {
+        result.lines.push('<span class="compat-ok">✅ Socket OK — ' + cpu.name + ' (' + cpu.gen + 'th gen) fits the ' + mobo.name + '</span>');
+    } else {
+        result.ok = false;
+        result.lines.push('<span class="compat-bad">❌ Wrong socket! ' + cpu.name + ' is ' + cpu.gen + 'th gen but the ' + mobo.name + ' only fits ' + mobo.minGen + 'th–' + mobo.maxGen + 'th gen</span>');
+    }
+    const need = cpu.watts + (gpu ? gpu.watts : 0) + BASE_WATTS;
+    if (psu.watts >= need) {
+        result.lines.push('<span class="compat-ok">✅ Power OK — needs ~' + need + 'W, PSU provides ' + psu.watts + 'W</span>');
+    } else {
+        result.ok = false;
+        result.lines.push('<span class="compat-bad">❌ Not enough power! Needs ~' + need + 'W but the PSU only provides ' + psu.watts + 'W</span>');
+    }
+    if (!gpu) {
+        result.lines.push('ℹ️ No GPU — an office build works fine, but a graphics card makes the PC worth a lot more!');
+    }
+    if (result.ok) {
+        const value = Math.round((partValue(0, s.cpu) + (s.gpu >= 0 ? partValue(1, s.gpu) : 0) + partValue(2, s.mobo) + partValue(3, s.psu) + partValue(4, s.ssd) + partValue(5, s.ram)) * SELL_MULT);
+        const dream = s.cpu === CPUS.length - 1 && s.gpu === GPUS.length - 1;
+        result.value = value + (dream ? DREAM_BONUS : 0);
+        result.dream = dream;
+        result.lines.push('💰 Sells for <strong style="color:#ffd60a;">$' + result.value + '</strong>' + (dream ? ' <span class="compat-ok">👑 DREAM PC BONUS!</span>' : ''));
+    }
+    return result;
+}
+function updateCompat() {
+    const r = checkCompat(getBuildSelection());
+    document.getElementById('compat-box').innerHTML = r.lines.join('<br>');
+    document.getElementById('build-btn').disabled = !r.ok;
+}
+function doBuild() {
+    if (currentIsland !== MP.id) { showHint('🏝️ You can only build on YOUR island — teleport home first!'); return; }
+    if (!activeBench) { showHint('🪑 Walk to one of your workbenches and press E!'); return; }
+    if (activeBench.state) { showHint('🔧 That bench is busy — use another one!'); return; }
+    const s = getBuildSelection();
+    const r = checkCompat(s);
+    if (!r.ok) return;
+    startBuild(activeBench, s, r);
+    toggleBuild(false);
+    showHint('🔨 Building your ' + activeBench.buildLabel + ' PC…');
+}
+
+// Spend the parts and put a growing PC on the table (used by you AND the Builder worker)
+function startBuild(b, s, r) {
+    inv.cpu[s.cpu]--; inv.mobo[s.mobo]--; inv.psu[s.psu]--; inv.ssd[s.ssd]--; inv.ram[s.ram]--;
+    if (s.gpu >= 0) inv.gpu[s.gpu]--;
+    saveGame();
+    b.state = 'building';
+    b.timer = BUILD_TIME;
+    b.buildValue = r.value;
+    b.buildDream = r.dream;
+    b.buildTier = (s.cpu / (CPUS.length - 1) + (s.gpu >= 0 ? s.gpu / (GPUS.length - 1) : 0)) / 2;
+    b.buildLabel = CPUS[s.cpu].name.replace('Intel ', '') + (s.gpu >= 0 ? ' + ' + GPUS[s.gpu].name.replace('Nvidia ', '') : ' (no GPU)');
+    b.pcGroup = buildPCMesh(b.buildTier);
+    b.pcGroup.position.set(b.x + 0.6, 1.14, b.z);
+    b.pcGroup.scale.set(0.1, 0.1, 0.1);
+    b.pcGroup.visible = (currentIsland === MP.id);
+    scene.add(b.pcGroup);
+    updateUI();
+}
+
+// --- ISLANDS & TELEPORTING ---
+// Every player has their own island. The world geometry is shared, so
+// "which island am I on" is just an id: your own MP.id, or a friend's.
+// Your benches (and the PCs on them) only show while you are home.
+function islandOwnerName() {
+    if (currentIsland === MP.id) return MP.name || 'My';
+    const peer = MP.peers.get(currentIsland);
+    return peer ? peer.name : 'Friend';
+}
+
+function applyIslandView() {
+    const home = currentIsland === MP.id;
+    islandSign.draw('🏝️ ' + (home ? (MP.name ? MP.name + "'s Island" : 'My Island') : islandOwnerName() + "'s Island"), home ? '#00f2fe' : '#f39c12');
+    benches.forEach((b, i) => {
+        if (b.pcGroup) b.pcGroup.visible = home;
+        b.lastLabel = null; // force the countdown label to redraw
+        if (!home) {
+            // On a friend's island you just see their (one) table
+            const show = i === 0;
+            b.group.visible = show;
+            b.border.visible = show;
+            b.label.sprite.visible = show;
+            if (show) {
+                b.label.draw(islandOwnerName() + "'s table", '#f39c12');
+                b.border.material.color.setHex(0xa88b5c);
+            }
+        } else {
+            b.group.visible = b.owned;
+            b.border.visible = true;
+            b.label.sprite.visible = true;
+            b.border.material.color.setHex(0x8d939f);
+            if (b.owned && b.state === 'done') b.label.draw('✅ READY! Press E', '#2eff7b');
+            else if (b.state !== 'building') drawBenchIdleLabel(b);
+            // a 'building' table redraws its ⏱ countdown next frame
+        }
+    });
+    // Your workers stay home working while you're out visiting
+    Object.keys(workers).forEach(k => { if (workers[k] && workers[k].group) workers[k].group.visible = home; });
+    // Only people on the same island are visible
+    MP.peers.forEach(peer => { if (peer.group) peer.group.visible = (peer.island === currentIsland); });
+}
+
+function toggleIslands(show) {
+    if (show) renderIslandList();
+    setModal('islands-modal', show);
+}
+
+function renderIslandList() {
+    const box = document.getElementById('island-list');
+    box.innerHTML = '';
+    // Home row
+    const homeRow = document.createElement('div');
+    homeRow.className = 'modal-item';
+    homeRow.innerHTML = '<div style="flex:1;"><strong>🏝️ ' + (MP.name || 'My') + "'s Island</strong> <span class='owned-tag'>" + (currentIsland === MP.id ? 'YOU ARE HERE' : 'home') + '</span><br><span class="spec-line">Your benches live here</span></div>';
+    if (currentIsland !== MP.id) {
+        const btn = document.createElement('button');
+        btn.className = 'modal-btn';
+        btn.innerText = '🏠 Go Home';
+        btn.onclick = () => askTeleport(MP.id);
+        homeRow.appendChild(btn);
+    }
+    box.appendChild(homeRow);
+    // One row per online friend
+    if (MP.peers.size === 0) {
+        const empty = document.createElement('div');
+        empty.className = 'modal-item';
+        empty.innerHTML = '<div class="spec-line">No other builders online right now — ask a friend to open this page!</div>';
+        box.appendChild(empty);
+    }
+    MP.peers.forEach((peer, key) => {
+        const row = document.createElement('div');
+        row.className = 'modal-item';
+        row.innerHTML = '<div style="flex:1;"><strong>🏝️ ' + peer.name + "'s Island</strong>" + (currentIsland === key ? " <span class='owned-tag'>YOU ARE HERE</span>" : '') + '<br><span class="spec-line">$' + peer.money + ' · ' + peer.built + ' PCs sold' + (peer.island !== key ? ' · currently visiting someone' : '') + '</span></div>';
+        if (currentIsland !== key) {
+            const btn = document.createElement('button');
+            btn.className = 'modal-btn';
+            btn.innerText = '🌀 Visit';
+            btn.onclick = () => askTeleport(key);
+            row.appendChild(btn);
+        }
+        box.appendChild(row);
+    });
+}
+
+// Always double-check before whooshing someone across the ocean
+function askTeleport(islandId) {
+    const home = islandId === MP.id;
+    const name = home ? 'your own' : ((MP.peers.get(islandId) || { name: 'your friend' }).name + "'s");
+    document.getElementById('teleport-question').innerText = 'Are you sure you want to teleport to ' + name + ' island?';
+    document.getElementById('teleport-yes-btn').onclick = () => doTeleport(islandId);
+    toggleIslands(false);
+    setModal('teleport-confirm', true);
+}
+
+function doTeleport(islandId) {
+    setModal('teleport-confirm', false);
+    if (islandId !== MP.id && !MP.peers.has(islandId)) {
+        showHint('⚠️ That builder just went offline!');
+        return;
+    }
+    currentIsland = islandId;
+    player.x = 0; player.z = -9; player.y = 0; player.vy = 0; player.isGrounded = true;
+    toggleBuild(false);
+    toggleShop(false);
+    applyIslandView();
+    mpTrack();
+
+    showHint(currentIsland === MP.id
+        ? '🏠 Welcome home to your island!'
+        : '🏝️ Welcome to ' + islandOwnerName() + "'s island! Their shops and dock work for you too.");
+}
+
+function pickUpPC(b) {
+    if (carriedPC) { showHint('🖥️ You are already carrying a PC — sell it at the shipping dock first!'); return; }
+    carriedPC = { value: b.buildValue, dream: b.buildDream, tier: b.buildTier, label: b.buildLabel };
+    scene.remove(b.pcGroup);
+    b.pcGroup = null;
+    b.state = null;
+    drawBenchIdleLabel(b);
+    updateCarriedPCMesh();
+    showHint('📦 Carry your ' + carriedPC.label + ' PC to the SHIPPING dock and press E!');
+}
+
+// --- BUYING EXTRA TABLES (walk to a faint pad, press E) ---
+let pendingTable = null;
+function askBuyTable(b) {
+    const cost = nextTableCost();
+    if (cost === null) return;
+    if (money < cost) { showHint('💸 The next table costs $' + cost + ' — keep selling PCs!'); return; }
+    pendingTable = b;
+    document.getElementById('table-question').innerText = 'Buy this workbench for $' + cost + '? More tables mean your PC Builder worker can build more at once!';
+    setModal('table-confirm', true);
+}
+function doBuyTable() {
+    setModal('table-confirm', false);
+    const b = pendingTable;
+    pendingTable = null;
+    const cost = nextTableCost();
+    if (!b || b.owned || cost === null || money < cost) return;
+    money -= cost;
+    b.owned = true;
+    b.group.visible = (currentIsland === MP.id);
+    b.border.material.opacity = 1;
+    drawBenchIdleLabel(b);
+    benches.forEach(x => { if (!x.owned) drawBenchIdleLabel(x); }); // re-price the other pads
+    saveGame();
+    updateUI();
+    showHint('🪑 New workbench built! You now own ' + benches.filter(x => x.owned).length + ' tables.');
+}
+
+function sellPC() {
+    money += carriedPC.value;
+    pcsBuilt++;
+    const wasDream = carriedPC.dream;
+    const v = carriedPC.value;
+    carriedPC = null;
+    updateCarriedPCMesh();
+    saveGame();
+    updateUI();
+    mpTrack();
+    showHint(wasDream
+        ? '👑💰 DREAM PC SOLD for $' + v + '! You are a legendary builder!'
+        : '💰 PC sold for $' + v + '! Better parts sell for way more…');
+}
+
+// --- INTERACT (E / tap / USE button) ---
+function interact() {
+    if (!gameStarted || gamePaused) return;
+
+    // The part shop stall
+    for (const k of kiosks) {
+        if (dist2D(player.x, player.z, k.x, k.z) < 6) {
+            openShop(currentTab);
+            return;
+        }
+    }
+
+    // Shipping dock
+    if (dist2D(player.x, player.z, dock.x, dock.z - 2) < 5.5) {
+        if (carriedPC) sellPC();
+        else showHint('📦 Build a PC at your bench first, then bring it here to sell!');
+        return;
+    }
+
+    // Workbenches
+    let nearest = null, nd = 4.4;
+    for (const b of benches) {
+        const d = dist2D(player.x, player.z, b.x, b.z);
+        if (d < nd) { nd = d; nearest = b; }
+    }
+    if (nearest) {
+        const b = nearest;
+        if (currentIsland !== MP.id) {
+            showHint('🚫 That is ' + islandOwnerName() + "'s table — teleport home to build your own PCs!");
+        } else if (!b.owned) askBuyTable(b);
+        else if (b.state === 'done') pickUpPC(b);
+        else if (b.state === 'building') showHint('🔧 Still building — ' + Math.ceil(b.timer) + 's to go!');
+        else if (carriedPC) showHint('📦 Sell the PC you are carrying first — it is taking up your hands!');
+        else { activeBench = b; toggleBuild(true); }
+        return;
+    }
+
+    showHint('🚶 Walk to your table, the PART SHOP, or the shipping dock, then press E!');
+}
+
+// ================================================================
+// MULTIPLAYER · Supabase Realtime (presence + broadcast, no tables)
+// Same project + publishable key as the other Play Centre games.
+// Everything is ephemeral: presence carries name/avatar/bench/money,
+// broadcast streams positions. If Supabase can't load, the game
+// silently stays single-player.
+// ================================================================
+const MP_URL = 'https://xlrqciiaofizzxyjumrf.supabase.co';
+const MP_KEY = 'sb_publishable_R4Uj4APVGOJvKLFDwdKLiw_i0SHOnX8';
+
+const MP = {
+    client: null, channel: null, connected: false,
+    id: 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+    name: '',
+    peers: new Map(),
+    lastSent: { x: 0, y: 0, z: 0, rot: 0, t: 0 }
+};
+currentIsland = MP.id; // everyone starts at home
+initWorkersFromSave();  // rehire the crew from the save file
+
+function mpCleanName(n) {
+    return String(n || '').replace(/\s+/g, ' ').trim().slice(0, 14);
+}
+
+function mpConnect() {
+    if (!window.supabase || MP.channel) return;
+    if (!MP.name) MP.name = mpCleanName(document.getElementById('player-name').value) || ('Player' + Math.floor(Math.random() * 90 + 10));
+    try {
+        MP.client = window.supabase.createClient(MP_URL, MP_KEY, {
+            realtime: { params: { eventsPerSecond: 15 } }
+        });
+        MP.channel = MP.client.channel('andy-pc-builder-v1', {
+            config: { broadcast: { self: false }, presence: { key: MP.id } }
+        });
+        MP.channel
+            .on('presence', { event: 'sync' }, mpPresenceSync)
+            .on('broadcast', { event: 'pos' }, ({ payload }) => {
+                const peer = payload && MP.peers.get(payload.id);
+                if (peer) peer.target = payload;
+            })
+            .subscribe(status => {
+                if (status === 'SUBSCRIBED') {
+                    MP.connected = true;
+                    mpTrack();
+
+                }
+            });
+    } catch (err) {
+        MP.connected = false;
+    }
+}
+
+// Publish my current profile through presence (called on any change)
+function mpTrack() {
+    if (!MP.connected || !MP.channel) return;
+    MP.channel.track({
+        name: MP.name,
+        avatar: playerAvatar,
+        island: currentIsland,
+        money: money,
+        built: pcsBuilt
+    });
+}
+
+function mpPresenceSync() {
+    if (!MP.channel) return;
+    const state = MP.channel.presenceState();
+    const seen = new Set();
+    for (const key in state) {
+        if (key === MP.id) continue;
+        const meta = state[key][0];
+        if (!meta) continue;
+        seen.add(key);
+        let peer = MP.peers.get(key);
+        if (!peer) {
+            peer = mpCreatePeer(key, meta);
+            MP.peers.set(key, peer);
+        }
+        if (peer.avatarType !== (meta.avatar || 'boy')) mpRebuildPeerAvatar(peer, meta.avatar || 'boy');
+        peer.money = meta.money || 0;
+        peer.built = meta.built || 0;
+        peer.island = meta.island || key; // default: they're on their own island
+        if (peer.group) peer.group.visible = (peer.island === currentIsland);
+    }
+    for (const [key, peer] of MP.peers) {
+        if (!seen.has(key)) {
+            if (peer.group) scene.remove(peer.group);
+            MP.peers.delete(key);
+        }
+    }
+    // The island's owner logged off while you were visiting? Whoosh home.
+    if (currentIsland !== MP.id && !MP.peers.has(currentIsland)) {
+        doTeleport(MP.id);
+        showHint('🏠 That builder went offline — you teleported back home!');
+    }
+    if (document.getElementById('islands-modal').style.display === 'flex') renderIslandList();
+
+}
+
+function mpCreatePeer(id, meta) {
+    const peer = { id: id, name: mpCleanName(meta.name) || 'Player', money: meta.money || 0, built: meta.built || 0, island: id, avatarType: null, group: null, target: null };
+    mpRebuildPeerAvatar(peer, meta.avatar || 'boy');
+    return peer;
+}
+
+function mpRebuildPeerAvatar(peer, type) {
+    const pos = peer.group ? peer.group.position.clone() : new THREE.Vector3(0, 0, -9);
+    const rotY = peer.group ? peer.group.rotation.y : 0;
+    if (peer.group) scene.remove(peer.group);
+    peer.avatarType = type;
+    peer.group = buildAvatarModel(type);
+    const tag = makeNameSprite(peer.name, '#ffffff');
+    tag.position.y = (type === 'boy' || type === 'girl') ? 2.9 : 2.2;
+    peer.group.add(tag);
+    peer.group.position.copy(pos);
+    peer.group.rotation.y = rotY;
+    peer.group.visible = (peer.island === currentIsland);
+    scene.add(peer.group);
+}
+
+// Who's online lives in the 🏝️ Islands menu — no banner over the game
+
+// Called every frame: send my position (throttled) and glide peers toward theirs
+function mpUpdate(dt, now) {
+    if (!MP.connected) return;
+
+    const moved = Math.abs(player.x - MP.lastSent.x) > 0.02 ||
+                  Math.abs(player.z - MP.lastSent.z) > 0.02 ||
+                  Math.abs(player.y - MP.lastSent.y) > 0.02 ||
+                  Math.abs(playerGroup.rotation.y - MP.lastSent.rot) > 0.05;
+    if ((moved && now - MP.lastSent.t > 100) || now - MP.lastSent.t > 1500) {
+        MP.lastSent = { x: player.x, y: player.y, z: player.z, rot: playerGroup.rotation.y, t: now };
+        MP.channel.send({
+            type: 'broadcast', event: 'pos',
+            payload: { id: MP.id, x: player.x, y: player.y, z: player.z, rot: playerGroup.rotation.y }
+        });
+    }
+
+    const ease = Math.min(1, dt * 10);
+    MP.peers.forEach(peer => {
+        if (!peer.target || !peer.group) return;
+        const t = peer.target;
+        peer.group.position.x += (t.x - peer.group.position.x) * ease;
+        peer.group.position.y += (t.y - peer.group.position.y) * ease;
+        peer.group.position.z += (t.z - peer.group.position.z) * ease;
+        let diff = t.rot - peer.group.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        peer.group.rotation.y += diff * ease;
+    });
+}
+
+// --- AFK AUTO-PAUSE (3 minutes without any input) ---
+let lastActivity = Date.now();
+let gamePaused = false;
+function markActivity() {
+    lastActivity = Date.now();
+    if (gamePaused) {
+        gamePaused = false;
+        document.getElementById('pause-overlay').style.display = 'none';
+    }
+}
+['keydown', 'mousedown', 'mousemove', 'touchstart'].forEach(ev =>
+    window.addEventListener(ev, markActivity, { passive: true }));
+
+// --- GAME LOOP ---
+let clock = new THREE.Clock();
+let animTime = 0;
+
+function animate() {
+    requestAnimationFrame(animate);
+
+    const dt = clock.getDelta();
+    animTime += dt;
+    const now = Date.now();
+
+    // Pause everything after 3 minutes without input
+    if (gameStarted && !gamePaused && now - lastActivity > 180000) {
+        gamePaused = true;
+        document.getElementById('pause-overlay').style.display = 'flex';
+    }
+    if (gamePaused) {
+        renderer.render(scene, camera);
+        return;
+    }
+
+    updateDayNight(dt);
+
+    if (gameStarted) {
+        let dx = 0;
+        let dz = 0;
+
+        if (keys.a) dx -= 1;
+        if (keys.d) dx += 1;
+        if (keys.w) dz -= 1;
+        if (keys.s) dz += 1;
+
+        if (dx !== 0 && dz !== 0) {
+            dx *= 0.7071;
+            dz *= 0.7071;
+        }
+
+        // Touch joystick takes over while it is being used (analog magnitude)
+        if (Math.abs(touchMove.x) > 0.12 || Math.abs(touchMove.y) > 0.12) {
+            dx = touchMove.x;
+            dz = touchMove.y;
+        }
+
+        // Camera-relative movement so panning doesn't scramble the controls
+        if (cameraYaw !== 0) {
+            const wx = dx * Math.cos(cameraYaw) + dz * Math.sin(cameraYaw);
+            const wz = -dx * Math.sin(cameraYaw) + dz * Math.cos(cameraYaw);
+            dx = wx;
+            dz = wz;
+        }
+
+        const isMoving = (dx !== 0 || dz !== 0);
+
+        player.x += dx * player.speed;
+        player.z += dz * player.speed;
+
+        player.x = Math.max(-26, Math.min(26, player.x));
+        player.z = Math.max(-26, Math.min(26, player.z));
+
+        // Solid objects: tables and the shop block (jump over tables!),
+        // and the delivery truck is very solid. Unbought pads are walkable.
+        benches.forEach(b => { if (b.owned) collideBox(b.x, b.z, 2.0, 1.2, 1.5); });
+        kiosks.forEach(k => collideBox(k.x, k.z, 4.5, 1.3, 3));
+        collideBox(dock.x, dock.z + 3, 2.3, 4.5, 4); // truck
+        palmTrunks.forEach(t => collideBox(t.x, t.z, 0.5, 0.5, 4));
+
+        if (keys.space && player.isGrounded) {
+            player.vy = 0.25;
+            player.isGrounded = false;
+        }
+
+        if (!player.isGrounded) {
+            player.y += player.vy;
+            player.vy -= 0.015;
+            if (player.y <= 0) {
+                player.y = 0;
+                player.vy = 0;
+                player.isGrounded = true;
+            }
+        }
+
+        if (isMoving) {
+            const angle = Math.atan2(dx, dz);
+            playerGroup.rotation.y = angle;
+            if (limbs.leftLeg && limbs.rightLeg) {
+                const swing = Math.sin(animTime * 12) * 0.6;
+                limbs.leftLeg.rotation.x = -swing;
+                limbs.rightLeg.rotation.x = swing;
+            }
+        } else {
+            if (limbs.leftLeg && limbs.rightLeg) {
+                limbs.leftLeg.rotation.x = 0;
+                limbs.rightLeg.rotation.x = 0;
+            }
+        }
+
+        playerGroup.position.set(player.x, player.y, player.z);
+
+        mpUpdate(dt, now);
+
+        camera.position.x = player.x + Math.sin(cameraYaw) * Math.cos(cameraPitch) * cameraDist;
+        camera.position.y = player.y + Math.sin(cameraPitch) * cameraDist;
+        camera.position.z = player.z + Math.cos(cameraYaw) * Math.cos(cameraPitch) * cameraDist;
+        camera.lookAt(player.x, player.y, player.z);
+
+        // Workers: each does one job when their cycle timer runs out.
+        // They keep working even while you're visiting a friend.
+        let wi = 0;
+        Object.keys(workers).forEach(k => {
+            const w = workers[k];
+            wi++;
+            if (!w) return;
+            w.timer -= dt;
+            if (w.group) w.group.position.y = Math.abs(Math.sin(animTime * 2.4 + wi * 2)) * 0.12; // busy bounce
+            if (w.timer <= 0) {
+                w.timer = workerCycle(w.level);
+                workerAct(k, w);
+            }
+        });
+
+        // Bench build progress: the PC grows on the bench with a countdown.
+        // Builds keep running while you're visiting a friend, but their
+        // labels/meshes only show at home (applyIslandView handles that).
+        const atHome = currentIsland === MP.id;
+        benches.forEach(b => {
+            if (b.state === 'building') {
+                b.timer -= dt;
+                const progress = 1 - Math.max(0, b.timer) / BUILD_TIME;
+                if (b.pcGroup) {
+                    const s = 0.1 + progress * 0.9;
+                    b.pcGroup.scale.set(s, s, s);
+                    b.pcGroup.rotation.y = progress * Math.PI * 4; // spins as you screw it together
+                }
+                const label = '🔨 ' + Math.max(0, Math.ceil(b.timer)) + 's';
+                if (atHome && label !== b.lastLabel) {
+                    b.lastLabel = label;
+                    b.label.draw(label, '#4facfe');
+                }
+                if (b.timer <= 0) {
+                    b.state = 'done';
+                    b.lastLabel = '';
+                    if (b.pcGroup) { b.pcGroup.scale.set(1, 1, 1); b.pcGroup.rotation.y = 0; }
+                    if (atHome) b.label.draw('✅ READY! Press E', '#2eff7b');
+                    showHint('✅ Your ' + b.buildLabel + ' PC is finished' + (atHome ? ' — grab it with E!' : ' — it is waiting on your island!'));
+                }
+            }
+            // Spin the RGB fans on any finished PC sitting on a bench
+            if (b.pcGroup && b.pcGroup.userData.fans) {
+                b.pcGroup.userData.fans.forEach((f, fi) => { f.rotation.x += dt * (4 + fi); });
+            }
+        });
+        if (carriedPCMesh && carriedPCMesh.userData.fans) {
+            carriedPCMesh.userData.fans.forEach((f, fi) => { f.rotation.x += dt * (4 + fi); });
+        }
+    }
+
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    const res = document.getElementById('res-select').value;
+    changeResolution(res);
+});
+
+animate();
+</script>
+</body>
+</html>

@@ -1,0 +1,17 @@
+{
+  "name": "Play Centre",
+  "short_name": "Play Centre",
+  "description": "Play Centre mini games: 3D Laundry Simulator, Coin Collector, PC Builder Tycoon and Virus PC Simulator",
+  "id": "/andy/",
+  "start_url": "/andy/",
+  "scope": "/andy/",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#0b0d1a",
+  "theme_color": "#0b0d1a",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

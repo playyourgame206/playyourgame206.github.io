@@ -1,1 +1,379 @@
-hello world
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Play Centre — Free Online Multiplayer Games in Your Browser</title>
+<meta name="description" content="Play Centre is an online game platform that is multiplayer and you don't need a powerful device, just a browser. The system requirements… just your browser!">
+<link rel="canonical" href="https://bethqzak.github.io/andy/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="Play Centre">
+<meta property="og:title" content="Play Centre — Free Online Multiplayer Games in Your Browser">
+<meta property="og:description" content="An online game platform that is multiplayer and you don't need a powerful device, just a browser. The system requirements… just your browser!">
+<meta property="og:url" content="https://bethqzak.github.io/andy/">
+<meta property="og:image" content="https://bethqzak.github.io/andy/icon-512.png">
+<meta name="twitter:card" content="summary">
+<meta name="twitter:title" content="Play Centre — Free Online Multiplayer Games in Your Browser">
+<meta name="twitter:description" content="Multiplayer games with no downloads and no powerful device needed — the system requirements are just your browser!">
+<meta name="twitter:image" content="https://bethqzak.github.io/andy/icon-512.png">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "WebApplication",
+  "name": "Play Centre",
+  "url": "https://bethqzak.github.io/andy/",
+  "description": "An online game platform that is multiplayer and you don't need a powerful device, just a browser. The system requirements… just your browser!",
+  "applicationCategory": "GameApplication",
+  "operatingSystem": "Any (web browser)",
+  "browserRequirements": "Requires a modern web browser. That's it!",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "image": "https://bethqzak.github.io/andy/icon-512.png"
+}
+</script>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0b0d1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+        --bg: #0b0d1a;
+        --card: #161a2e;
+        --neon-cyan: #00f2fe;
+        --neon-pink: #ff2e88;
+        --neon-yellow: #ffd60a;
+        --neon-green: #2eff7b;
+    }
+
+    body {
+        background: var(--bg);
+        background-image:
+            radial-gradient(circle at 15% 20%, rgba(0, 242, 254, 0.08) 0%, transparent 40%),
+            radial-gradient(circle at 85% 75%, rgba(255, 46, 136, 0.08) 0%, transparent 40%);
+        min-height: 100vh;
+        font-family: 'Segoe UI', 'Arial Black', Verdana, sans-serif;
+        color: white;
+        overflow-x: hidden;
+    }
+
+    /* Floating pixel decorations */
+    .pixel {
+        position: fixed;
+        width: 12px; height: 12px;
+        opacity: 0.35;
+        animation: floaty 7s ease-in-out infinite;
+        pointer-events: none;
+        z-index: 0;
+    }
+    @keyframes floaty {
+        0%, 100% { transform: translateY(0) rotate(0deg); }
+        50% { transform: translateY(-25px) rotate(180deg); }
+    }
+
+    header {
+        text-align: center;
+        padding: 48px 20px 20px;
+        position: relative;
+        z-index: 1;
+    }
+
+    h1 {
+        font-size: clamp(2.4rem, 7vw, 4.5rem);
+        font-weight: 900;
+        letter-spacing: 3px;
+        text-transform: uppercase;
+        background: linear-gradient(90deg, var(--neon-cyan), var(--neon-pink), var(--neon-yellow), var(--neon-cyan));
+        background-size: 300% 100%;
+        -webkit-background-clip: text;
+        background-clip: text;
+        color: transparent;
+        animation: shimmer 5s linear infinite;
+        filter: drop-shadow(0 0 18px rgba(0, 242, 254, 0.5));
+    }
+    @keyframes shimmer {
+        0% { background-position: 0% 50%; }
+        100% { background-position: 300% 50%; }
+    }
+
+    .tagline {
+        margin-top: 10px;
+        color: #9aa3c7;
+        font-size: 1.05rem;
+        letter-spacing: 1px;
+    }
+    .tagline .blink { animation: blink 1.2s steps(2) infinite; }
+    @keyframes blink { 50% { opacity: 0; } }
+
+    .marquee {
+        margin: 22px auto 0;
+        max-width: 640px;
+        border: 2px solid rgba(255, 214, 10, 0.5);
+        border-radius: 12px;
+        background: rgba(255, 214, 10, 0.08);
+        padding: 8px 14px;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+    .marquee span {
+        display: inline-block;
+        color: var(--neon-yellow);
+        font-weight: 700;
+        animation: scroll-left 14s linear infinite;
+    }
+    @keyframes scroll-left {
+        0% { transform: translateX(100%); }
+        100% { transform: translateX(-100%); }
+    }
+
+    .grid {
+        position: relative;
+        z-index: 1;
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 340px));
+        justify-content: center;
+        gap: 28px;
+        padding: 40px 24px 70px;
+        max-width: 1200px;
+        margin: 0 auto;
+    }
+
+    .cab {
+        background: var(--card);
+        border-radius: 20px;
+        border: 3px solid #262c4a;
+        overflow: hidden;
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+        position: relative;
+    }
+    a.cab { text-decoration: none; color: inherit; cursor: pointer; }
+    a.cab:hover {
+        transform: translateY(-8px) scale(1.02);
+        border-color: var(--neon-cyan);
+        box-shadow: 0 12px 40px rgba(0, 242, 254, 0.35);
+    }
+    a.cab:hover .play-btn {
+        background: linear-gradient(135deg, var(--neon-green), #00b894);
+        box-shadow: 0 0 20px rgba(46, 255, 123, 0.6);
+    }
+    a.cab:hover .screen-emoji { transform: scale(1.2) rotate(-6deg); }
+
+    .badge {
+        position: absolute;
+        top: 14px; right: 14px;
+        padding: 5px 12px;
+        border-radius: 999px;
+        font-size: 0.72rem;
+        font-weight: 900;
+        letter-spacing: 1px;
+        z-index: 2;
+    }
+    .badge.new { background: var(--neon-pink); color: white; box-shadow: 0 0 14px rgba(255, 46, 136, 0.7); animation: pulse 1.6s ease-in-out infinite; }
+    .badge.soon { background: #2a3050; color: #8a93bb; }
+    @keyframes pulse { 50% { transform: scale(1.12); } }
+
+    .screen {
+        height: 180px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 84px;
+        position: relative;
+        overflow: hidden;
+    }
+    .screen::after { /* scanlines */
+        content: '';
+        position: absolute;
+        inset: 0;
+        background: repeating-linear-gradient(0deg, rgba(0,0,0,0.18) 0px, rgba(0,0,0,0.18) 2px, transparent 2px, transparent 5px);
+        pointer-events: none;
+    }
+    .screen-emoji { transition: transform 0.25s ease; filter: drop-shadow(0 6px 12px rgba(0,0,0,0.5)); }
+
+    .screen.laundry { background: linear-gradient(160deg, #123a5c 0%, #0d2038 100%); }
+    .screen.coins { background: linear-gradient(160deg, #2c5a1e 0%, #14290f 100%); }
+    .screen.pcbuild { background: linear-gradient(160deg, #3a1f5c 0%, #170d33 100%); }
+    .screen.viruspc { background: linear-gradient(160deg, #0d3a6e 0%, #07162e 100%); }
+    .screen.mystery { background: linear-gradient(160deg, #1c1f33 0%, #101223 100%); }
+    .screen.mystery .screen-emoji { opacity: 0.45; filter: grayscale(1); }
+
+    .info {
+        padding: 18px 20px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+        flex: 1;
+    }
+    .info h2 {
+        font-size: 1.35rem;
+        font-weight: 900;
+        letter-spacing: 0.5px;
+    }
+    .info p {
+        color: #9aa3c7;
+        font-size: 0.9rem;
+        line-height: 1.45;
+        flex: 1;
+    }
+
+    .meta {
+        display: flex;
+        gap: 8px;
+        flex-wrap: wrap;
+    }
+    .chip {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 999px;
+        background: rgba(0, 242, 254, 0.12);
+        color: var(--neon-cyan);
+        border: 1px solid rgba(0, 242, 254, 0.3);
+    }
+
+    .play-btn {
+        margin-top: 6px;
+        text-align: center;
+        padding: 13px;
+        border-radius: 12px;
+        font-weight: 900;
+        font-size: 1.05rem;
+        letter-spacing: 2px;
+        background: linear-gradient(135deg, var(--neon-cyan), #4facfe);
+        color: #06121f;
+        transition: all 0.2s;
+    }
+
+    .cab.locked { opacity: 0.85; }
+    .cab.locked .play-btn {
+        background: #232946;
+        color: #616a94;
+        letter-spacing: 1px;
+        cursor: default;
+    }
+    .cab.locked:hover { transform: none; }
+
+    footer {
+        text-align: center;
+        padding: 0 20px 40px;
+        color: #4d557c;
+        font-size: 0.85rem;
+        position: relative;
+        z-index: 1;
+    }
+</style>
+</head>
+<body>
+
+<!-- floating pixels -->
+<div class="pixel" style="left:6%;  top:18%; background:var(--neon-cyan);   animation-delay:0s;"></div>
+<div class="pixel" style="left:92%; top:12%; background:var(--neon-pink);   animation-delay:1.5s;"></div>
+<div class="pixel" style="left:12%; top:75%; background:var(--neon-yellow); animation-delay:3s;"></div>
+<div class="pixel" style="left:85%; top:65%; background:var(--neon-green);  animation-delay:4.5s;"></div>
+<div class="pixel" style="left:50%; top:8%;  background:var(--neon-pink);   animation-delay:2s;"></div>
+
+<header>
+    <h1>🕹️ Play Centre 🕹️</h1>
+    <p class="tagline">INSERT COIN TO PLAY <span class="blink">▮</span></p>
+    <div class="marquee"><span>⭐ WELCOME TO THE PLAY CENTRE ⭐ NEW GAMES DROP HERE FIRST ⭐ CAN YOU COLLECT ALL THE COINS? ⭐ BUILD YOUR LAUNDRY EMPIRE ⭐ BUILD THE ULTIMATE GAMING PC ⭐ HOW MANY VIRUSES CAN YOUR PC SURVIVE? ⭐</span></div>
+</header>
+
+<main class="grid">
+
+    <a class="cab" href="laundry_simulator.html">
+        <span class="badge new">NEW!</span>
+        <div class="screen laundry"><span class="screen-emoji">🧺</span></div>
+        <div class="info">
+            <h2>3D Laundry Simulator</h2>
+            <p>Grab laundry off the conveyor, claim your plot, and build a washing machine empire. Can you unlock the Quantum Washer?</p>
+            <div class="meta">
+                <span class="chip">3D</span>
+                <span class="chip">TYCOON</span>
+                <span class="chip">4 AVATARS</span>
+            </div>
+            <div class="play-btn">▶ PLAY</div>
+        </div>
+    </a>
+
+    <a class="cab" href="coin_collector.html">
+        <span class="badge new">NEW!</span>
+        <div class="screen coins"><span class="screen-emoji">🪙</span></div>
+        <div class="info">
+            <h2>Coin Collector</h2>
+            <p>Explore a huge 3D world as a tabby cat and hunt down every gold coin. Chill lofi music, night mode, and fireflies after dark!</p>
+            <div class="meta">
+                <span class="chip">3D</span>
+                <span class="chip">ADVENTURE</span>
+                <span class="chip">TOUCH + PC</span>
+            </div>
+            <div class="play-btn">▶ PLAY</div>
+        </div>
+    </a>
+
+    <a class="cab" href="pc_builder.html">
+        <span class="badge new">NEW!</span>
+        <div class="screen pcbuild"><span class="screen-emoji">🖥️</span></div>
+        <div class="info">
+            <h2>PC Builder Tycoon</h2>
+            <p>Collect CPUs, GPUs, motherboards and power supplies from the shop and build computers — from a humble i3-4170 all the way up to an i9-14900KF with an RTX 5090!</p>
+            <div class="meta">
+                <span class="chip">3D</span>
+                <span class="chip">TYCOON</span>
+                <span class="chip">MULTIPLAYER</span>
+            </div>
+            <div class="play-btn">▶ PLAY</div>
+        </div>
+    </a>
+
+    <a class="cab" href="virus_pc.html">
+        <span class="badge new">NEW!</span>
+        <div class="screen viruspc"><span class="screen-emoji">🖱️</span></div>
+        <div class="info">
+            <h2>Virus PC Simulator</h2>
+            <p>A whole Windows 11 desktop in your browser. Download drivers from the Start menu to make it faster, then download things you definitely should not — and see how much junk it survives before the blue screen.</p>
+            <div class="meta">
+                <span class="chip">WINDOWS 11</span>
+                <span class="chip">CHAOS</span>
+                <span class="chip">HIGH SCORE</span>
+            </div>
+            <div class="play-btn">▶ PLAY</div>
+        </div>
+    </a>
+
+    <div class="cab locked">
+        <span class="badge soon">COMING SOON</span>
+        <div class="screen mystery"><span class="screen-emoji">❓</span></div>
+        <div class="info">
+            <h2>Mystery Game #5</h2>
+            <p>Reserved for a future banger. Watch this space!</p>
+            <div class="meta">
+                <span class="chip">???</span>
+            </div>
+            <div class="play-btn">🔒 LOCKED</div>
+        </div>
+    </div>
+
+    <div class="cab locked">
+        <span class="badge soon">COMING SOON</span>
+        <div class="screen mystery"><span class="screen-emoji">❓</span></div>
+        <div class="info">
+            <h2>Mystery Game #6</h2>
+            <p>Top secret project. Not even the devs know what this one is yet.</p>
+            <div class="meta">
+                <span class="chip">???</span>
+            </div>
+            <div class="play-btn">🔒 LOCKED</div>
+        </div>
+    </div>
+
+</main>
+
+<footer>Made for Andy 🎮 — more games coming soon!</footer>
+
+</body>
+</html>

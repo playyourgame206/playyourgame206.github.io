@@ -1,0 +1,2379 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>3D Coin Collector — Play Centre</title>
+  <meta name="description" content="Explore a 3D world as a cat or dog and collect every gold coin — four difficulty levels, day/night modes and lofi music, playable in your browser on PC or tablet. No downloads needed.">
+  <link rel="canonical" href="https://bethqzak.github.io/andy/coin_collector.html">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon-192.png">
+  <link rel="apple-touch-icon" href="icon-192.png">
+  <meta name="theme-color" content="#050b14">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      /* 100dvh tracks the real visible height on mobile Chrome, where 100vh
+         includes the space hidden behind the collapsible URL bar */
+      height: 100dvh;
+      overflow: hidden;
+      background-color: #050b14;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      touch-action: none;
+    }
+    #canvas-container {
+      width: 100%;
+      height: 100%;
+    }
+    #ui {
+      position: absolute;
+      top: calc(28px + env(safe-area-inset-top, 0px));
+      left: calc(28px + env(safe-area-inset-left, 0px));
+      color: #ffffff;
+      font-size: 20px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      text-shadow: 0 2px 8px rgba(0, 0, 0, 0.8);
+      user-select: none;
+      pointer-events: none;
+      z-index: 10;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      padding: 10px 20px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+    #instructions {
+      position: absolute;
+      top: calc(28px + env(safe-area-inset-top, 0px));
+      right: calc(88px + env(safe-area-inset-right, 0px));
+      color: #cbd5e1;
+      font-size: 13px;
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(8px);
+      padding: 10px 16px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      user-select: none;
+      pointer-events: none;
+      z-index: 10;
+      text-align: right;
+      line-height: 1.4;
+    }
+    #settings-btn {
+      position: absolute;
+      top: calc(28px + env(safe-area-inset-top, 0px));
+      right: calc(28px + env(safe-area-inset-right, 0px));
+      width: 44px;
+      height: 44px;
+      background: rgba(15, 23, 42, 0.75);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 20px;
+      cursor: pointer;
+      z-index: 15;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s, transform 0.1s;
+    }
+    #settings-btn:hover {
+      background: rgba(30, 41, 59, 0.9);
+      transform: scale(1.05);
+    }
+    #settings-menu {
+      display: none;
+      position: absolute;
+      top: calc(86px + env(safe-area-inset-top, 0px));
+      right: calc(28px + env(safe-area-inset-right, 0px));
+      width: 220px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 14px;
+      padding: 16px;
+      color: #fff;
+      z-index: 15;
+      box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+    }
+    #settings-menu h3 {
+      margin: 0 0 14px 0;
+      font-size: 16px;
+      font-weight: 600;
+      border-bottom: 1px solid rgba(255,255,255,0.1);
+      padding-bottom: 8px;
+    }
+    .setting-item {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+      font-size: 14px;
+    }
+    .setting-item:last-child {
+      margin-bottom: 0;
+    }
+    /* Toggle Switch Style */
+    .switch {
+      position: relative;
+      display: inline-block;
+      width: 44px;
+      height: 24px;
+    }
+    .switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    .slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0; left: 0; right: 0; bottom: 0;
+      background-color: #334155;
+      transition: .3s;
+      border-radius: 24px;
+    }
+    .slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      transition: .3s;
+      border-radius: 50%;
+    }
+    input:checked + .slider {
+      background-color: #2563eb;
+    }
+    input:checked + .slider:before {
+      transform: translateX(20px);
+    }
+
+    /* Touch anywhere: left half of the screen walks, right half looks around.
+       Only active on touch devices so mouse control is unaffected. */
+    .touch-half {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 50%;
+      z-index: 5;
+      touch-action: none;
+      display: none;
+    }
+    #left-zone { left: 0; }
+    #right-zone { right: 0; }
+    @media (hover: none) and (pointer: coarse) {
+      .touch-half { display: block; }
+    }
+    /* Floating stick appears wherever the left-half touch lands */
+    #stick-ring {
+      position: absolute;
+      display: none;
+      width: 130px;
+      height: 130px;
+      margin: -65px 0 0 -65px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1.5px solid rgba(255, 255, 255, 0.35);
+      z-index: 6;
+      pointer-events: none;
+    }
+    #stick-knob {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 54px;
+      height: 54px;
+      margin: -27px 0 0 -27px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.4);
+      border: 2px solid rgba(255, 255, 255, 0.85);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    /* Notification toast: slides down + springs into place */
+    #toast {
+      position: absolute;
+      top: calc(82px + env(safe-area-inset-top, 0px));
+      left: 50%;
+      transform: translate(-50%, -320%) scale(0.9);
+      z-index: 45;
+      background: rgba(15, 23, 42, 0.95);
+      border: 1px solid rgba(251, 191, 36, 0.5);
+      color: #e2e8f0;
+      padding: 12px 22px;
+      border-radius: 12px;
+      font-size: 14px;
+      font-weight: 600;
+      backdrop-filter: blur(8px);
+      text-align: center;
+      max-width: 86vw;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.45);
+      transition: transform 0.5s cubic-bezier(0.2, 0.9, 0.25, 1.2);
+      pointer-events: none;
+    }
+    #toast.show { transform: translate(-50%, 0) scale(1); }
+
+    .menu-select {
+      background: #1e293b;
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 8px;
+      padding: 5px 8px;
+      font-size: 13px;
+      outline: none;
+      cursor: pointer;
+      max-width: 130px;
+    }
+
+    #jump-btn {
+      position: absolute;
+      bottom: calc(180px + env(safe-area-inset-bottom, 0px));
+      right: calc(40px + env(safe-area-inset-right, 0px));
+      width: 70px;
+      height: 70px;
+      background: rgba(37, 99, 235, 0.7);
+      backdrop-filter: blur(8px);
+      border: 2px solid rgba(255, 255, 255, 0.4);
+      border-radius: 50%;
+      color: #fff;
+      font-size: 14px;
+      font-weight: bold;
+      cursor: pointer;
+      z-index: 15;
+      touch-action: manipulation;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+      transition: background 0.15s, transform 0.1s;
+    }
+    #jump-btn:active {
+      background: rgba(37, 99, 235, 0.95);
+      transform: scale(0.92);
+    }
+
+  </style>
+</head>
+<body>
+
+  <div id="canvas-container"></div>
+  <div id="ui">Coins Collected: <span id="score" style="color: #f59e0b;">0</span> / <span id="total">0</span></div>
+  <div id="instructions">
+    <strong style="color: #fff;">PC:</strong> WASD / Arrows to Move | Space to Jump<br>
+    Click & Drag Mouse to Rotate View<br>
+    <strong style="color: #fff;">Tablet:</strong> LEFT side walks, RIGHT side looks | Double-tap right to jump
+  </div>
+
+  <button id="settings-btn" title="Settings">⚙️</button>
+  <div id="settings-menu">
+    <h3>Settings</h3>
+    <div class="setting-item">
+      <span>Background Music</span>
+      <label class="switch">
+        <input type="checkbox" id="music-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <span>Night Mode</span>
+      <label class="switch">
+        <input type="checkbox" id="sky-toggle">
+        <span class="slider"></span>
+      </label>
+    </div>
+    <div class="setting-item">
+      <span>Difficulty</span>
+      <select id="difficulty-select" class="menu-select">
+        <option value="easy" selected>Easy (18)</option>
+        <option value="medium">Medium (25)</option>
+        <option value="hard">Hard (40)</option>
+        <option value="impossible">Impossible (50) 🌙</option>
+      </select>
+    </div>
+    <div class="setting-item">
+      <span>Avatar</span>
+      <select id="avatar-select" class="menu-select">
+        <option value="cat" selected>Tabby Cat</option>
+        <option value="dog">Retriever</option>
+      </select>
+    </div>
+    <div class="setting-item">
+      <span>Touch Sensitivity<br><small id="sens-value" style="color:#94a3b8;">100%</small></span>
+      <input id="sens-slider" type="range" min="50" max="200" value="100" style="width:110px;" oninput="setTouchSens(this.value)">
+    </div>
+    <div class="setting-item" id="teamwork-row" style="display:none;">
+      <span>Teamwork</span>
+      <button id="leave-team-btn" class="menu-select" style="cursor:pointer;">Leave team</button>
+    </div>
+    <div class="setting-item">
+      <span>Play Centre</span>
+      <button class="menu-select" style="cursor:pointer;" onclick="location.href='./'">🏠 Home</button>
+    </div>
+    <div id="progress-section" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:10px; margin-top:8px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:8px;">💾 Progress</div>
+      <div class="setting-item">
+        <span>Save progress</span>
+        <label class="switch">
+          <input type="checkbox" id="autosave-toggle" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+      <div class="setting-item">
+        <span>Save / transfer</span>
+        <span style="display:flex; gap:6px;">
+          <button id="save-now-btn" class="menu-select" style="cursor:pointer;">💾 Save</button>
+          <button id="copy-code-btn" class="menu-select" style="cursor:pointer;">📋 Copy</button>
+          <button id="enter-code-btn" class="menu-select" style="cursor:pointer;">⌨️ Code</button>
+        </span>
+      </div>
+      <div class="setting-item">
+        <span>Reset progress</span>
+        <button id="reset-save-btn" class="menu-select" style="cursor:pointer; color:#f87171;">🗑️ Reset</button>
+      </div>
+      <div style="font-size:11px; color:#64748b; line-height:1.6;">Lifetime: <span id="life-stats">0 coins · 0 rounds finished</span><br>Device: <span id="device-id-label"></span></div>
+    </div>
+    <div id="players-section" style="border-top:1px solid rgba(255,255,255,0.1); padding-top:10px; margin-top:8px;">
+      <div style="font-size:13px; font-weight:600; margin-bottom:8px;">Players online</div>
+      <div id="players-list" style="font-size:13px; color:#cbd5e1;">No one else here yet</div>
+    </div>
+  </div>
+
+  <!-- Multiplayer start overlay -->
+  <div id="start-overlay" style="position:absolute; inset:0; z-index:50; display:flex; flex-direction:column; align-items:center; justify-content:center; background:radial-gradient(circle at center, #16213e 0%, #050b14 100%); gap:16px;">
+    <h1 style="color:#fbbf24; font-size:clamp(26px,6vw,44px); font-weight:900; text-shadow:0 0 24px rgba(251,191,36,0.4); margin:0;">🪙 Coin Collector</h1>
+    <input id="player-name" maxlength="14" placeholder="Type your name (multiplayer!)" autocomplete="off" style="padding:12px 18px; font-size:17px; border-radius:12px; border:2px solid rgba(251,191,36,0.5); background:rgba(255,255,255,0.07); color:#fff; text-align:center; outline:none; width:280px; max-width:80vw;">
+    <button id="start-btn" style="padding:14px 52px; font-size:19px; font-weight:800; border:none; border-radius:28px; background:linear-gradient(135deg,#fbbf24,#d97706); color:#1a1a2e; cursor:pointer; letter-spacing:1px;">PLAY</button>
+  </div>
+
+  <!-- Teamwork status bar -->
+  <div id="team-bar" style="position:absolute; top:calc(82px + env(safe-area-inset-top, 0px)); left:calc(28px + env(safe-area-inset-left, 0px)); display:none; z-index:10; background:rgba(15,23,42,0.78); border:1px solid rgba(251,191,36,0.4); color:#fbbf24; padding:8px 16px; border-radius:10px; font-size:13px; font-weight:600; backdrop-filter:blur(8px);"></div>
+
+  <!-- Teamwork invite -->
+  <div id="invite-banner" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); display:none; z-index:45; background:rgba(15,23,42,0.95); border:1px solid rgba(251,191,36,0.5); border-radius:14px; padding:20px 26px; text-align:center; color:#fff; backdrop-filter:blur(10px); max-width:88vw;">
+    <div id="invite-text" style="margin-bottom:14px; font-size:16px; font-weight:600;"></div>
+    <button id="invite-accept" style="padding:9px 22px; margin:0 6px; border:none; border-radius:8px; background:#22c55e; color:#fff; font-weight:700; cursor:pointer;">🤝 Team up!</button>
+    <button id="invite-decline" style="padding:9px 22px; margin:0 6px; border:none; border-radius:8px; background:#475569; color:#fff; font-weight:700; cursor:pointer;">No thanks</button>
+  </div>
+
+  <!-- Notification toast (slides down like a message) -->
+  <div id="toast"></div>
+
+  <div id="left-zone" class="touch-half"></div>
+  <div id="right-zone" class="touch-half"></div>
+  <div id="stick-ring"><div id="stick-knob"></div></div>
+
+  <button id="jump-btn">JUMP</button>
+
+  <!-- AFK Pause Overlay -->
+  <div id="pause-overlay" style="position:absolute; inset:0; display:none; align-items:center; justify-content:center; background:rgba(5,8,16,0.82); z-index:40; text-align:center; backdrop-filter:blur(6px);">
+    <div style="color:#fff; font-size:24px; font-weight:700; line-height:1.7;">⏸️ Game paused<br><span style="font-size:16px; color:#94a3b8; font-weight:400;">You were away for a while — tap or press any key to continue</span></div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="save-tools.js"></script>
+  <script src="webgl-check.js"></script>
+
+  <script>
+    // --- Bassy Electro Calming Lofi Audio Generator ---
+    let audioCtx = null;
+    let isMusicPlaying = false;
+    let musicInterval = null;
+    let lofiStep = 0;
+
+    // --- AFK AUTO-PAUSE (3 minutes without any input) ---
+    let lastActivity = Date.now();
+    let gamePaused = false;
+    function markActivity() {
+      lastActivity = Date.now();
+      if (gamePaused) {
+        gamePaused = false;
+        document.getElementById('pause-overlay').style.display = 'none';
+        if (audioCtx && isMusicPlaying) audioCtx.resume();
+      }
+    }
+    ['keydown', 'mousedown', 'mousemove', 'touchstart'].forEach(ev =>
+      window.addEventListener(ev, markActivity, { passive: true }));
+
+    function initAudio() {
+      if (!audioCtx) {
+        audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+      }
+    }
+
+    // Three chord progressions cycled in long sections, so the piece runs
+    // 48 bars before truly repeating - plus a wandering melody and varied
+    // drums that never land quite the same way twice
+    const PROGRESSIONS = [
+      [ // Fmaj7 - Em7 - Dm7 - Cmaj7
+        { bass: 87.31, chord: [174.61, 220.00, 261.63, 329.63] },
+        { bass: 82.41, chord: [164.81, 196.00, 246.94, 293.66] },
+        { bass: 73.42, chord: [146.83, 174.61, 220.00, 261.63] },
+        { bass: 65.41, chord: [130.81, 164.81, 196.00, 246.94] }
+      ],
+      [ // Am7 - G - Fmaj7 - Em7
+        { bass: 55.00, chord: [220.00, 261.63, 329.63, 392.00] },
+        { bass: 49.00, chord: [196.00, 246.94, 293.66, 392.00] },
+        { bass: 43.65, chord: [174.61, 220.00, 261.63, 329.63] },
+        { bass: 41.20, chord: [164.81, 196.00, 246.94, 329.63] }
+      ],
+      [ // Dm7 - G7 - Cmaj7 - Am7
+        { bass: 73.42, chord: [146.83, 220.00, 261.63, 349.23] },
+        { bass: 49.00, chord: [196.00, 246.94, 293.66, 349.23] },
+        { bass: 65.41, chord: [130.81, 196.00, 246.94, 329.63] },
+        { bass: 55.00, chord: [164.81, 220.00, 261.63, 329.63] }
+      ]
+    ];
+
+    // --- Impossible-mode score: a skipping heartbeat, tritone drones with a
+    // deep sub, doubled dissonant wails whose vibrato accelerates, breathing
+    // wind, faint ear-ringing and a broken music box. Properly creepy. ---
+    let impStep = 0;
+    let impNoiseBuf = null;
+    const IMP_SCALE = [220, 233.08, 277.18, 293.66, 329.63, 349.23, 392]; // A phrygian dominant
+
+    function impNoise() {
+      if (!impNoiseBuf) {
+        const len = audioCtx.sampleRate * 2;
+        impNoiseBuf = audioCtx.createBuffer(1, len, audioCtx.sampleRate);
+        const data = impNoiseBuf.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = Math.random() * 2 - 1;
+      }
+      return impNoiseBuf;
+    }
+
+    function playImpossibleStep() {
+      const now = audioCtx.currentTime;
+
+      // Heartbeat: lub-DUB... which sometimes ominously skips a beat
+      if (impStep % 8 === 0 && Math.random() > 0.12) {
+        [[0, 0.34], [0.22, 0.22]].forEach(hit => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(62, now + hit[0]);
+          o.frequency.exponentialRampToValueAtTime(34, now + hit[0] + 0.22);
+          g.gain.setValueAtTime(hit[1], now + hit[0]);
+          g.gain.exponentialRampToValueAtTime(0.001, now + hit[0] + 0.26);
+          o.connect(g); g.connect(audioCtx.destination);
+          o.start(now + hit[0]); o.stop(now + hit[0] + 0.3);
+        });
+      }
+
+      // Tritone drone cluster over a deep sub - the devil's interval, beating
+      // (the root creeps up a semitone every other pass so it never settles)
+      if (impStep % 16 === 0) {
+        const droneShift = (Math.floor(impStep / 16) % 2 === 0) ? 1 : 1.0595;
+        [[55, 0.05], [110, 0.04], [110.6, 0.04], [155.56, 0.035]].forEach(d => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          const f = audioCtx.createBiquadFilter();
+          o.type = 'sawtooth';
+          o.frequency.setValueAtTime(d[0] * droneShift, now);
+          f.type = 'lowpass';
+          f.frequency.setValueAtTime(220, now);
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.linearRampToValueAtTime(d[1], now + 1.5);
+          g.gain.linearRampToValueAtTime(0.0001, now + 6);
+          o.connect(f); f.connect(g); g.connect(audioCtx.destination);
+          o.start(now); o.stop(now + 6.1);
+        });
+      }
+
+      // The wail: TWO voices a dissonant semitone apart, gliding together,
+      // vibrato speeding up as they die away in a falling sigh
+      if (impStep % 8 === 2 || (impStep % 8 === 6 && Math.random() < 0.25)) {
+        const from = IMP_SCALE[Math.floor(Math.random() * IMP_SCALE.length)];
+        const to = IMP_SCALE[Math.floor(Math.random() * IMP_SCALE.length)] * (Math.random() < 0.3 ? 2 : 1);
+        const sigh = Math.random() < 0.5;
+        [1, 1.06].forEach((det, vi) => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          const lfo = audioCtx.createOscillator();
+          const lfoGain = audioCtx.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(from * det, now);
+          o.frequency.linearRampToValueAtTime(to * det, now + 1.3);
+          if (sigh) o.frequency.exponentialRampToValueAtTime(to * det * 0.55, now + 2.1);
+          lfo.type = 'sine';
+          lfo.frequency.setValueAtTime(2.5, now);
+          lfo.frequency.linearRampToValueAtTime(8.5, now + 2);
+          lfoGain.gain.setValueAtTime(9, now);
+          lfo.connect(lfoGain); lfoGain.connect(o.frequency);
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.linearRampToValueAtTime(vi === 0 ? 0.075 : 0.045, now + 0.3);
+          g.gain.setValueAtTime(vi === 0 ? 0.075 : 0.045, now + 1.2);
+          g.gain.exponentialRampToValueAtTime(0.001, now + 2.2);
+          o.connect(g); g.connect(audioCtx.destination);
+          o.start(now); o.stop(now + 2.3);
+          lfo.start(now); lfo.stop(now + 2.3);
+        });
+      }
+
+      // Something breathing: a slow swell of band-filtered wind noise
+      if (impStep % 16 === 6) {
+        const src = audioCtx.createBufferSource();
+        const f = audioCtx.createBiquadFilter();
+        const g = audioCtx.createGain();
+        src.buffer = impNoise();
+        src.loop = true;
+        f.type = 'bandpass';
+        f.frequency.setValueAtTime(300 + Math.random() * 600, now);
+        f.Q.value = 2.5;
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.linearRampToValueAtTime(0.045, now + 1.3);
+        g.gain.linearRampToValueAtTime(0.0001, now + 2.8);
+        src.connect(f); f.connect(g); g.connect(audioCtx.destination);
+        src.start(now); src.stop(now + 2.9);
+      }
+
+      // Faint ear-ringing: two barely-detuned high sines beating slowly
+      if (impStep % 24 === 12) {
+        [1568, 1569.6].forEach(fq => {
+          const o = audioCtx.createOscillator();
+          const g = audioCtx.createGain();
+          o.type = 'sine';
+          o.frequency.setValueAtTime(fq, now);
+          g.gain.setValueAtTime(0.0001, now);
+          g.gain.linearRampToValueAtTime(0.012, now + 1);
+          g.gain.linearRampToValueAtTime(0.0001, now + 4);
+          o.connect(g); g.connect(audioCtx.destination);
+          o.start(now); o.stop(now + 4.1);
+        });
+      }
+
+      // A broken music box, slightly out of tune
+      if (Math.random() < 0.05) {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(IMP_SCALE[Math.floor(Math.random() * IMP_SCALE.length)] * 4 * 1.025, now);
+        g.gain.setValueAtTime(0.05, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.7);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(now); o.stop(now + 0.75);
+      }
+
+      // Startled bird-flutter accents in the dark
+      if (Math.random() < 0.08) {
+        const o = audioCtx.createOscillator();
+        const g = audioCtx.createGain();
+        o.type = 'triangle';
+        const base = 700 + Math.random() * 500;
+        o.frequency.setValueAtTime(base, now);
+        o.frequency.linearRampToValueAtTime(base * 1.5, now + 0.08);
+        o.frequency.linearRampToValueAtTime(base, now + 0.16);
+        g.gain.setValueAtTime(0.05, now);
+        g.gain.exponentialRampToValueAtTime(0.001, now + 0.25);
+        o.connect(g); g.connect(audioCtx.destination);
+        o.start(now); o.stop(now + 0.25);
+      }
+
+      impStep++;
+    }
+
+    function playLofiStep() {
+      if (!audioCtx || !isMusicPlaying || gamePaused) return;
+      if (audioCtx.state === 'suspended') {
+        audioCtx.resume();
+      }
+
+      // Impossible mode swaps the whole soundtrack for the eerie score
+      if (typeof difficulty !== 'undefined' && difficulty === 'impossible') {
+        playImpossibleStep();
+        return;
+      }
+
+      const now = audioCtx.currentTime;
+      const stepInMeasure = lofiStep % 4;
+      const measure = Math.floor(lofiStep / 4);
+      const currentProg = PROGRESSIONS[Math.floor(measure / 4) % PROGRESSIONS.length][measure % 4];
+      const inMelodySection = (Math.floor(measure / 8) % 2) === 1; // every other 8 bars
+      const restMeasure = measure % 16 === 15;                     // breathing space
+
+      // 1. Deep Electro Sub-Bass (pattern varies measure to measure)
+      if (!restMeasure && (stepInMeasure === 0 || (stepInMeasure === 2 && measure % 3 !== 2))) {
+        const bassOsc = audioCtx.createOscillator();
+        const bassGain = audioCtx.createGain();
+        const bassFilter = audioCtx.createBiquadFilter();
+        bassOsc.type = 'triangle';
+        bassOsc.frequency.setValueAtTime(currentProg.bass, now);
+        bassFilter.type = 'lowpass';
+        bassFilter.frequency.setValueAtTime(220, now);
+        bassGain.gain.setValueAtTime(0.25, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.001, now + 1.1);
+        bassOsc.connect(bassFilter);
+        bassFilter.connect(bassGain);
+        bassGain.connect(audioCtx.destination);
+        bassOsc.start(now);
+        bassOsc.stop(now + 1.1);
+      }
+
+      // 2. Warm Electric Piano Chords (sparser during melody sections)
+      if (!restMeasure && (stepInMeasure === 0 || (stepInMeasure === 2 && !inMelodySection))) {
+        currentProg.chord.forEach((freq, idx) => {
+          const chordOsc = audioCtx.createOscillator();
+          const chordGain = audioCtx.createGain();
+          const chordFilter = audioCtx.createBiquadFilter();
+          chordOsc.type = 'sine';
+          chordOsc.frequency.setValueAtTime(freq, now + idx * 0.03); // warm strum
+          chordFilter.type = 'lowpass';
+          chordFilter.frequency.setValueAtTime(750, now);
+          chordGain.gain.setValueAtTime(0.04, now + idx * 0.03);
+          chordGain.gain.exponentialRampToValueAtTime(0.001, now + 0.95);
+          chordOsc.connect(chordFilter);
+          chordFilter.connect(chordGain);
+          chordGain.connect(audioCtx.destination);
+          chordOsc.start(now + idx * 0.03);
+          chordOsc.stop(now + 0.95);
+        });
+      }
+
+      // 3. Wandering melody: sparse chord-tone sparkles, never twice the same
+      if (inMelodySection && (stepInMeasure === 1 || stepInMeasure === 3) && Math.random() < 0.45) {
+        const note = currentProg.chord[Math.floor(Math.random() * currentProg.chord.length)] * 2;
+        const mOsc = audioCtx.createOscillator();
+        const mGain = audioCtx.createGain();
+        const mFilter = audioCtx.createBiquadFilter();
+        mOsc.type = 'sine';
+        mOsc.frequency.setValueAtTime(note, now);
+        mFilter.type = 'lowpass';
+        mFilter.frequency.setValueAtTime(1400, now);
+        mGain.gain.setValueAtTime(0.035, now);
+        mGain.gain.exponentialRampToValueAtTime(0.001, now + 0.8);
+        mOsc.connect(mFilter);
+        mFilter.connect(mGain);
+        mGain.connect(audioCtx.destination);
+        mOsc.start(now);
+        mOsc.stop(now + 0.8);
+      }
+
+      // 4. Kick with per-measure variation, plus soft hat ticks in melody bars
+      const kickNow = !restMeasure && (
+        stepInMeasure === 0 ||
+        (stepInMeasure === 2 && measure % 2 === 0) ||
+        (stepInMeasure === 3 && measure % 8 === 5)
+      );
+      if (kickNow) {
+        const drumOsc = audioCtx.createOscillator();
+        const drumGain = audioCtx.createGain();
+        drumOsc.type = 'sine';
+        drumOsc.frequency.setValueAtTime(110, now);
+        drumOsc.frequency.exponentialRampToValueAtTime(30, now + 0.18);
+        drumGain.gain.setValueAtTime(0.2, now);
+        drumGain.gain.exponentialRampToValueAtTime(0.001, now + 0.18);
+        drumOsc.connect(drumGain);
+        drumGain.connect(audioCtx.destination);
+        drumOsc.start(now);
+        drumOsc.stop(now + 0.18);
+      }
+      if (inMelodySection && (stepInMeasure === 1 || stepInMeasure === 3)) {
+        const hatOsc = audioCtx.createOscillator();
+        const hatGain = audioCtx.createGain();
+        hatOsc.type = 'triangle';
+        hatOsc.frequency.setValueAtTime(3600, now);
+        hatGain.gain.setValueAtTime(0.012, now);
+        hatGain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
+        hatOsc.connect(hatGain);
+        hatGain.connect(audioCtx.destination);
+        hatOsc.start(now);
+        hatOsc.stop(now + 0.05);
+      }
+
+      lofiStep++;
+    }
+
+    function toggleMusic(enable) {
+      initAudio();
+      isMusicPlaying = enable;
+      if (enable) {
+        if (!musicInterval) {
+          lofiStep = 0;
+          // Relaxed lofi tempo normally; driving pace on Impossible
+          const tempo = (typeof difficulty !== 'undefined' && difficulty === 'impossible') ? 320 : 500;
+          musicInterval = setInterval(playLofiStep, tempo);
+        }
+      } else {
+        if (musicInterval) {
+          clearInterval(musicInterval);
+          musicInterval = null;
+        }
+      }
+    }
+
+    // --- Scene Setup ---
+    const container = document.getElementById('canvas-container');
+    const scene = new THREE.Scene();
+
+    // Day & Night Color Configurations
+    const daySky = new THREE.Color(0xdcebf7);
+    const nightSky = new THREE.Color(0x131e32);
+
+    scene.background = daySky.clone();
+    scene.fog = new THREE.FogExp2(daySky.getHex(), 0.008);
+
+    const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 1000);
+    // No WebGL means three.js throws on the next line and nothing below
+    // runs, so say so on the start screen rather than leave a dead button.
+    if (!AndyWebGL.require('start-overlay')) throw new Error('WebGL is not available');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: "high-performance" });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    container.appendChild(renderer.domElement);
+
+    // --- Procedural Canvas Textures ---
+    function generateGrassTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#2d5a27';
+      ctx.fillRect(0, 0, 512, 512);
+
+      for (let i = 0; i < 40000; i++) {
+        const x = Math.random() * 512;
+        const y = Math.random() * 512;
+        const shade = Math.random();
+        ctx.fillStyle = shade > 0.5 ? '#3a7233' : (shade > 0.2 ? '#23471e' : '#4a8b41');
+        ctx.fillRect(x, y, 2, 4);
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(30, 30);
+      return texture;
+    }
+
+    function generateBarkTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#3d2817';
+      ctx.fillRect(0, 0, 256, 256);
+
+      for (let i = 0; i < 2000; i++) {
+        const x = Math.random() * 256;
+        const y = Math.random() * 256;
+        ctx.fillStyle = Math.random() > 0.5 ? '#26180d' : '#543922';
+        ctx.fillRect(x, y, 3, Math.random() * 20 + 5);
+      }
+      const texture = new THREE.CanvasTexture(canvas);
+      texture.wrapS = THREE.RepeatWrapping;
+      texture.wrapT = THREE.RepeatWrapping;
+      texture.repeat.set(1, 4);
+      return texture;
+    }
+
+    const grassMap = generateGrassTexture();
+    const barkMap = generateBarkTexture();
+
+    // --- Lighting ---
+    const ambientLight = new THREE.AmbientLight(0xb0d0ff, 0.6);
+    scene.add(ambientLight);
+
+    const sunLight = new THREE.DirectionalLight(0xfffaed, 1.4);
+    sunLight.position.set(60, 90, 40);
+    sunLight.castShadow = true;
+    sunLight.shadow.mapSize.width = 2048;
+    sunLight.shadow.mapSize.height = 2048;
+    sunLight.shadow.camera.near = 0.5;
+    sunLight.shadow.camera.far = 250;
+    const d = 80;
+    sunLight.shadow.camera.left = -d;
+    sunLight.shadow.camera.right = d;
+    sunLight.shadow.camera.top = d;
+    sunLight.shadow.camera.bottom = -d;
+    sunLight.shadow.bias = -0.0005;
+    scene.add(sunLight);
+
+    const fillLight = new THREE.DirectionalLight(0x7090b0, 0.4);
+    fillLight.position.set(-50, 40, -50);
+    scene.add(fillLight);
+
+    // --- Sun, Moon, Stars & Clouds ---
+    // fog:false keeps distant sky objects from being washed out by scene fog
+    const sunSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(7, 20, 20),
+      new THREE.MeshBasicMaterial({ color: 0xfff3b0, fog: false })
+    );
+    sunSphere.position.set(140, 170, 90);
+    scene.add(sunSphere);
+
+    const moonSphere = new THREE.Mesh(
+      new THREE.SphereGeometry(5.5, 20, 20),
+      new THREE.MeshBasicMaterial({ color: 0xe8f0ff, fog: false })
+    );
+    moonSphere.position.set(-120, 160, -70);
+    moonSphere.visible = false;
+    scene.add(moonSphere);
+    // Craters on the moon face
+    const craterMat = new THREE.MeshBasicMaterial({ color: 0xb8c4d8, fog: false });
+    [[1.6, 1.2, 4.8, 1.1], [-1.8, -0.6, 4.9, 0.8], [0.4, -2.0, 4.7, 1.3]].forEach(cr => {
+      const crater = new THREE.Mesh(new THREE.SphereGeometry(cr[3], 10, 10), craterMat);
+      crater.position.set(cr[0], cr[1], cr[2]);
+      moonSphere.add(crater);
+    });
+
+    const starGeo = new THREE.BufferGeometry();
+    const starPositions = [];
+    for (let i = 0; i < 500; i++) {
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI * 0.45;
+      const r = 380;
+      starPositions.push(
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.cos(phi),
+        r * Math.sin(phi) * Math.sin(theta)
+      );
+    }
+    starGeo.setAttribute('position', new THREE.Float32BufferAttribute(starPositions, 3));
+    const stars = new THREE.Points(starGeo, new THREE.PointsMaterial({
+      color: 0xffffff, size: 1.7, sizeAttenuation: false, transparent: true, opacity: 0.9, fog: false
+    }));
+    stars.visible = false;
+    scene.add(stars);
+
+    const cloudMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 1, transparent: true, opacity: 0.9, fog: false });
+    const clouds = [];
+    for (let i = 0; i < 7; i++) {
+      const cg = new THREE.Group();
+      const puffCount = 3 + Math.floor(Math.random() * 3);
+      for (let p = 0; p < puffCount; p++) {
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(4 + Math.random() * 3, 10, 10), cloudMat);
+        puff.position.set(p * 4.5 - puffCount * 2, (Math.random() - 0.5) * 1.5, (Math.random() - 0.5) * 3);
+        puff.scale.y = 0.55;
+        cg.add(puff);
+      }
+      cg.position.set((Math.random() - 0.5) * 320, 50 + Math.random() * 22, (Math.random() - 0.5) * 320);
+      scene.add(cg);
+      clouds.push(cg);
+    }
+
+    // --- Dynamic Day / Night Mode Transition ---
+    let targetSkyColor = daySky.clone();
+    let isNight = false;
+
+    function toggleSky(night) {
+      isNight = night;
+      if (night) {
+        targetSkyColor = nightSky.clone();
+        ambientLight.color.setHex(0x38bdf8); // Bright cool blue ambient glow
+        ambientLight.intensity = 0.65;
+        sunLight.intensity = 0.6;
+        sunLight.color.setHex(0xa5f3fc); // Cool white moonlight
+        fillLight.intensity = 0.35;
+        sunSphere.visible = false;
+        moonSphere.visible = true;
+        stars.visible = true;
+        cloudMat.color.setHex(0x6b7f9e);
+        cloudMat.opacity = 0.55;
+      } else {
+        targetSkyColor = daySky.clone();
+        ambientLight.color.setHex(0xb0d0ff);
+        ambientLight.intensity = 0.6;
+        sunLight.intensity = 1.4;
+        sunLight.color.setHex(0xfffaed);
+        fillLight.intensity = 0.4;
+        sunSphere.visible = true;
+        moonSphere.visible = false;
+        stars.visible = false;
+        cloudMat.color.setHex(0xffffff);
+        cloudMat.opacity = 0.9;
+      }
+    }
+
+    // --- Realistic Terrain ---
+    const worldSize = 160;
+    const groundGeo = new THREE.PlaneGeometry(worldSize, worldSize, 64, 64);
+    const pos = groundGeo.attributes.position;
+
+    // Hills blend up smoothly from the flat spawn plaza (smoothstep over
+    // r 15..25) instead of jumping at a hard edge
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const y = pos.getY(i);
+      const distFromCenter = Math.hypot(x, y);
+      const h = Math.sin(x * 0.05) * Math.cos(y * 0.05) * 1.8 + Math.sin(x * 0.02) * 2.5;
+      const blend = Math.min(1, Math.max(0, (distFromCenter - 15) / 10));
+      pos.setZ(i, h * blend * blend * (3 - 2 * blend));
+    }
+    groundGeo.computeVertexNormals();
+
+    const groundMat = new THREE.MeshStandardMaterial({
+      map: grassMap,
+      roughness: 0.9,
+      metalness: 0.05
+    });
+    const ground = new THREE.Mesh(groundGeo, groundMat);
+    ground.rotation.x = -Math.PI / 2;
+    ground.receiveShadow = true;
+    scene.add(ground);
+
+    function getTerrainHeight(x, z) {
+      const d = Math.hypot(x, z);
+      const h = Math.sin(x * 0.05) * Math.cos(z * 0.05) * 1.8 + Math.sin(x * 0.02) * 2.5;
+      const blend = Math.min(1, Math.max(0, (d - 15) / 10));
+      return h * blend * blend * (3 - 2 * blend);
+    }
+
+    // Solid obstacles (tree trunks, boulders) the player can't walk through
+    const colliders = [];
+
+    // --- Trees & Boulders ---
+    function createRealisticTree(x, z) {
+      const group = new THREE.Group();
+      const y = getTerrainHeight(x, z);
+
+      const trunkGeo = new THREE.CylinderGeometry(0.4, 0.7, 4, 10);
+      const trunkMat = new THREE.MeshStandardMaterial({ map: barkMap, roughness: 0.9 });
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = 2;
+      trunk.castShadow = true;
+      trunk.receiveShadow = true;
+      group.add(trunk);
+
+      const foliageMat = new THREE.MeshStandardMaterial({ color: 0x1e4620, roughness: 0.7, flatShading: true });
+      const layers = 3;
+      for (let i = 0; i < layers; i++) {
+        const radius = 2.8 - i * 0.6;
+        const height = 3.5 - i * 0.5;
+        const leavesGeo = new THREE.ConeGeometry(radius, height, 7);
+        const leaves = new THREE.Mesh(leavesGeo, foliageMat);
+        leaves.position.y = 3.5 + i * 1.8;
+        leaves.rotation.y = Math.random() * Math.PI;
+        leaves.castShadow = true;
+        group.add(leaves);
+      }
+
+      group.position.set(x, y, z);
+      scene.add(group);
+      colliders.push({ x, z, r: 0.9 });
+    }
+
+    // Broad-leafed oak-style tree for variety alongside the pines
+    function createOakTree(x, z) {
+      const group = new THREE.Group();
+      const y = getTerrainHeight(x, z);
+
+      const trunkGeo = new THREE.CylinderGeometry(0.35, 0.65, 3.4, 10);
+      const trunk = new THREE.Mesh(trunkGeo, new THREE.MeshStandardMaterial({ map: barkMap, roughness: 0.9 }));
+      trunk.position.y = 1.7;
+      trunk.castShadow = true;
+      trunk.receiveShadow = true;
+      group.add(trunk);
+
+      const oakFoliageMat = new THREE.MeshStandardMaterial({ color: 0x2e7d32, roughness: 0.85 });
+      for (let i = 0; i < 4; i++) {
+        const r = 1.6 + Math.random() * 0.9;
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), oakFoliageMat);
+        puff.position.set((Math.random() - 0.5) * 2.4, 3.8 + Math.random() * 1.6, (Math.random() - 0.5) * 2.4);
+        puff.scale.y = 0.85;
+        puff.castShadow = true;
+        group.add(puff);
+      }
+
+      group.position.set(x, y, z);
+      scene.add(group);
+      colliders.push({ x, z, r: 0.85 });
+    }
+
+    function createBoulder(x, z) {
+      const y = getTerrainHeight(x, z);
+      const radius = 0.8 + Math.random() * 0.8;
+      const rockGeo = new THREE.DodecahedronGeometry(radius, 1);
+
+      // The geometry is non-indexed, so shared corners exist as duplicate
+      // vertices. Displace radially by a value derived from the vertex
+      // position itself: coincident vertices move identically and the rock
+      // stays watertight instead of shattering into loose triangles.
+      const seed = Math.random() * 100;
+      const rPos = rockGeo.attributes.position;
+      for (let i = 0; i < rPos.count; i++) {
+        const vx = rPos.getX(i), vy = rPos.getY(i), vz = rPos.getZ(i);
+        const n = Math.sin(vx * 12.9898 + vy * 78.233 + vz * 37.719 + seed) * 43758.5453;
+        const bump = 1 + ((n - Math.floor(n)) - 0.5) * 0.3;
+        rPos.setXYZ(i, vx * bump, vy * bump, vz * bump);
+      }
+      rockGeo.computeVertexNormals();
+
+      const rockMat = new THREE.MeshStandardMaterial({ color: 0x64748b, roughness: 0.85, metalness: 0.1 });
+      const rock = new THREE.Mesh(rockGeo, rockMat);
+      rock.position.set(x, y + radius * 0.6, z);
+      rock.scale.y = 0.75 + Math.random() * 0.25;
+      rock.rotation.y = Math.random() * Math.PI * 2;
+      rock.castShadow = true;
+      rock.receiveShadow = true;
+      scene.add(rock);
+      colliders.push({ x, z, r: radius * 0.85 });
+    }
+
+    for (let i = -worldSize/2 + 4; i <= worldSize/2 - 4; i += 7) {
+      createRealisticTree(i, -worldSize/2 + 4);
+      createRealisticTree(i, worldSize/2 - 4);
+      createRealisticTree(-worldSize/2 + 4, i);
+      createRealisticTree(worldSize/2 - 4, i);
+    }
+
+    for (let i = 0; i < 35; i++) {
+      const x = (Math.random() - 0.5) * (worldSize - 30);
+      const z = (Math.random() - 0.5) * (worldSize - 30);
+      if (Math.hypot(x, z) > 8) {
+        if (Math.random() < 0.5) createRealisticTree(x, z);
+        else createOakTree(x, z);
+      }
+    }
+
+    for (let i = 0; i < 25; i++) {
+      const x = (Math.random() - 0.5) * (worldSize - 30);
+      const z = (Math.random() - 0.5) * (worldSize - 30);
+      if (Math.hypot(x, z) > 6) createBoulder(x, z);
+    }
+
+    // --- Bushes, Grass Tufts, Wildflowers & Fireflies ---
+    const tuftMat = new THREE.MeshStandardMaterial({ color: 0x2f6b2a, roughness: 0.9 });
+
+    // Soft rounded bushes built from overlapping squashed spheres
+    const bushMatDark = new THREE.MeshStandardMaterial({ color: 0x2d6a2f, roughness: 0.9 });
+    const bushMatLight = new THREE.MeshStandardMaterial({ color: 0x3d8b40, roughness: 0.9 });
+    for (let i = 0; i < 30; i++) {
+      const x = (Math.random() - 0.5) * (worldSize - 20);
+      const z = (Math.random() - 0.5) * (worldSize - 20);
+      if (Math.hypot(x, z) < 5) continue;
+      const y = getTerrainHeight(x, z);
+      const bush = new THREE.Group();
+      const puffs = 3 + Math.floor(Math.random() * 3);
+      for (let p = 0; p < puffs; p++) {
+        const r = 0.35 + Math.random() * 0.35;
+        const puff = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 10), p % 2 ? bushMatLight : bushMatDark);
+        puff.position.set((Math.random() - 0.5) * 0.85, r * 0.55, (Math.random() - 0.5) * 0.85);
+        puff.scale.y = 0.75;
+        puff.castShadow = true;
+        bush.add(puff);
+      }
+      bush.position.set(x, y, z);
+      scene.add(bush);
+    }
+
+    // Slender grass blades in loose tufts
+    const grassBladeMat = new THREE.MeshStandardMaterial({ color: 0x3a7233, roughness: 0.9 });
+    for (let i = 0; i < 55; i++) {
+      const x = (Math.random() - 0.5) * (worldSize - 20);
+      const z = (Math.random() - 0.5) * (worldSize - 20);
+      if (Math.hypot(x, z) < 5) continue;
+      const y = getTerrainHeight(x, z);
+      const tuft = new THREE.Group();
+      for (let b = 0; b < 6; b++) {
+        const h = 0.35 + Math.random() * 0.3;
+        const blade = new THREE.Mesh(new THREE.CylinderGeometry(0.008, 0.025, h, 4), grassBladeMat);
+        blade.position.set((Math.random() - 0.5) * 0.35, h / 2, (Math.random() - 0.5) * 0.35);
+        blade.rotation.set((Math.random() - 0.5) * 0.35, Math.random() * Math.PI, (Math.random() - 0.5) * 0.35);
+        tuft.add(blade);
+      }
+      tuft.position.set(x, y, z);
+      scene.add(tuft);
+    }
+
+    const flowerColors = [0xef4444, 0xf59e0b, 0xf472b6, 0xa78bfa, 0xffffff];
+    const flowerCenterMat = new THREE.MeshStandardMaterial({ color: 0xfbbf24, roughness: 0.5 });
+    for (let i = 0; i < 35; i++) {
+      const x = (Math.random() - 0.5) * (worldSize - 20);
+      const z = (Math.random() - 0.5) * (worldSize - 20);
+      if (Math.hypot(x, z) < 5) continue;
+      const y = getTerrainHeight(x, z);
+      const fg = new THREE.Group();
+      const stem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.03, 0.5, 5), tuftMat);
+      stem.position.y = 0.25;
+      fg.add(stem);
+      const petalMat = new THREE.MeshStandardMaterial({ color: flowerColors[i % flowerColors.length], roughness: 0.6 });
+      for (let pIdx = 0; pIdx < 5; pIdx++) {
+        const petal = new THREE.Mesh(new THREE.SphereGeometry(0.08, 6, 6), petalMat);
+        const a = (pIdx / 5) * Math.PI * 2;
+        petal.position.set(Math.cos(a) * 0.1, 0.52, Math.sin(a) * 0.1);
+        petal.scale.set(1, 0.5, 1);
+        fg.add(petal);
+      }
+      const center = new THREE.Mesh(new THREE.SphereGeometry(0.05, 6, 6), flowerCenterMat);
+      center.position.y = 0.55;
+      fg.add(center);
+      fg.position.set(x, y, z);
+      scene.add(fg);
+    }
+
+    // Fireflies drift around the meadow after dark
+    const fireflies = [];
+    const fireflyMat = new THREE.MeshBasicMaterial({ color: 0xd9f99d, fog: false });
+    for (let i = 0; i < 14; i++) {
+      const f = new THREE.Mesh(new THREE.SphereGeometry(0.07, 6, 6), fireflyMat);
+      const baseX = (Math.random() - 0.5) * 100;
+      const baseZ = (Math.random() - 0.5) * 100;
+      f.userData = {
+        baseX, baseZ,
+        baseY: getTerrainHeight(baseX, baseZ) + 1.6,
+        phase: Math.random() * Math.PI * 2
+      };
+      f.visible = false;
+      scene.add(f);
+      fireflies.push(f);
+    }
+
+    // --- Procedural Tabby Cat Texture ---
+    function generateTabbyTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 512;
+      canvas.height = 512;
+      const ctx = canvas.getContext('2d');
+
+      // Orange base coat
+      ctx.fillStyle = '#e08338';
+      ctx.fillRect(0, 0, 512, 512);
+
+      // Cream chest/belly highlight patch
+      ctx.fillStyle = '#fceade';
+      ctx.beginPath();
+      ctx.ellipse(256, 400, 140, 90, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // Darker tabby stripes
+      ctx.fillStyle = '#a34e15';
+      ctx.lineWidth = 14;
+      ctx.strokeStyle = '#8f410e';
+
+      for (let i = 20; i < 500; i += 32) {
+        ctx.beginPath();
+        ctx.moveTo(i, 40);
+        ctx.quadraticCurveTo(i + 20, 150, i - 10, 260);
+        ctx.stroke();
+      }
+
+      // Forehead M mark
+      ctx.lineWidth = 10;
+      ctx.beginPath();
+      ctx.moveTo(220, 80); ctx.lineTo(235, 130); ctx.lineTo(256, 95); ctx.lineTo(277, 130); ctx.lineTo(292, 80);
+      ctx.stroke();
+
+      const texture = new THREE.CanvasTexture(canvas);
+      return texture;
+    }
+
+    const tabbyMap = generateTabbyTexture();
+
+    // --- Player Model (Tabby Cat or Retriever, switchable in Settings) ---
+    const playerGroup = new THREE.Group();
+    let avatarModel = null;
+
+    function buildCatModel() {
+      const g = new THREE.Group();
+
+      const catMat = new THREE.MeshStandardMaterial({
+        map: tabbyMap,
+        roughness: 0.755,
+        metalness: 0.05
+      });
+      const whiteMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+      const pinkMat = new THREE.MeshStandardMaterial({ color: 0xffb7c5, roughness: 0.4 });
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x4ade80, roughness: 0.2, metalness: 0.1 }); // Emerald Green Eyes
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+      // Body
+      const bodyGeo = new THREE.SphereGeometry(0.7, 24, 20);
+      bodyGeo.scale(0.85, 0.8, 1.25);
+      const catBody = new THREE.Mesh(bodyGeo, catMat);
+      catBody.position.y = 0.65;
+      catBody.castShadow = true;
+      g.add(catBody);
+
+      // Head
+      const headGeo = new THREE.SphereGeometry(0.5, 24, 20);
+      headGeo.scale(1.1, 0.95, 0.95);
+      const catHead = new THREE.Mesh(headGeo, catMat);
+      catHead.position.set(0, 1.05, 0.55);
+      catHead.castShadow = true;
+      g.add(catHead);
+
+      // Snout
+      const snoutGeo = new THREE.SphereGeometry(0.18, 16, 12);
+      snoutGeo.scale(1.3, 0.8, 0.9);
+      const snout = new THREE.Mesh(snoutGeo, whiteMat);
+      snout.position.set(0, 0.95, 0.98);
+      g.add(snout);
+
+      // Nose
+      const noseGeo = new THREE.ConeGeometry(0.06, 0.05, 3);
+      const nose = new THREE.Mesh(noseGeo, pinkMat);
+      nose.rotation.x = Math.PI;
+      nose.position.set(0, 1.02, 1.11);
+      g.add(nose);
+
+      // Eyes
+      [-1, 1].forEach(side => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), eyeMat);
+        eye.position.set(side * 0.2, 1.12, 0.96);
+        const pupil = new THREE.Mesh(new THREE.BoxGeometry(0.02, 0.12, 0.02), pupilMat);
+        pupil.position.set(side * 0.2, 1.12, 1.04);
+        g.add(eye, pupil);
+      });
+
+      // Whiskers
+      const whiskerMat = new THREE.MeshBasicMaterial({ color: 0xf8fafc });
+      [-1, 1].forEach(side => {
+        for (let w = 0; w < 3; w++) {
+          const whisker = new THREE.Mesh(new THREE.CylinderGeometry(0.006, 0.006, 0.45, 4), whiskerMat);
+          whisker.rotation.z = Math.PI / 2;
+          whisker.rotation.y = side * 0.35;
+          whisker.rotation.x = (w - 1) * 0.18;
+          whisker.position.set(side * 0.33, 0.93 + w * 0.04, 0.96);
+          g.add(whisker);
+        }
+      });
+
+      // Pointy Ears
+      [-1, 1].forEach(side => {
+        const earGroup = new THREE.Group();
+        const earOuter = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.35, 4), catMat);
+        const earInner = new THREE.Mesh(new THREE.ConeGeometry(0.12, 0.26, 4), pinkMat);
+        earInner.position.z = 0.03;
+        earGroup.add(earOuter, earInner);
+        earGroup.position.set(side * 0.32, 1.5, 0.52);
+        earGroup.rotation.set(-0.1, 0, side * -0.25);
+        earGroup.castShadow = true;
+        g.add(earGroup);
+      });
+
+      // Paws
+      [
+        { x: -0.38, y: 0.22, z: 0.5 },
+        { x: 0.38, y: 0.22, z: 0.5 },
+        { x: -0.38, y: 0.22, z: -0.5 },
+        { x: 0.38, y: 0.22, z: -0.5 }
+      ].forEach(p => {
+        const pawGeo = new THREE.SphereGeometry(0.2, 16, 12);
+        pawGeo.scale(0.8, 0.65, 1.1);
+        const paw = new THREE.Mesh(pawGeo, whiteMat);
+        paw.position.set(p.x, p.y, p.z);
+        paw.castShadow = true;
+        g.add(paw);
+      });
+
+      // Curved Tail
+      const tailPoints = [];
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10;
+        tailPoints.push(new THREE.Vector3(0, Math.sin(t * Math.PI * 0.6) * 0.4, -t * 0.85));
+      }
+      const tailCurve = new THREE.CatmullRomCurve3(tailPoints);
+      const tailGeo = new THREE.TubeGeometry(tailCurve, 20, 0.08, 12, false);
+      const tail = new THREE.Mesh(tailGeo, catMat);
+      tail.position.set(0, 0.6, -0.65);
+      tail.castShadow = true;
+      g.add(tail);
+
+      return g;
+    }
+
+    // Procedural golden retriever coat
+    function generateRetrieverTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#d9a05b';
+      ctx.fillRect(0, 0, 256, 256);
+      for (let i = 0; i < 2500; i++) {
+        ctx.fillStyle = Math.random() > 0.5 ? '#c78f4a' : '#e6b271';
+        ctx.fillRect(Math.random() * 256, Math.random() * 256, 2, 3);
+      }
+      // Cream chest patch
+      ctx.fillStyle = '#f3dcb8';
+      ctx.beginPath();
+      ctx.ellipse(128, 200, 70, 45, 0, 0, Math.PI * 2);
+      ctx.fill();
+      return new THREE.CanvasTexture(canvas);
+    }
+    const retrieverMap = generateRetrieverTexture();
+
+    function buildDogModel() {
+      const g = new THREE.Group();
+
+      const furMat = new THREE.MeshStandardMaterial({ map: retrieverMap, roughness: 0.8, metalness: 0.05 });
+      const creamMat = new THREE.MeshStandardMaterial({ color: 0xf3dcb8, roughness: 0.7 });
+      const earMat = new THREE.MeshStandardMaterial({ color: 0xa9743a, roughness: 0.85 });
+      const eyeMat = new THREE.MeshStandardMaterial({ color: 0x6b4423, roughness: 0.2, metalness: 0.1 }); // Warm brown eyes
+      const pupilMat = new THREE.MeshBasicMaterial({ color: 0x0f172a });
+
+      // Body (a little stockier than the cat)
+      const bodyGeo = new THREE.SphereGeometry(0.7, 24, 20);
+      bodyGeo.scale(0.95, 0.85, 1.35);
+      const body = new THREE.Mesh(bodyGeo, furMat);
+      body.position.y = 0.68;
+      body.castShadow = true;
+      g.add(body);
+
+      // Head
+      const headGeo = new THREE.SphereGeometry(0.5, 24, 20);
+      headGeo.scale(1.05, 0.95, 1.0);
+      const head = new THREE.Mesh(headGeo, furMat);
+      head.position.set(0, 1.1, 0.6);
+      head.castShadow = true;
+      g.add(head);
+
+      // Longer snout
+      const snoutGeo = new THREE.SphereGeometry(0.2, 16, 12);
+      snoutGeo.scale(1.25, 0.9, 1.35);
+      const snout = new THREE.Mesh(snoutGeo, creamMat);
+      snout.position.set(0, 0.96, 1.05);
+      g.add(snout);
+
+      // Nose
+      const nose = new THREE.Mesh(new THREE.SphereGeometry(0.075, 10, 10),
+        new THREE.MeshStandardMaterial({ color: 0x2d1608, roughness: 0.3 }));
+      nose.position.set(0, 1.0, 1.3);
+      g.add(nose);
+
+      // Eyes
+      [-1, 1].forEach(side => {
+        const eye = new THREE.Mesh(new THREE.SphereGeometry(0.09, 16, 16), eyeMat);
+        eye.position.set(side * 0.2, 1.18, 0.99);
+        const pupil = new THREE.Mesh(new THREE.SphereGeometry(0.045, 8, 8), pupilMat);
+        pupil.position.set(side * 0.2, 1.18, 1.06);
+        g.add(eye, pupil);
+      });
+
+      // Floppy Ears
+      [-1, 1].forEach(side => {
+        const ear = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.38, 0.08), earMat);
+        ear.position.set(side * 0.44, 1.28, 0.55);
+        ear.rotation.z = side * 0.5;
+        ear.rotation.x = -0.1;
+        ear.castShadow = true;
+        g.add(ear);
+      });
+
+      // Paws
+      [
+        { x: -0.4, y: 0.22, z: 0.55 },
+        { x: 0.4, y: 0.22, z: 0.55 },
+        { x: -0.4, y: 0.22, z: -0.55 },
+        { x: 0.4, y: 0.22, z: -0.55 }
+      ].forEach(p => {
+        const pawGeo = new THREE.SphereGeometry(0.21, 16, 12);
+        pawGeo.scale(0.85, 0.65, 1.1);
+        const paw = new THREE.Mesh(pawGeo, creamMat);
+        paw.position.set(p.x, p.y, p.z);
+        paw.castShadow = true;
+        g.add(paw);
+      });
+
+      // Happy upward tail
+      const tailPoints = [];
+      for (let i = 0; i <= 10; i++) {
+        const t = i / 10;
+        tailPoints.push(new THREE.Vector3(0, t * 0.55 + Math.sin(t * Math.PI) * 0.15, -t * 0.8));
+      }
+      const tailCurve = new THREE.CatmullRomCurve3(tailPoints);
+      const tailGeo = new THREE.TubeGeometry(tailCurve, 20, 0.09, 12, false);
+      const tail = new THREE.Mesh(tailGeo, furMat);
+      tail.position.set(0, 0.68, -0.75);
+      tail.castShadow = true;
+      g.add(tail);
+
+      return g;
+    }
+
+    function setAvatar(type) {
+      if (avatarModel) playerGroup.remove(avatarModel);
+      avatarModel = type === 'dog' ? buildDogModel() : buildCatModel();
+      playerGroup.add(avatarModel);
+    }
+    setAvatar('cat');
+
+    scene.add(playerGroup);
+
+    // --- Gold Coins & Difficulty ---
+    const coins = [];
+    const takenCoins = new Set(); // indices collected this round (for team re-sync)
+    let totalCoins = 18;
+    let score = 0;
+    document.getElementById('total').textContent = totalCoins;
+
+    const coinGeo = new THREE.CylinderGeometry(0.55, 0.55, 0.12, 32);
+    const coinMat = new THREE.MeshStandardMaterial({
+      color: 0xfbbf24,
+      metalness: 0.95,
+      roughness: 0.15,
+      emissive: 0xd97706,
+      emissiveIntensity: 0.25
+    });
+
+    const coinRimGeo = new THREE.TorusGeometry(0.48, 0.04, 12, 32);
+    const coinRimMat = new THREE.MeshStandardMaterial({ color: 0xb45309, metalness: 0.9, roughness: 0.2 });
+
+    // Seeded RNG so teamed players generate identical coin layouts
+    function mulberry32(a) {
+      return function() {
+        a |= 0; a = a + 0x6D2B79F5 | 0;
+        let t = Math.imul(a ^ a >>> 15, 1 | a);
+        t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+      };
+    }
+
+    // Solo rounds are seeded too, so a saved half-finished round can be
+    // respawned with the exact same coin layout after a refresh
+    let roundSeed = null;
+    function newRoundSeed() {
+      roundSeed = (Math.random() * 0x7fffffff) | 0;
+      return roundSeed;
+    }
+
+    function spawnCoins(n, seed) {
+      const rng = (seed !== undefined) ? mulberry32(seed) : Math.random;
+      coins.forEach(c => scene.remove(c));
+      coins.length = 0;
+      takenCoins.clear();
+      totalCoins = n;
+      score = 0;
+      document.getElementById('total').textContent = n;
+      document.getElementById('score').textContent = 0;
+
+      for (let i = 0; i < n; i++) {
+        const coinGroup = new THREE.Group();
+
+        const mainMesh = new THREE.Mesh(coinGeo, coinMat);
+        mainMesh.rotation.x = Math.PI / 2;
+        mainMesh.castShadow = true;
+        coinGroup.add(mainMesh);
+
+        const rimFront = new THREE.Mesh(coinRimGeo, coinRimMat);
+        rimFront.position.z = 0.06;
+        const rimBack = new THREE.Mesh(coinRimGeo, coinRimMat);
+        rimBack.position.z = -0.06;
+        coinGroup.add(rimFront, rimBack);
+
+        const x = (rng() - 0.5) * (worldSize - 35);
+        const z = (rng() - 0.5) * (worldSize - 35);
+        const y = getTerrainHeight(x, z) + 1.2;
+
+        coinGroup.position.set(x, y, z);
+        scene.add(coinGroup);
+        coins.push(coinGroup);
+      }
+    }
+    spawnCoins(totalCoins, newRoundSeed());
+
+    // Collect a coin (locally, or mirrored from a teammate's pickup)
+    function collectCoin(idx, fromRemote) {
+      const coin = coins[idx];
+      if (!coin || !coin.visible) return;
+      coin.visible = false;
+      takenCoins.add(idx);
+      score++;
+      lifeCoins++;
+      document.getElementById('score').textContent = score;
+      if (!fromRemote) {
+        if (TEAM.active && MP.connected) {
+          MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'coin', to: TEAM.partnerId, fromId: MP.id, index: idx } });
+        }
+        mpTrack();
+      }
+      if (score === totalCoins) {
+        lifeRounds++;
+        setTimeout(() => alert(TEAM.active
+          ? '🎉 Team victory! You collected all ' + totalCoins + ' coins together!'
+          : '🎉 Congratulations! You collected all gold coins!'), 100);
+      }
+      saveCoinPrefs();
+      updateLifeStats();
+    }
+
+    // Difficulty: more coins as it ramps up; Impossible locks the world into
+    // night with heavy fog and a much closer camera, so you can barely see
+    const DIFFICULTIES = { easy: 18, medium: 25, hard: 40, impossible: 50 };
+    let difficulty = 'easy';
+
+    function setDifficulty(d) {
+      applyDifficultyEnv(d);
+      if (TEAM.active) {
+        spawnCoins(Math.ceil(DIFFICULTIES[d] * 1.5), TEAM.seed);
+      } else {
+        spawnCoins(DIFFICULTIES[d], newRoundSeed());
+      }
+    }
+
+    // Lighting / fog / camera / music for a difficulty, without respawning coins
+    function applyDifficultyEnv(d) {
+      difficulty = d;
+      const skyToggleEl = document.getElementById('sky-toggle');
+      if (d === 'impossible') {
+        skyToggleEl.checked = true;
+        skyToggleEl.disabled = true;
+        toggleSky(true);
+        // Far darker than regular night, and fog so thick you can only
+        // see a short distance ahead
+        targetSkyColor = new THREE.Color(0x04060c);
+        ambientLight.intensity = 0.22;
+        sunLight.intensity = 0.15;
+        fillLight.intensity = 0.08;
+        scene.fog.density = 0.09;
+        cameraDistance = 4.5;
+      } else {
+        skyToggleEl.disabled = false;
+        toggleSky(skyToggleEl.checked);
+        scene.fog.density = 0.008;
+        cameraDistance = 7.5;
+      }
+      // Impossible gets a faster, harder soundtrack
+      if (musicInterval) {
+        clearInterval(musicInterval);
+        musicInterval = setInterval(playLofiStep, d === 'impossible' ? 320 : 500);
+      }
+    }
+
+    // --- Settings UI Event Listeners ---
+    const settingsBtn = document.getElementById('settings-btn');
+    const settingsMenu = document.getElementById('settings-menu');
+    const musicToggle = document.getElementById('music-toggle');
+    const skyToggle = document.getElementById('sky-toggle');
+
+    settingsBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isVisible = settingsMenu.style.display === 'block';
+      settingsMenu.style.display = isVisible ? 'none' : 'block';
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!settingsMenu.contains(e.target) && e.target !== settingsBtn) {
+        settingsMenu.style.display = 'none';
+      }
+    });
+
+    musicToggle.addEventListener('change', (e) => {
+      toggleMusic(e.target.checked);
+    });
+
+    skyToggle.addEventListener('change', (e) => {
+      toggleSky(e.target.checked);
+    });
+
+    document.getElementById('difficulty-select').addEventListener('change', (e) => {
+      setDifficulty(e.target.value);
+      saveCoinPrefs();
+    });
+
+    document.getElementById('avatar-select').addEventListener('change', (e) => {
+      currentAvatar = e.target.value;
+      setAvatar(e.target.value);
+      mpTrack();
+      saveCoinPrefs();
+    });
+
+    // --- Progress saving controls ---
+    document.getElementById('autosave-toggle').addEventListener('change', (e) => {
+      autoSaveOn = e.target.checked;
+      AndySave.setEnabled(SAVE_KEY, autoSaveOn);
+      if (autoSaveOn) writeSave();
+    });
+
+    document.getElementById('save-now-btn').addEventListener('click', (e) => {
+      writeSave();
+      AndySave.flashButton(e.target, '✅ Saved');
+    });
+
+    document.getElementById('copy-code-btn').addEventListener('click', (e) => {
+      AndySave.copyText(AndySave.makeCode('coins', collectSave()), (ok) => {
+        if (ok) AndySave.flashButton(e.target, '✅ Copied');
+      });
+    });
+
+    document.getElementById('enter-code-btn').addEventListener('click', () => {
+      const code = window.prompt('Paste a Coin Collector save code from your other device:');
+      if (!code) return;
+      const payload = AndySave.readCode('coins', code);
+      if (!payload) { alert('That code is not a valid Coin Collector save code.'); return; }
+      if (!confirm('Load this save? It replaces the progress on this device.')) return;
+      autoSaveOn = false; // stop the pagehide saver clobbering the imported save
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(payload.d)); } catch (err) {}
+      location.reload();
+    });
+
+    document.getElementById('reset-save-btn').addEventListener('click', () => {
+      if (!confirm('Really wipe your saved round, settings and lifetime stats on this device?')) return;
+      autoSaveOn = false; // stop the pagehide saver re-writing the wiped save
+      try { localStorage.removeItem(SAVE_KEY); } catch (err) {}
+      location.reload();
+    });
+
+    // ================================================================
+    // MULTIPLAYER + TEAMWORK · Supabase presence & broadcast
+    // Same project/pattern as the laundry sim and the workspace
+    // whiteboard. Nothing persists; sessions are ephemeral.
+    // ================================================================
+    const MP_URL = 'https://xlrqciiaofizzxyjumrf.supabase.co';
+    const MP_KEY = 'sb_publishable_R4Uj4APVGOJvKLFDwdKLiw_i0SHOnX8';
+    let currentAvatar = 'cat';
+
+    const MP = {
+      client: null, channel: null, connected: false,
+      id: 'p_' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36),
+      name: '',
+      peers: new Map(),
+      pendingInvite: null,
+      invite: null,
+      lastSent: { x: 0, y: 0, z: 0, rot: 0, t: 0 }
+    };
+
+    const TEAM = { active: false, leaderId: null, leaderName: '', partnerId: null, seed: 0, partnerMissingSince: 0 };
+    let teamSyncTimer = null;
+
+    let toastTimer = null;
+    function showToast(text) {
+      const el = document.getElementById('toast');
+      el.textContent = text;
+      el.classList.add('show');
+      clearTimeout(toastTimer);
+      toastTimer = setTimeout(() => el.classList.remove('show'), 3500);
+    }
+
+    function mpCleanName(n) {
+      return String(n || '').replace(/\s+/g, ' ').trim().slice(0, 14);
+    }
+
+    function makeNameSprite(text) {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 96;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = 'rgba(10, 14, 25, 0.75)';
+      ctx.beginPath();
+      ctx.roundRect ? ctx.roundRect(60, 12, 392, 72, 20) : ctx.rect(60, 12, 392, 72);
+      ctx.fill();
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 42px Segoe UI, Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, 256, 50);
+      const spr = new THREE.Sprite(new THREE.SpriteMaterial({ map: new THREE.CanvasTexture(c), transparent: true, depthTest: false }));
+      spr.scale.set(3, 0.56, 1);
+      return spr;
+    }
+
+    function mpBuildPeerGroup(peer) {
+      const g = new THREE.Group();
+      g.add(peer.avatarType === 'dog' ? buildDogModel() : buildCatModel());
+      const tag = makeNameSprite(peer.name);
+      tag.position.y = 2.3;
+      g.add(tag);
+      return g;
+    }
+
+    function mpConnect() {
+      if (!window.supabase || MP.channel) return;
+      try {
+        MP.client = window.supabase.createClient(MP_URL, MP_KEY, {
+          realtime: { params: { eventsPerSecond: 15 } }
+        });
+        MP.channel = MP.client.channel('andy-coins-v1', {
+          config: { broadcast: { self: false }, presence: { key: MP.id } }
+        });
+        MP.channel
+          .on('presence', { event: 'sync' }, mpPresenceSync)
+          .on('broadcast', { event: 'pos' }, ({ payload }) => {
+            const peer = payload && MP.peers.get(payload.id);
+            if (peer) peer.target = payload;
+          })
+          .on('broadcast', { event: 'team' }, ({ payload }) => {
+            if (!payload || payload.to !== MP.id) return;
+            if (payload.kind === 'invite') {
+              if (TEAM.active) {
+                MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'decline', to: payload.fromId, fromName: MP.name } });
+                return;
+              }
+              MP.invite = payload;
+              document.getElementById('invite-text').textContent =
+                '🤝 ' + payload.fromName + ' wants to work as a team on ' + payload.mode.toUpperCase() + ' mode! The coin goal grows by 50%.';
+              document.getElementById('invite-banner').style.display = 'block';
+            } else if (payload.kind === 'accept') {
+              if (MP.pendingInvite && payload.fromId === MP.pendingInvite.to) {
+                activateTeam(MP.id, MP.name, payload.fromId, payload.fromName, MP.pendingInvite.mode, MP.pendingInvite.seed);
+                MP.pendingInvite = null;
+              }
+            } else if (payload.kind === 'decline') {
+              MP.pendingInvite = null;
+              showToast((payload.fromName || 'They') + " can't team up right now");
+            } else if (payload.kind === 'coin') {
+              if (!TEAM.active) {
+                // They think we're still teamed - heal their side
+                if (payload.fromId) MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'end', to: payload.fromId, fromName: MP.name } });
+                return;
+              }
+              collectCoin(payload.index, true);
+            } else if (payload.kind === 'sync') {
+              if (!TEAM.active) {
+                if (payload.fromId) MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'end', to: payload.fromId, fromName: MP.name } });
+                return;
+              }
+              // Merge the partner's collected coins - repairs any missed events
+              (payload.taken || []).forEach(i => collectCoin(i, true));
+            } else if (payload.kind === 'end') {
+              endTeam(false, '🤝 ' + (payload.fromName || 'Your teammate') + ' left the team — back to your own game!');
+            }
+          })
+          .subscribe(status => {
+            if (status === 'SUBSCRIBED') {
+              MP.connected = true;
+              mpTrack();
+            }
+          });
+      } catch (err) {
+        MP.connected = false;
+      }
+    }
+
+    function mpTrack() {
+      if (!MP.connected || !MP.channel) return;
+      MP.channel.track({
+        name: MP.name,
+        avatar: currentAvatar,
+        score: score,
+        teamed: TEAM.active
+      });
+    }
+
+    function mpPresenceSync() {
+      if (!MP.channel) return;
+      const state = MP.channel.presenceState();
+      const seen = new Set();
+      for (const key in state) {
+        if (key === MP.id) continue;
+        const meta = state[key][0];
+        if (!meta) continue;
+        seen.add(key);
+        let peer = MP.peers.get(key);
+        if (!peer) {
+          peer = { id: key, name: mpCleanName(meta.name) || 'Player', avatarType: meta.avatar || 'cat', score: 0, teamed: false, group: null, target: null };
+          peer.group = mpBuildPeerGroup(peer);
+          peer.group.position.set(0, 0, 12);
+          scene.add(peer.group);
+          MP.peers.set(key, peer);
+        }
+        if (peer.avatarType !== (meta.avatar || 'cat')) {
+          peer.avatarType = meta.avatar || 'cat';
+          const pos = peer.group.position.clone();
+          const rot = peer.group.rotation.y;
+          scene.remove(peer.group);
+          peer.group = mpBuildPeerGroup(peer);
+          peer.group.position.copy(pos);
+          peer.group.rotation.y = rot;
+          scene.add(peer.group);
+        }
+        peer.score = meta.score || 0;
+        peer.teamed = !!meta.teamed;
+      }
+      for (const [key, peer] of MP.peers) {
+        if (!seen.has(key)) {
+          scene.remove(peer.group);
+          MP.peers.delete(key);
+        }
+      }
+      // Don't dissolve the team on a momentary presence flap - just note
+      // when the partner went missing; the sync timer ends it after 10s
+      if (TEAM.active && TEAM.partnerId) {
+        if (!seen.has(TEAM.partnerId)) {
+          if (!TEAM.partnerMissingSince) TEAM.partnerMissingSince = Date.now();
+        } else {
+          TEAM.partnerMissingSince = 0;
+        }
+      }
+      renderPlayersList();
+    }
+
+    function mpUpdate(delta) {
+      if (!MP.connected) return;
+      const nowMs = Date.now();
+      const p = playerGroup.position;
+      const moved = Math.abs(p.x - MP.lastSent.x) > 0.05 ||
+                    Math.abs(p.z - MP.lastSent.z) > 0.05 ||
+                    Math.abs(p.y - MP.lastSent.y) > 0.05 ||
+                    Math.abs(playerGroup.rotation.y - MP.lastSent.rot) > 0.05;
+      if ((moved && nowMs - MP.lastSent.t > 100) || nowMs - MP.lastSent.t > 1500) {
+        MP.lastSent = { x: p.x, y: p.y, z: p.z, rot: playerGroup.rotation.y, t: nowMs };
+        MP.channel.send({
+          type: 'broadcast', event: 'pos',
+          payload: { id: MP.id, x: p.x, y: p.y, z: p.z, rot: playerGroup.rotation.y }
+        });
+      }
+      const ease = Math.min(1, delta * 10);
+      MP.peers.forEach(peer => {
+        if (!peer.target || !peer.group) return;
+        const t = peer.target;
+        peer.group.position.x += (t.x - peer.group.position.x) * ease;
+        peer.group.position.y += (t.y - peer.group.position.y) * ease;
+        peer.group.position.z += (t.z - peer.group.position.z) * ease;
+        let diff = t.rot - peer.group.rotation.y;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        peer.group.rotation.y += diff * ease;
+      });
+    }
+
+    function renderPlayersList() {
+      const list = document.getElementById('players-list');
+      list.textContent = '';
+      if (!MP.connected || MP.peers.size === 0) {
+        list.textContent = MP.connected ? 'No one else here yet' : 'Offline — solo game';
+        return;
+      }
+      MP.peers.forEach((peer, id) => {
+        const row = document.createElement('div');
+        row.style.cssText = 'display:flex; align-items:center; justify-content:space-between; margin-bottom:6px; gap:8px;';
+        const label = document.createElement('span');
+        label.textContent = peer.name + ' · ' + peer.score + ' 🪙';
+        row.appendChild(label);
+        const btn = document.createElement('button');
+        btn.className = 'menu-select';
+        btn.style.cursor = 'pointer';
+        if (TEAM.active) {
+          btn.textContent = id === TEAM.partnerId ? 'Teamed ✓' : '—';
+          btn.disabled = true;
+        } else if (peer.teamed) {
+          btn.textContent = 'Busy';
+          btn.disabled = true;
+        } else {
+          btn.textContent = '🤝 Team up';
+          btn.addEventListener('click', () => sendInvite(id));
+        }
+        row.appendChild(btn);
+        list.appendChild(row);
+      });
+    }
+
+    function sendInvite(peerId) {
+      const peer = MP.peers.get(peerId);
+      if (!peer || TEAM.active || !MP.connected) return;
+      MP.pendingInvite = { to: peerId, seed: (Math.random() * 1e9) | 0, mode: difficulty };
+      MP.channel.send({
+        type: 'broadcast', event: 'team',
+        payload: { kind: 'invite', to: peerId, fromId: MP.id, fromName: MP.name, mode: difficulty, seed: MP.pendingInvite.seed }
+      });
+      showToast('🤝 Invite sent to ' + peer.name + '!');
+      settingsMenu.style.display = 'none';
+    }
+
+    // Both team members switch to the leader's mode, the coin goal grows by
+    // 50%, and coins spawn from a shared seed so both hunt the same layout
+    function activateTeam(leaderId, leaderName, partnerId, partnerName, mode, seed) {
+      TEAM.active = true;
+      TEAM.leaderId = leaderId;
+      TEAM.leaderName = leaderName;
+      TEAM.partnerId = (MP.id === leaderId) ? partnerId : leaderId;
+      TEAM.seed = seed;
+      const sel = document.getElementById('difficulty-select');
+      sel.value = mode;
+      sel.disabled = true;
+      applyDifficultyEnv(mode);
+      spawnCoins(Math.ceil(DIFFICULTIES[mode] * 1.5), seed);
+      const bar = document.getElementById('team-bar');
+      bar.style.display = 'block';
+      bar.textContent = MP.id === leaderId
+        ? '🤝 ' + partnerName + ' is helping you with the game!'
+        : '🤝 You are helping ' + leaderName + ' with the game';
+      document.getElementById('teamwork-row').style.display = 'flex';
+      TEAM.partnerMissingSince = 0;
+      // Every 4s: swap collected-coin lists (repairs missed broadcasts) and
+      // give up on a partner who has been gone for over 10s
+      clearInterval(teamSyncTimer);
+      teamSyncTimer = setInterval(() => {
+        if (!TEAM.active) return;
+        if (TEAM.partnerMissingSince && Date.now() - TEAM.partnerMissingSince > 10000) {
+          endTeam(true, 'Your teammate left the game — back to your own!');
+          return;
+        }
+        if (MP.connected) {
+          MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'sync', to: TEAM.partnerId, fromId: MP.id, taken: [...takenCoins] } });
+        }
+      }, 4000);
+      mpTrack();
+      renderPlayersList();
+    }
+
+    function endTeam(notifyPartner, message) {
+      if (!TEAM.active) return;
+      if (notifyPartner && MP.connected) {
+        MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'end', to: TEAM.partnerId, fromName: MP.name } });
+      }
+      TEAM.active = false;
+      TEAM.leaderId = null;
+      TEAM.leaderName = '';
+      TEAM.partnerId = null;
+      TEAM.partnerMissingSince = 0;
+      clearInterval(teamSyncTimer);
+      teamSyncTimer = null;
+      document.getElementById('team-bar').style.display = 'none';
+      document.getElementById('teamwork-row').style.display = 'none';
+      const sel = document.getElementById('difficulty-select');
+      sel.disabled = false;
+      setDifficulty(sel.value);
+      if (message) showToast(message);
+      mpTrack();
+      renderPlayersList();
+    }
+
+    document.getElementById('invite-accept').addEventListener('click', () => {
+      const inv = MP.invite;
+      document.getElementById('invite-banner').style.display = 'none';
+      if (!inv) return;
+      MP.invite = null;
+      MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'accept', to: inv.fromId, fromId: MP.id, fromName: MP.name } });
+      activateTeam(inv.fromId, inv.fromName, MP.id, MP.name, inv.mode, inv.seed);
+    });
+    document.getElementById('invite-decline').addEventListener('click', () => {
+      const inv = MP.invite;
+      document.getElementById('invite-banner').style.display = 'none';
+      MP.invite = null;
+      if (inv && MP.connected) {
+        MP.channel.send({ type: 'broadcast', event: 'team', payload: { kind: 'decline', to: inv.fromId, fromName: MP.name } });
+      }
+    });
+    document.getElementById('leave-team-btn').addEventListener('click', () => {
+      endTeam(true, '🔌 You have been disconnected from teamwork — back to your own game!');
+      settingsMenu.style.display = 'none';
+    });
+
+    // Start overlay: enter a name, then connect
+    function startMultiplayerGame() {
+      MP.name = mpCleanName(document.getElementById('player-name').value) || ('Player' + Math.floor(Math.random() * 90 + 10));
+      document.getElementById('start-overlay').style.display = 'none';
+      mpConnect();
+      markActivity();
+      saveCoinPrefs();
+    }
+
+    // --- Saved progress & preferences (localStorage) ---
+    const SAVE_KEY = 'coinSave';
+    let autoSaveOn = AndySave.isEnabled(SAVE_KEY);
+    let lifeCoins = 0;   // lifetime coins collected on this device
+    let lifeRounds = 0;  // lifetime rounds finished
+
+    function collectSave() {
+      return {
+        name: MP.name || document.getElementById('player-name').value || '',
+        avatar: currentAvatar,
+        difficulty: difficulty,
+        sens: Math.round(touchSens * 100),
+        lifeCoins: lifeCoins,
+        lifeRounds: lifeRounds,
+        // Half-finished solo round: seed + taken coins are enough to
+        // rebuild the exact same round after a refresh
+        round: (!TEAM.active && score > 0 && score < totalCoins && roundSeed !== null)
+          ? { seed: roundSeed, difficulty: difficulty, taken: Array.from(takenCoins) }
+          : null
+      };
+    }
+    function writeSave() {
+      try { localStorage.setItem(SAVE_KEY, JSON.stringify(collectSave())); } catch (e) {}
+    }
+    function saveCoinPrefs() {
+      if (autoSaveOn) writeSave();
+    }
+    function updateLifeStats() {
+      const el = document.getElementById('life-stats');
+      if (el) el.textContent = lifeCoins + ' coins · ' + lifeRounds + ' rounds finished';
+    }
+    window.addEventListener('pagehide', () => { if (autoSaveOn) writeSave(); });
+    // visibilitychange fires more reliably than pagehide on iPads/home-screen apps
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden' && autoSaveOn) writeSave();
+    });
+
+    // Called below, once the camera section has defined touchSens —
+    // restoring sensitivity any earlier throws on the not-yet-initialised let
+    function loadCoinPrefs() {
+      document.getElementById('autosave-toggle').checked = autoSaveOn;
+      document.getElementById('device-id-label').textContent = AndySave.deviceId();
+      try {
+        const d = JSON.parse(localStorage.getItem(SAVE_KEY) || 'null');
+        if (!d) { updateLifeStats(); return; }
+        if (d.name) document.getElementById('player-name').value = d.name;
+        if (d.avatar === 'dog' || d.avatar === 'cat') {
+          currentAvatar = d.avatar;
+          document.getElementById('avatar-select').value = d.avatar;
+          setAvatar(d.avatar);
+        }
+        if (d.difficulty && DIFFICULTIES[d.difficulty]) {
+          document.getElementById('difficulty-select').value = d.difficulty;
+          setDifficulty(d.difficulty);
+        }
+        if (d.sens) {
+          document.getElementById('sens-slider').value = d.sens;
+          setTouchSens(d.sens);
+        }
+        if (typeof d.lifeCoins === 'number') lifeCoins = Math.max(0, d.lifeCoins | 0);
+        if (typeof d.lifeRounds === 'number') lifeRounds = Math.max(0, d.lifeRounds | 0);
+        if (d.round && d.round.seed != null && DIFFICULTIES[d.round.difficulty]) {
+          // Resume the saved solo round: same seed rebuilds the same layout,
+          // then hide the coins that were already collected
+          document.getElementById('difficulty-select').value = d.round.difficulty;
+          applyDifficultyEnv(d.round.difficulty);
+          roundSeed = d.round.seed | 0;
+          spawnCoins(DIFFICULTIES[d.round.difficulty], roundSeed);
+          (Array.isArray(d.round.taken) ? d.round.taken : []).forEach((i) => {
+            if (coins[i] && coins[i].visible) {
+              coins[i].visible = false;
+              takenCoins.add(i);
+            }
+          });
+          score = takenCoins.size;
+          document.getElementById('score').textContent = score;
+        }
+      } catch (e) {}
+      updateLifeStats();
+    }
+    document.getElementById('start-btn').addEventListener('click', startMultiplayerGame);
+    document.getElementById('player-name').addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') startMultiplayerGame();
+    });
+
+    // --- Camera Controls ---
+    let cameraYaw = 0;
+    let cameraPitch = 0.35;
+    let cameraDistance = 7.5; // shrinks on Impossible difficulty
+    let zoomFactor = 1;       // pinch / wheel zoom multiplier
+    let touchSens = 1;        // touch look sensitivity (Settings slider)
+
+    function setTouchSens(v) {
+      touchSens = v / 100;
+      document.getElementById('sens-value').textContent = v + '%';
+      if (typeof saveCoinPrefs === 'function') saveCoinPrefs();
+    }
+
+    loadCoinPrefs();
+
+    window.addEventListener('wheel', (e) => {
+      zoomFactor = Math.max(0.5, Math.min(2.2, zoomFactor + e.deltaY * 0.0012));
+    }, { passive: true });
+
+    function updateCamera() {
+      const cd = cameraDistance * zoomFactor;
+      const pY = playerGroup.position.y + 0.8;
+      const cx = playerGroup.position.x - Math.sin(cameraYaw) * Math.cos(cameraPitch) * cd;
+      const cy = pY + Math.sin(cameraPitch) * cd;
+      const cz = playerGroup.position.z - Math.cos(cameraYaw) * Math.cos(cameraPitch) * cd;
+
+      camera.position.set(cx, cy, cz);
+      camera.lookAt(playerGroup.position.x, pY, playerGroup.position.z);
+    }
+
+    let isMouseDown = false;
+    let previousMousePosition = { x: 0, y: 0 };
+
+    window.addEventListener('mousedown', (e) => {
+      if (e.target.closest('#settings-menu') || e.target.closest('#settings-btn') || e.target.closest('.touch-half')) return;
+      isMouseDown = true;
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('mousemove', (e) => {
+      if (!isMouseDown) return;
+      const deltaX = e.clientX - previousMousePosition.x;
+      const deltaY = e.clientY - previousMousePosition.y;
+
+      cameraYaw -= deltaX * 0.004;
+      cameraPitch += deltaY * 0.003;
+      cameraPitch = Math.max(0.08, Math.min(Math.PI / 2.8, cameraPitch));
+
+      previousMousePosition = { x: e.clientX, y: e.clientY };
+    });
+
+    window.addEventListener('mouseup', () => { isMouseDown = false; });
+
+    // --- Touch: left half of screen walks, right half looks around ---
+    // A floating stick appears wherever the left-half touch lands; the right
+    // half pans the camera directly under the finger, like mobile shooters.
+    const leftZone = document.getElementById('left-zone');
+    const rightZone = document.getElementById('right-zone');
+    const stickRing = document.getElementById('stick-ring');
+    const stickKnob = document.getElementById('stick-knob');
+
+    let moveInput = { x: 0, y: 0 };
+
+    (function setupTouchHalves() {
+      let moveId = null, moveOX = 0, moveOY = 0;
+      let camId = null, camLX = 0, camLY = 0;
+      let lastRightTap = 0;
+      const maxR = 55;
+
+      // Two-finger pinch zooms; it takes over from stick & camera drag
+      const allTouches = new Map();
+      let pinchDist = 0;
+      window.addEventListener('touchstart', (e) => {
+        for (const t of e.changedTouches) {
+          allTouches.set(t.identifier, { x: t.clientX, y: t.clientY, left: t.clientX < window.innerWidth / 2 });
+        }
+        // A pinch is two fingers on the SAME half of the screen. One finger
+        // per half means walking + looking, which must keep working.
+        if (allTouches.size === 2 && pinchDist === 0) {
+          const pts = [...allTouches.values()];
+          if (pts[0].left === pts[1].left) {
+            if (moveId !== null) {
+              moveId = null;
+              moveInput = { x: 0, y: 0 };
+              stickRing.style.display = 'none';
+            }
+            camId = null;
+            pinchDist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          }
+        }
+      }, { passive: true });
+
+      leftZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (moveId !== null) return;
+        const t = e.changedTouches[0];
+        moveId = t.identifier;
+        moveOX = t.clientX;
+        moveOY = t.clientY;
+        stickRing.style.left = moveOX + 'px';
+        stickRing.style.top = moveOY + 'px';
+        stickRing.style.display = 'block';
+        stickKnob.style.transform = 'translate(0px, 0px)';
+      }, { passive: false });
+
+      rightZone.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        if (camId !== null) return; // second simultaneous finger = pinch, not a tap
+        const t = e.changedTouches[0];
+        const nowT = performance.now();
+        if (nowT - lastRightTap < 300) triggerJump();
+        lastRightTap = nowT;
+        camId = t.identifier;
+        camLX = t.clientX;
+        camLY = t.clientY;
+      }, { passive: false });
+
+      window.addEventListener('touchmove', (e) => {
+        for (const t of e.changedTouches) {
+          const at = allTouches.get(t.identifier);
+          if (at) { at.x = t.clientX; at.y = t.clientY; }
+        }
+        if (allTouches.size >= 2 && pinchDist > 0) {
+          const pts = [...allTouches.values()];
+          const spread = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+          zoomFactor = Math.max(0.5, Math.min(2.2, zoomFactor - (spread - pinchDist) * 0.004));
+          pinchDist = spread;
+          return;
+        }
+        for (const t of e.changedTouches) {
+          if (t.identifier === moveId) {
+            let dx = t.clientX - moveOX;
+            let dy = t.clientY - moveOY;
+            const dist = Math.hypot(dx, dy);
+            if (dist > maxR) {
+              dx = (dx / dist) * maxR;
+              dy = (dy / dist) * maxR;
+            }
+            stickKnob.style.transform = `translate(${dx}px, ${dy}px)`;
+            moveInput = { x: dx / maxR, y: dy / maxR };
+          } else if (t.identifier === camId) {
+            cameraYaw -= (t.clientX - camLX) * 0.006 * touchSens;
+            cameraPitch += (t.clientY - camLY) * 0.004 * touchSens;
+            cameraPitch = Math.max(0.08, Math.min(Math.PI / 2.8, cameraPitch));
+            camLX = t.clientX;
+            camLY = t.clientY;
+          }
+        }
+      }, { passive: false });
+
+      const handleEnd = (e) => {
+        for (const t of e.changedTouches) allTouches.delete(t.identifier);
+        if (allTouches.size < 2) pinchDist = 0;
+        for (const t of e.changedTouches) {
+          if (t.identifier === moveId) {
+            moveId = null;
+            moveInput = { x: 0, y: 0 };
+            stickRing.style.display = 'none';
+          } else if (t.identifier === camId) {
+            camId = null;
+          }
+        }
+      };
+      window.addEventListener('touchend', handleEnd);
+      window.addEventListener('touchcancel', handleEnd);
+    })();
+
+    // --- Keyboard Inputs ---
+    const keys = {};
+    window.addEventListener('keydown', (e) => {
+      // Don't steal keys while typing a name or using a dropdown
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+      keys[e.code] = true;
+      if (e.code === 'Space') {
+        e.preventDefault();
+        triggerJump();
+      }
+    });
+    window.addEventListener('keyup', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT')) return;
+      keys[e.code] = false;
+    });
+
+    // --- Jump Physics Variables ---
+    let playerVelocityY = 0;
+    const gravity = -28;
+    const jumpStrength = 10.5;
+    let isGrounded = true;
+
+    function triggerJump() {
+      if (isGrounded) {
+        playerVelocityY = jumpStrength;
+        isGrounded = false;
+      }
+    }
+
+    const jumpBtn = document.getElementById('jump-btn');
+    jumpBtn.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      triggerJump();
+    });
+    jumpBtn.addEventListener('click', triggerJump);
+
+    // --- Animation & Physics Loop ---
+    const clock = new THREE.Clock();
+    const playerSpeed = 11;
+    const halfLimit = worldSize / 2 - 3;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const delta = clock.getDelta();
+      const elapsedTime = clock.getElapsedTime();
+
+      // Pause the game and music after 3 minutes without input
+      if (!gamePaused && Date.now() - lastActivity > 180000) {
+        gamePaused = true;
+        document.getElementById('pause-overlay').style.display = 'flex';
+        if (audioCtx) audioCtx.suspend();
+      }
+      if (gamePaused) {
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // Smooth Sky Color Transition
+      scene.background.lerp(targetSkyColor, 3 * delta);
+      scene.fog.color.lerp(targetSkyColor, 3 * delta);
+
+      // Calculate Inputs (movement math treats +X as screen-left, so the
+      // joystick's natural right-positive X must be negated to match)
+      let inputX = -moveInput.x;
+      let inputZ = moveInput.y;
+
+      if (keys['KeyA'] || keys['ArrowLeft']) inputX = 1;
+      if (keys['KeyD'] || keys['ArrowRight']) inputX = -1;
+      if (keys['KeyW'] || keys['ArrowUp']) inputZ = -1;
+      if (keys['KeyS'] || keys['ArrowDown']) inputZ = 1;
+
+      if (Math.abs(inputX) > 0.1 || Math.abs(inputZ) > 0.1) {
+        const moveAngle = Math.atan2(inputX, -inputZ) + cameraYaw;
+        
+        const moveX = Math.sin(moveAngle) * playerSpeed * delta;
+        const moveZ = Math.cos(moveAngle) * playerSpeed * delta;
+
+        playerGroup.position.x = Math.max(-halfLimit, Math.min(halfLimit, playerGroup.position.x + moveX));
+        playerGroup.position.z = Math.max(-halfLimit, Math.min(halfLimit, playerGroup.position.z + moveZ));
+
+        const targetRotation = moveAngle;
+        let diff = targetRotation - playerGroup.rotation.y;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        playerGroup.rotation.y += diff * 12 * delta;
+      }
+
+      // Solid trees & boulders: push the player back out
+      for (const c of colliders) {
+        const ddx = playerGroup.position.x - c.x;
+        const ddz = playerGroup.position.z - c.z;
+        const cd = Math.hypot(ddx, ddz);
+        const minD = c.r + 0.5;
+        if (cd < minD && cd > 0.0001) {
+          playerGroup.position.x = c.x + (ddx / cd) * minD;
+          playerGroup.position.z = c.z + (ddz / cd) * minD;
+        }
+      }
+
+      // Height & Jump Physics
+      const terrainY = getTerrainHeight(playerGroup.position.x, playerGroup.position.z);
+
+      if (!isGrounded) {
+        playerVelocityY += gravity * delta;
+        playerGroup.position.y += playerVelocityY * delta;
+
+        if (playerGroup.position.y <= terrainY) {
+          playerGroup.position.y = terrainY;
+          playerVelocityY = 0;
+          isGrounded = true;
+        }
+      } else {
+        playerGroup.position.y = THREE.MathUtils.lerp(playerGroup.position.y, terrainY, 12 * delta);
+      }
+
+      updateCamera();
+
+      // Coin Animations & Collection Check
+      coins.forEach((coin, idx) => {
+        if (!coin.visible) return;
+
+        coin.rotation.y += 1.8 * delta;
+        const baseY = getTerrainHeight(coin.position.x, coin.position.z) + 1.2;
+        coin.position.y = baseY + Math.sin(elapsedTime * 3 + idx) * 0.18;
+
+        const dist = playerGroup.position.distanceTo(coin.position);
+        if (dist < 1.5) {
+          collectCoin(idx, false);
+        }
+      });
+
+      // Multiplayer: broadcast my position, glide other players toward theirs
+      mpUpdate(delta);
+
+      // Ambient life: drifting clouds, coin shimmer, fireflies at night
+      clouds.forEach((c, i) => {
+        c.position.x += delta * (1.0 + i * 0.15);
+        if (c.position.x > 220) c.position.x = -220;
+      });
+      // Coins glow brighter after dark so they're findable at night
+      const coinGlowBase = isNight ? 0.85 : 0.25;
+      coinMat.emissiveIntensity = coinGlowBase + (Math.sin(elapsedTime * 4) + 1) * (isNight ? 0.25 : 0.1);
+      fireflies.forEach(f => {
+        f.visible = isNight;
+        if (isNight) {
+          const u = f.userData;
+          f.position.set(
+            u.baseX + Math.sin(elapsedTime * 0.4 + u.phase) * 7,
+            u.baseY + Math.sin(elapsedTime * 1.8 + u.phase) * 0.9,
+            u.baseZ + Math.cos(elapsedTime * 0.33 + u.phase) * 7
+          );
+        }
+      });
+
+      renderer.render(scene, camera);
+    }
+
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    animate();
+  </script>
+</body>
+</html>

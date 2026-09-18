@@ -1,0 +1,2505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Virus PC Simulator — Play Centre</title>
+<meta name="description" content="A Windows 11 desktop in your browser — download drivers, apps and extremely suspicious .exe files from the Start menu and see how much junk your PC can survive before it blue-screens.">
+<link rel="canonical" href="https://bethqzak.github.io/andy/virus_pc.html">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<meta name="theme-color" content="#0b0d1a">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&display=swap">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; user-select: none; -webkit-tap-highlight-color: transparent; }
+
+:root {
+    --tb: 48px;                       /* taskbar height, Windows 11 is 48px */
+    --accent: #4cc2ff;
+    --acrylic: rgba(26, 26, 26, 0.86);
+    --acrylic-lite: rgba(43, 43, 43, 0.86);
+    --stroke: rgba(255, 255, 255, 0.09);
+    --txt2: #c9c9c9;
+    --radius: 8px;
+    /* genuine Segoe on Windows; Source Sans 3 is the stand-in everywhere else */
+    --font: 'Segoe UI Variable Text', 'Segoe UI Variable Display', 'Segoe UI',
+            'Source Sans 3', system-ui, -apple-system, 'Helvetica Neue', Arial, sans-serif;
+}
+
+html, body { height: 100%; overflow: hidden; }
+
+/* every icon is an <svg> in a fixed-size box, so one rule sizes them all */
+.ic { display: inline-flex; flex: 0 0 auto; width: 32px; height: 32px; }
+.ic .ico, .ico { width: 100%; height: 100%; display: block; }
+.ic.xs { width: 16px; height: 16px; }
+.ic.sm { width: 24px; height: 24px; }
+.ic.lg { width: 52px; height: 52px; }
+.cardline { display: flex; align-items: center; gap: 11px; min-width: 0; }
+
+/* the Windows chevron, used by All apps / More / submenu rows */
+.chev { display: inline-block; width: 6px; height: 6px; margin-left: 7px; vertical-align: 1px;
+        border-right: 1.4px solid currentColor; border-top: 1.4px solid currentColor; transform: rotate(45deg); }
+.chev.back { margin: 0 7px 0 0; transform: rotate(-135deg); }
+.chev.sm { margin-left: auto; opacity: 0.75; }
+body {
+    background: #04070f;
+    color: #fff;
+    font-family: var(--font);
+    font-size: 14px;
+    touch-action: manipulation;
+}
+button { font: inherit; color: inherit; border: none; background: none; cursor: pointer; }
+input { font: inherit; }
+
+/* ============ BOOT ============ */
+#boot {
+    position: fixed; inset: 0; z-index: 9000;
+    background: #000;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    gap: 42px; cursor: pointer;
+}
+#boot.gone { opacity: 0; pointer-events: none; transition: opacity 0.5s ease; }
+.win-logo {
+    display: grid; grid-template-columns: 1fr 1fr; gap: 5px;
+    width: 92px; height: 92px;
+}
+.win-logo i { background: #4cc2ff; border-radius: 2px; display: block; }
+.boot-spin {
+    width: 34px; height: 34px; position: relative;
+}
+.boot-spin i {
+    position: absolute; top: 0; left: 50%;
+    width: 4px; height: 4px; border-radius: 50%; background: #fff;
+    transform-origin: 2px 17px;
+    animation: bootdot 1.6s linear infinite;
+}
+@keyframes bootdot {
+    0%   { transform: rotate(0deg)   translateY(0); opacity: 0.15; }
+    22%  { opacity: 1; }
+    55%  { opacity: 0.15; }
+    100% { transform: rotate(360deg) translateY(0); opacity: 0.15; }
+}
+#boot-text { color: #ddd; font-size: 15px; letter-spacing: 0.3px; }
+#boot-skip { position: absolute; bottom: 28px; color: #555; font-size: 12px; }
+
+/* ============ DESKTOP ============ */
+#desktop {
+    position: fixed; inset: 0; overflow: hidden;
+    opacity: 0; transition: opacity 0.6s ease;
+}
+#desktop.on { opacity: 1; }
+
+/* everything that the viruses are allowed to warp lives in here, so the
+   taskbar and menus stay usable no matter how bad it gets */
+#stage {
+    position: absolute; inset: 0;
+    transition: filter 0.6s ease, transform 0.9s ease;
+    transform-origin: center center;
+}
+
+#wallpaper {
+    position: absolute; inset: 0; overflow: hidden;
+    background: radial-gradient(ellipse 80% 80% at 50% 48%, #10305e 0%, #081c3c 42%, #040a18 100%);
+}
+/* vignette — the corners of the real wallpaper go almost black */
+#wallpaper::after {
+    content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: radial-gradient(ellipse 72% 72% at 50% 50%, transparent 30%, rgba(0,0,0,0.5) 100%);
+}
+#wallpaper svg { position: absolute; top: 50%; left: 50%; width: 128vmin; height: 128vmin; transform: translate(-50%, -50%); }
+#wallpaper.w-teal { background: radial-gradient(ellipse 80% 80% at 50% 48%, #0a4a40 0%, #04261f 42%, #020d0a 100%); }
+#wallpaper.w-sunset { background: radial-gradient(ellipse 80% 80% at 50% 48%, #4a1240 0%, #2a0a22 42%, #10040d 100%); }
+#wallpaper.w-hacked { background: radial-gradient(ellipse 80% 80% at 50% 48%, #063d18 0%, #03200c 42%, #010a04 100%); }
+
+/* ============ DESKTOP ICONS ============ */
+#icon-layer {
+    position: absolute; top: 8px; left: 8px; right: 8px; bottom: calc(var(--tb) + 8px);
+    display: flex; flex-direction: column; flex-wrap: wrap;
+    align-content: flex-start; gap: 2px;
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-left: env(safe-area-inset-left, 0px);
+}
+.dicon {
+    width: 84px; padding: 8px 4px 6px; border-radius: 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 5px;
+    cursor: pointer; text-align: center; flex: 0 0 auto;
+}
+.dicon:hover { background: rgba(255,255,255,0.12); outline: 1px solid rgba(255,255,255,0.16); }
+.dicon.sel { background: rgba(76,194,255,0.28); outline: 1px solid rgba(76,194,255,0.6); }
+.dicon .ic { width: 40px; height: 40px; filter: drop-shadow(0 2px 3px rgba(0,0,0,0.55)); }
+.dicon .lbl {
+    font-size: 11.5px; line-height: 1.25; color: #fff; width: 100%;
+    text-shadow: 0 1px 3px rgba(0,0,0,0.9);
+    overflow-wrap: anywhere; max-height: 2.5em; overflow: hidden;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+
+/* ============ TASKBAR ============ */
+#taskbar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 400;
+    height: calc(var(--tb) + env(safe-area-inset-bottom, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    /* Windows 11 has no rule along the top of the taskbar, and the surface is
+       more opaque than a plain acrylic panel */
+    background: var(--acrylic);
+    backdrop-filter: blur(40px) saturate(1.9);
+    -webkit-backdrop-filter: blur(40px) saturate(1.9);
+    display: flex; align-items: center; justify-content: center;
+}
+#tb-center { display: flex; align-items: center; gap: 0; }
+.tb-btn {
+    width: 44px; height: 40px; border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    position: relative; transition: background 0.1s;
+}
+.tb-btn:hover { background: rgba(255,255,255,0.062); }
+.tb-btn:active { background: rgba(255,255,255,0.032); }
+.tb-btn.active::after {
+    content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 16px; height: 3px; border-radius: 1.5px; background: var(--accent);
+    transition: width 0.14s ease;
+}
+.tb-btn.open::after {
+    content: ''; position: absolute; bottom: 2px; left: 50%; transform: translateX(-50%);
+    width: 7px; height: 3px; border-radius: 1.5px; background: rgba(255,255,255,0.55);
+}
+/* the sliver at the far right that peeks at the desktop */
+#show-desktop {
+    position: absolute; right: 0; top: 0; bottom: 0; width: 8px;
+    border-left: 1px solid rgba(255,255,255,0.12);
+}
+#show-desktop:hover { background: rgba(255,255,255,0.07); }
+.tb-btn .ico { width: 24px; height: 24px; }
+.tb-win { display: grid; grid-template-columns: 1fr 1fr; gap: 2.5px; width: 19px; height: 19px; }
+.tb-win i { background: #4cc2ff; border-radius: 1px; }
+#tb-right {
+    position: absolute; right: 4px; bottom: 0; height: var(--tb);
+    display: flex; align-items: center; gap: 2px;
+    padding-right: env(safe-area-inset-right, 0px);
+}
+#tb-weather {
+    position: absolute; left: calc(6px + env(safe-area-inset-left, 0px)); bottom: 5px;
+    height: 38px; display: flex; align-items: center; gap: 9px;
+    padding: 0 12px 0 8px; border-radius: 5px;
+}
+#tb-weather:hover { background: rgba(255,255,255,0.08); }
+#tb-weather .ic { width: 26px; height: 26px; }
+#tb-weather .wx { display: flex; flex-direction: column; line-height: 1.25; text-align: left; }
+#tb-weather .wx b { font-size: 12px; font-weight: 600; }
+#tb-weather .wx i { font-size: 11px; color: #cfcfcf; font-style: normal; }
+.tray-chev { width: 26px; height: 34px; border-radius: 5px; display: flex; align-items: center; justify-content: center; }
+.tray-chev .ico { width: 13px; height: 13px; }
+.tray-chev:hover { background: rgba(255,255,255,0.08); }
+.tray {
+    display: flex; align-items: center; gap: 9px;
+    padding: 7px 10px; border-radius: 5px;
+}
+.tray .ico { width: 17px; height: 17px; }
+.tray:hover { background: rgba(255,255,255,0.08); }
+#tb-clock {
+    display: flex; flex-direction: column; align-items: flex-end;
+    padding: 5px 10px; border-radius: 5px; margin-right: 8px;
+    font-size: 12px; line-height: 1.35; letter-spacing: 0.1px;
+    font-variant-numeric: tabular-nums;
+}
+#tb-clock:hover { background: rgba(255,255,255,0.08); }
+
+/* health pill baked into the tray so the player always sees the damage */
+#hp-pill {
+    display: flex; align-items: center; gap: 7px;
+    padding: 7px 10px; border-radius: 5px;
+    font-size: 12px; font-weight: 600;
+}
+#hp-pill:hover { background: rgba(255,255,255,0.062); }
+#hp-bar { display: inline-block; width: 48px; height: 5px; border-radius: 3px; background: rgba(255,255,255,0.16); overflow: hidden; }
+#hp-fill { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #2ee86a, #7bff9e); transition: width 0.3s, background 0.4s; }
+#hp-pill.warn #hp-fill { background: linear-gradient(90deg, #ffb020, #ffd76a); }
+#hp-pill.crit { animation: hpflash 0.7s steps(2) infinite; }
+#hp-pill.crit #hp-fill { background: linear-gradient(90deg, #ff3b30, #ff8a80); }
+@keyframes hpflash { 50% { background: rgba(255,59,48,0.35); } }
+#score-pill {
+    padding: 7px 10px; border-radius: 5px; font-size: 12px; font-weight: 600;
+    color: #9fdcff; font-variant-numeric: tabular-nums;
+}
+#score-pill:hover { background: rgba(255,255,255,0.062); }
+
+/* ============ START MENU ============ */
+#startmenu {
+    position: absolute; z-index: 500;
+    left: 50%; bottom: calc(var(--tb) + env(safe-area-inset-bottom, 0px) + 10px);
+    transform: translate(-50%, 14px);
+    width: min(640px, calc(100vw - 20px));
+    height: min(680px, calc(100vh - var(--tb) - 30px));
+    background: var(--acrylic-lite);
+    backdrop-filter: blur(44px) saturate(1.7);
+    -webkit-backdrop-filter: blur(44px) saturate(1.7);
+    border: 1px solid var(--stroke);
+    border-radius: var(--radius);
+    box-shadow: 0 18px 60px rgba(0,0,0,0.62);
+    display: flex; flex-direction: column;
+    opacity: 0; pointer-events: none;
+    transition: opacity 0.16s ease, transform 0.2s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+#startmenu.on { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+#sm-search {
+    margin: 22px 28px 16px; height: 36px; flex: 0 0 auto;
+    background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.14);
+    border-radius: 18px; display: flex; align-items: center; gap: 9px; padding: 0 14px;
+}
+#sm-search:focus-within { border-color: var(--accent); background: rgba(0,0,0,0.3); }
+#sm-search input { flex: 1; background: none; border: none; outline: none; color: #fff; font-size: 13.5px; }
+#sm-search input::placeholder { color: #9a9a9a; }
+.sm-head {
+    display: flex; align-items: center; justify-content: space-between;
+    margin: 0 28px 12px; flex: 0 0 auto;
+}
+.sm-head b { font-size: 13.5px; font-weight: 600; }
+.sm-more {
+    font-size: 12px; font-weight: 600; padding: 5px 12px; border-radius: 4px;
+    background: rgba(255,255,255,0.07); border: 1px solid rgba(255,255,255,0.1);
+}
+.sm-more:hover { background: rgba(255,255,255,0.14); }
+#sm-body { flex: 1; overflow-y: auto; padding: 0 20px 10px; }
+#sm-body::-webkit-scrollbar { width: 6px; }
+#sm-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.22); border-radius: 3px; }
+.sm-grid {
+    display: grid; grid-template-columns: repeat(6, 1fr); gap: 2px;
+    flex: 1; min-width: 0; align-content: start;
+}
+.pin-wrap { display: flex; align-items: stretch; gap: 4px; }
+.pin-dots { display: flex; flex-direction: column; justify-content: center; gap: 7px; padding: 0 2px; }
+.pin-dot {
+    width: 6px; height: 6px; border-radius: 50%; padding: 0;
+    background: rgba(255,255,255,0.32); transition: background 0.15s, transform 0.15s;
+}
+.pin-dot:hover { background: rgba(255,255,255,0.55); }
+.pin-dot.on { background: #fff; transform: scale(1.15); }
+.rec-head { margin-top: 18px; }
+
+/* Recommended is a two-column list of entries, not another tile grid */
+.rec-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2px; }
+.rec {
+    display: flex; align-items: center; gap: 11px; text-align: left;
+    padding: 8px 10px; border-radius: 4px; min-width: 0;
+}
+.rec:hover { background: rgba(255,255,255,0.08); }
+.rec .ic { width: 28px; height: 28px; }
+.rec .rt { min-width: 0; display: flex; flex-direction: column; }
+.rec .rt b { font-size: 12px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rec .rt i { font-size: 11px; color: #a0a0a0; font-style: normal; }
+.tile {
+    padding: 12px 4px 10px; border-radius: 4px;
+    display: flex; flex-direction: column; align-items: center; gap: 7px;
+    text-align: center; position: relative;
+}
+.tile:hover { background: rgba(255,255,255,0.08); }
+.tile:active { background: rgba(255,255,255,0.04); transform: scale(0.96); }
+.tile .ic { width: 32px; height: 32px; }
+.tile .lbl {
+    font-size: 11px; line-height: 1.3; color: #eaeaea; width: 100%;
+    height: 2.6em; overflow: hidden; overflow-wrap: anywhere;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+}
+.tile .sub { font-size: 9.5px; color: #8f8f8f; }
+.tile.danger .lbl { color: #ffb4ab; }
+.tile.done { opacity: 0.42; }
+.tile .dot { position: absolute; top: 7px; right: 11px; width: 7px; height: 7px; border-radius: 50%; background: #ff4d3d; }
+.cat-title {
+    font-size: 12px; font-weight: 700; color: #9a9a9a; text-transform: uppercase;
+    letter-spacing: 0.7px; margin: 16px 8px 7px;
+}
+.cat-title.danger { color: #ff8c7a; }
+.sm-empty { text-align: center; color: #8f8f8f; padding: 40px 10px; font-size: 13px; }
+#sm-foot {
+    flex: 0 0 auto; height: 58px; margin-top: auto;
+    background: rgba(255,255,255,0.045); border-top: 1px solid rgba(255,255,255,0.06);
+    border-radius: 0 0 var(--radius) var(--radius);
+    display: flex; align-items: center; justify-content: space-between; padding: 0 22px;
+}
+#sm-user { display: flex; align-items: center; gap: 11px; padding: 6px 10px; border-radius: 4px; }
+#sm-user:hover { background: rgba(255,255,255,0.08); }
+#sm-user .pfp {
+    width: 30px; height: 30px; border-radius: 50%; overflow: hidden;
+    display: flex; align-items: center; justify-content: center;
+}
+#sm-user .pfp svg { width: 100%; height: 100%; }
+.sm-foot-btns button svg { width: 17px; height: 17px; }
+#sm-search .mag { display: inline-flex; width: 15px; height: 15px; opacity: 0.85; }
+#sm-search .mag svg { width: 100%; height: 100%; }
+#sm-user b { font-size: 13px; font-weight: 600; }
+.sm-foot-btns { display: flex; gap: 2px; }
+.sm-foot-btns button { width: 38px; height: 34px; border-radius: 4px; font-size: 16px; }
+.sm-foot-btns button:hover { background: rgba(255,255,255,0.1); }
+
+/* ============ WINDOWS ============ */
+#window-layer { position: absolute; inset: 0; pointer-events: none; z-index: 200; }
+.win {
+    position: absolute; pointer-events: auto;
+    background: rgba(32, 32, 32, 0.93);
+    backdrop-filter: blur(40px) saturate(1.5);
+    -webkit-backdrop-filter: blur(40px) saturate(1.5);
+    border: 1px solid rgba(255,255,255,0.11);
+    border-radius: var(--radius);
+    box-shadow: 0 22px 70px rgba(0,0,0,0.66);
+    display: flex; flex-direction: column; overflow: hidden;
+    animation: winpop 0.17s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+@keyframes winpop { from { opacity: 0; transform: scale(0.94); } }
+.win.min { display: none; }
+.titlebar {
+    height: 32px; flex: 0 0 auto; display: flex; align-items: center;
+    padding-left: 12px; gap: 9px; cursor: grab;
+    background: rgba(255,255,255,0.035);
+}
+.titlebar:active { cursor: grabbing; }
+.titlebar .ic { margin-right: 2px; }
+.titlebar .t-name { font-size: 12px; font-weight: 400; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.wbtns { display: flex; height: 100%; margin-left: auto; }
+.wbtns button { width: 46px; height: 100%; display: flex; align-items: center; justify-content: center; color: #e8e8e8; }
+.wbtns button svg { width: 10px; height: 10px; fill: none; stroke: currentColor; stroke-width: 1; }
+.wbtns button:hover { background: rgba(255,255,255,0.08); }
+.wbtns button.x:hover { background: #c42b1c; color: #fff; }
+.wbody { flex: 1; overflow-y: auto; padding: 16px 18px 18px; font-size: 13px; line-height: 1.5; }
+.wbody::-webkit-scrollbar { width: 8px; }
+.wbody::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 4px; }
+
+/* generic window furniture */
+.w-h1 { font-size: 19px; font-weight: 600; margin-bottom: 4px; }
+.w-sub { color: #a5a5a5; font-size: 12.5px; margin-bottom: 14px; }
+.card {
+    background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 6px; padding: 13px 15px; margin-bottom: 9px;
+}
+.row { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.btn {
+    padding: 7px 16px; border-radius: 4px; font-size: 12.5px; font-weight: 600;
+    background: rgba(255,255,255,0.09); border: 1px solid rgba(255,255,255,0.12);
+    white-space: nowrap;
+}
+.btn:hover { background: rgba(255,255,255,0.16); }
+.btn.primary { background: #0067c0; border-color: #0067c0; }
+.btn.primary:hover { background: #1a7ad4; }
+.btn.danger { background: #b8352a; border-color: #c9483c; }
+.btn.danger:hover { background: #d0453a; }
+.btn:disabled { opacity: 0.45; cursor: default; }
+.meter { height: 7px; border-radius: 4px; background: rgba(255,255,255,0.13); overflow: hidden; margin-top: 7px; }
+.meter i { display: block; height: 100%; background: var(--accent); transition: width 0.3s; }
+.meter.hot i { background: #ff6a5a; }
+select.inp, input.inp {
+    background: rgba(255,255,255,0.06); color: #fff; border: 1px solid rgba(255,255,255,0.16);
+    border-radius: 4px; padding: 6px 9px; font-size: 12.5px; outline: none;
+}
+
+/* task manager */
+.proc { display: flex; align-items: center; gap: 10px; padding: 7px 9px; border-radius: 4px; font-size: 12.5px; }
+.proc:hover { background: rgba(255,255,255,0.06); }
+.proc.sel { background: rgba(76,194,255,0.2); }
+.proc .pn { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.proc .pv { width: 58px; text-align: right; color: #b9b9b9; font-variant-numeric: tabular-nums; }
+.proc.bad .pn { color: #ff9c8c; }
+.proc-head { display: flex; gap: 10px; padding: 0 9px 6px; font-size: 11px; color: #999; border-bottom: 1px solid rgba(255,255,255,0.09); margin-bottom: 5px; }
+.proc-head .pn { flex: 1; }
+.proc-head .pv { width: 58px; text-align: right; }
+.gauges { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; }
+.gauge { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.07); border-radius: 6px; padding: 11px 13px; }
+.gauge b { font-size: 11px; color: #a5a5a5; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+.gauge .v { font-size: 23px; font-weight: 300; margin-top: 2px; font-variant-numeric: tabular-nums; }
+.gauge canvas { width: 100%; height: 42px; display: block; margin-top: 6px; }
+
+/* ============ AD POPUPS ============ */
+#popup-layer { position: absolute; inset: 0; pointer-events: none; z-index: 300; }
+.ad {
+    position: absolute; pointer-events: auto;
+    width: 258px; border-radius: 6px; overflow: hidden;
+    border: 2px solid #ffd400; background: #10132a;
+    box-shadow: 0 12px 36px rgba(0,0,0,0.7);
+    animation: adpop 0.2s ease;
+}
+@keyframes adpop { from { transform: scale(0.7) rotate(-4deg); opacity: 0; } }
+.ad .abar {
+    height: 24px; background: linear-gradient(90deg, #ff2d75, #ff8a00);
+    display: flex; align-items: center; padding: 0 4px 0 8px; gap: 6px;
+}
+.ad .abar span { flex: 1; font-size: 11px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ad .abar button { width: 22px; height: 18px; border-radius: 2px; background: rgba(0,0,0,0.35); font-size: 11px; font-weight: 900; }
+.ad .abar button:hover { background: #c42b1c; }
+.ad .abody { padding: 13px 12px; text-align: center; }
+.ad .abody .big { font-size: 26px; }
+.ad .abody .txt { font-size: 12px; font-weight: 700; margin: 7px 0 10px; line-height: 1.35; color: #ffe98a; }
+.ad .abody .cta {
+    display: inline-block; padding: 7px 17px; border-radius: 4px; font-size: 12px; font-weight: 900;
+    background: linear-gradient(180deg, #34d65a, #159c35); color: #04240d;
+    animation: ctablink 0.9s ease-in-out infinite;
+}
+@keyframes ctablink { 50% { transform: scale(1.07); } }
+
+/* ============ TOASTS / DOWNLOADS ============ */
+#toasts {
+    position: absolute; z-index: 450;
+    right: calc(12px + env(safe-area-inset-right, 0px));
+    bottom: calc(var(--tb) + env(safe-area-inset-bottom, 0px) + 12px);
+    display: flex; flex-direction: column; gap: 9px; width: 330px; max-width: calc(100vw - 24px);
+    pointer-events: none;
+}
+.toast {
+    background: rgba(43,43,43,0.94);
+    backdrop-filter: blur(30px); -webkit-backdrop-filter: blur(30px);
+    border: 1px solid var(--stroke); border-radius: var(--radius);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.6);
+    padding: 13px 15px; display: flex; gap: 12px; align-items: flex-start;
+    animation: toastin 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+.toast.out { animation: toastout 0.3s ease forwards; }
+@keyframes toastin { from { transform: translateX(22px); opacity: 0; } }
+@keyframes toastout { to { transform: translateX(26px); opacity: 0; } }
+.toast .ic { width: 28px; height: 28px; font-size: 21px; align-items: center; justify-content: center; }
+.toast .tx { flex: 1; min-width: 0; }
+.toast .ta { font-size: 11px; color: #b4b4b4; margin-bottom: 3px; }
+.toast .tt { font-size: 12.5px; font-weight: 600; }
+.toast .ts { font-size: 11.5px; color: #a8a8a8; margin-top: 2px; }
+.toast .meter { margin-top: 8px; }
+
+/* ============ UAC ============ */
+#uac {
+    position: absolute; inset: 0; z-index: 700;
+    background: rgba(0,0,0,0.62); backdrop-filter: blur(3px);
+    display: none; align-items: center; justify-content: center; padding: 16px;
+}
+#uac.on { display: flex; animation: uacin 0.18s ease; }
+@keyframes uacin { from { opacity: 0; } }
+#uac-box {
+    width: min(420px, 100%); border-radius: var(--radius); overflow: hidden;
+    background: #202020; border: 1px solid rgba(255,255,255,0.13);
+    box-shadow: 0 26px 80px rgba(0,0,0,0.8);
+}
+#uac-top { background: #0067c0; padding: 15px 20px; font-size: 15px; font-weight: 600; }
+#uac-top.bad { background: #a4262c; }
+#uac-mid { padding: 18px 20px; }
+#uac-app { display: flex; gap: 13px; align-items: flex-start; margin-bottom: 14px; }
+#uac-app .ic { width: 34px; height: 34px; }
+#uac-name { font-size: 13.5px; font-weight: 600; }
+#uac-pub { font-size: 12px; color: #a5a5a5; margin-top: 3px; line-height: 1.5; }
+#uac-pub b.unk { color: #ffb03a; }
+#uac-pub b.evil { color: #ff6a5a; }
+#uac-btns { display: flex; gap: 9px; padding: 0 20px 18px; }
+#uac-btns .btn { flex: 1; text-align: center; padding: 9px; }
+
+/* ============ CONTEXT MENU ============ */
+#ctx {
+    position: absolute; z-index: 600; min-width: 216px; padding: 5px;
+    background: var(--acrylic-lite);
+    backdrop-filter: blur(44px) saturate(1.7); -webkit-backdrop-filter: blur(44px) saturate(1.7);
+    border: 1px solid var(--stroke); border-radius: var(--radius);
+    box-shadow: 0 14px 44px rgba(0,0,0,0.6);
+    display: none; animation: winpop 0.13s ease;
+}
+#ctx.on { display: block; }
+.ctx-i { display: flex; align-items: center; gap: 12px; padding: 8px 12px; border-radius: 4px; font-size: 12.5px; width: 100%; text-align: left; }
+.ctx-i:hover { background: rgba(255,255,255,0.09); }
+.ctx-i .ci { width: 16px; height: 16px; display: inline-flex; flex: 0 0 auto; color: #e4e4e4; }
+.ctx-i .ci svg { width: 100%; height: 100%; }
+.ctx-i .ct { flex: 1; }
+.ctx-i .ck { font-size: 11px; color: #9a9a9a; }
+.ctx-i.dim { color: #d0d0d0; }
+.ctx-sep { height: 1px; background: rgba(255,255,255,0.09); margin: 4px 8px; }
+
+/* ============ VIRUS FX ============ */
+#fx-layer { position: absolute; inset: 0; pointer-events: none; z-index: 350; overflow: hidden; }
+.fake-cursor { position: absolute; font-size: 20px; transition: transform 0.09s linear; will-change: transform; }
+.faller { position: absolute; top: -40px; font-size: 19px; animation: fall linear forwards; }
+@keyframes fall { to { transform: translateY(115vh) rotate(340deg); } }
+#bonzi {
+    position: absolute; z-index: 360; pointer-events: none;
+    display: none; flex-direction: column; align-items: center; width: 170px;
+    transition: left 2.6s ease-in-out, top 2.6s ease-in-out;
+}
+#bonzi.on { display: flex; }
+#bonzi .bubble {
+    background: #fffbe6; color: #101010; border-radius: 12px; padding: 8px 11px;
+    font-size: 11.5px; font-weight: 700; text-align: center; line-height: 1.35;
+    border: 2px solid #3b2a00; margin-bottom: 5px; box-shadow: 0 5px 16px rgba(0,0,0,0.5);
+}
+#bonzi .guy { font-size: 56px; animation: bonzibob 1.4s ease-in-out infinite; filter: hue-rotate(250deg) saturate(1.6); }
+@keyframes bonzibob { 50% { transform: translateY(-9px) rotate(6deg); } }
+
+#toolbars {
+    position: absolute; top: 0; left: 0; right: 0; z-index: 340;
+    padding-top: env(safe-area-inset-top, 0px);
+}
+.jtoolbar {
+    height: 30px; display: flex; align-items: center; gap: 8px; padding: 0 10px;
+    font-size: 11px; font-weight: 700; color: #1b1b1b;
+    border-bottom: 1px solid rgba(0,0,0,0.35);
+    background: linear-gradient(180deg, #f6f6f6, #cfcfcf);
+    animation: winpop 0.2s ease;
+}
+.jtoolbar .fakeinput { flex: 1; height: 19px; background: #fff; border: 1px solid #888; border-radius: 2px; }
+.jtoolbar .fakebtn { background: #dcdcdc; border: 1px solid #8b8b8b; border-radius: 2px; padding: 2px 7px; }
+
+#glitch { position: absolute; inset: 0; z-index: 370; pointer-events: none; display: none; }
+#glitch.on { display: block; background: #0078d7; animation: glitchflash 0.16s steps(2); }
+@keyframes glitchflash { 0%, 100% { opacity: 0; } 50% { opacity: 0.85; } }
+
+#scanlines {
+    position: absolute; inset: 0; z-index: 345; pointer-events: none; display: none;
+    background: repeating-linear-gradient(0deg, rgba(0,255,60,0.09) 0px, rgba(0,255,60,0.09) 1px, transparent 1px, transparent 4px);
+}
+#scanlines.on { display: block; }
+
+/* +260deg lands the blue desktop on hacker-green rather than magenta */
+.fx-tint     { filter: hue-rotate(260deg) saturate(1.7) contrast(1.15); }
+.fx-blur     { filter: blur(1.6px) saturate(1.3); }
+.fx-flip     { transform: scaleY(-1); }
+#desktop.fx-jitter { animation: jitter 0.16s infinite steps(2); }
+@keyframes jitter {
+    0%   { transform: translate(0, 0); }
+    25%  { transform: translate(-3px, 2px); }
+    50%  { transform: translate(2px, -3px); }
+    75%  { transform: translate(3px, 1px); }
+}
+
+/* ============ BSOD ============ */
+#bsod {
+    position: fixed; inset: 0; z-index: 9500; display: none;
+    background: #0078d7; color: #fff;
+    padding: 12vh 10vw; font-family: var(--font);
+}
+#bsod.on { display: block; animation: winpop 0.08s steps(1); }
+#bsod .face { font-size: clamp(60px, 11vw, 110px); font-weight: 300; line-height: 1; margin-bottom: 26px; }
+#bsod .msg { font-size: clamp(16px, 2.4vw, 24px); font-weight: 300; line-height: 1.45; max-width: 640px; }
+#bsod .pct { font-size: clamp(16px, 2.4vw, 24px); font-weight: 300; margin-top: 20px; }
+#bsod .foot { display: flex; gap: 18px; margin-top: 44px; align-items: flex-start; }
+#bsod .qr {
+    width: 80px; height: 80px; flex: 0 0 auto; background: #fff; padding: 5px;
+    display: grid; grid-template-columns: repeat(9, 1fr); grid-auto-rows: 1fr;
+}
+#bsod .qr i { background: #0078d7; }
+#bsod .qr i.b { background: #000; }
+#bsod .foot .fx { font-size: clamp(11px, 1.5vw, 14px); font-weight: 300; line-height: 1.6; }
+#bsod .foot .fx b { font-weight: 600; }
+
+/* ============ GAME OVER ============ */
+#gameover {
+    position: fixed; inset: 0; z-index: 9600; display: none;
+    background: radial-gradient(circle at 50% 40%, #16213f 0%, #05070f 70%);
+    align-items: center; justify-content: center; padding: 20px;
+    overflow-y: auto;
+}
+#gameover.on { display: flex; animation: winpop 0.35s ease; }
+#go-card {
+    width: min(520px, 100%); text-align: center;
+    background: rgba(20, 24, 42, 0.9); border: 1px solid rgba(76,194,255,0.3);
+    border-radius: 18px; padding: 30px 26px 26px;
+    box-shadow: 0 24px 70px rgba(0,0,0,0.75);
+}
+#go-card h1 { font-size: clamp(26px, 6vw, 38px); font-weight: 900; letter-spacing: 1px; color: #ff5c47; }
+#go-cause { color: #a9b2d6; font-size: 13.5px; margin-top: 8px; line-height: 1.5; }
+#go-rank {
+    margin: 18px 0; padding: 13px; border-radius: 12px;
+    background: linear-gradient(135deg, rgba(76,194,255,0.16), rgba(255,46,136,0.14));
+    border: 1px solid rgba(76,194,255,0.3);
+}
+#go-rank .rl { font-size: 11px; letter-spacing: 1.4px; color: #8fa0c9; font-weight: 700; }
+#go-rank .rv { font-size: clamp(19px, 4.6vw, 25px); font-weight: 900; color: #ffd60a; margin-top: 3px; }
+#go-stats { display: grid; grid-template-columns: repeat(2, 1fr); gap: 9px; margin-bottom: 18px; }
+.go-stat { background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.08); border-radius: 10px; padding: 11px; }
+.go-stat .k { font-size: 10.5px; color: #8fa0c9; text-transform: uppercase; letter-spacing: 0.8px; font-weight: 700; }
+.go-stat .v { font-size: 21px; font-weight: 800; margin-top: 2px; }
+#go-best { color: #ffd60a; font-weight: 700; font-size: 13px; margin-bottom: 16px; }
+#go-btns { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+#go-btns button {
+    padding: 12px 26px; border-radius: 10px; font-weight: 800; font-size: 14px;
+    background: linear-gradient(135deg, #2eff7b, #00b894); color: #06121f;
+}
+#go-btns button.ghost { background: rgba(255,255,255,0.1); color: #fff; }
+
+/* ============ RESPONSIVE ============ */
+@media (max-width: 720px) {
+    :root { --tb: 52px; }
+    #startmenu { width: calc(100vw - 12px); height: calc(100dvh - var(--tb) - 22px); }
+    .sm-grid { grid-template-columns: repeat(4, 1fr); }
+    #sm-search { margin: 14px 16px 12px; }
+    .sm-head { margin: 0 16px 10px; }
+    #sm-body { padding: 0 10px 8px; }
+    #tb-weather { display: none; }
+    #tb-taskview, [data-open="store"], #show-desktop { display: none; }
+    .rec-grid { grid-template-columns: 1fr; }
+    #taskbar { justify-content: space-between; padding: 0 6px; }
+    #tb-center { flex: 1; justify-content: center; }
+    #tb-right { position: static; height: auto; padding-right: 0; }
+    .tb-btn { width: 36px; }
+    .tray, .tray-chev, #score-pill { display: none; }
+    #tb-clock { font-size: 10.5px; padding: 4px 6px; }
+    #hp-pill { padding: 4px 8px; font-size: 11px; }
+    #hp-bar { width: 38px; }
+    .dicon { width: 72px; }
+    .ad { width: 210px; }
+    #toasts { width: calc(100vw - 20px); }
+    #bsod { padding: 9vh 7vw; }
+}
+@media (max-height: 480px) {
+    #startmenu { height: calc(100dvh - var(--tb) - 14px); }
+    #sm-foot { height: 48px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ===================== BOOT ===================== -->
+<div id="boot">
+    <div class="win-logo"><i></i><i></i><i></i><i></i></div>
+    <div class="boot-spin" id="boot-spin"></div>
+    <div id="boot-text">Starting Windows…</div>
+    <div id="boot-skip">click anywhere to skip</div>
+</div>
+
+<!-- ===================== DESKTOP ===================== -->
+<div id="desktop">
+    <div id="stage">
+        <div id="wallpaper">
+            <!-- hand-rolled approximation of the Windows 11 "Bloom" wallpaper -->
+            <svg viewBox="-300 -300 600 600" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <defs>
+                    <!-- gradient runs along the petal: bright at the core, gone at the tip -->
+                    <linearGradient id="petal" x1="0" y1="0.5" x2="1" y2="0.5">
+                        <stop offset="0%"   stop-color="#cfeaff" stop-opacity="0.34"/>
+                        <stop offset="20%"  stop-color="#a4dfff" stop-opacity="0.6"/>
+                        <stop offset="46%"  stop-color="#4098ec" stop-opacity="0.46"/>
+                        <stop offset="76%"  stop-color="#14509f" stop-opacity="0.22"/>
+                        <stop offset="100%" stop-color="#0a2a6b" stop-opacity="0"/>
+                    </linearGradient>
+                    <radialGradient id="core">
+                        <stop offset="0%"   stop-color="#f4fbff" stop-opacity="0.62"/>
+                        <stop offset="26%"  stop-color="#bfe6ff" stop-opacity="0.3"/>
+                        <stop offset="58%"  stop-color="#4aa6ff" stop-opacity="0.12"/>
+                        <stop offset="100%" stop-color="#0b2a63" stop-opacity="0"/>
+                    </radialGradient>
+                    <filter id="soft" x="-60%" y="-60%" width="220%" height="220%">
+                        <feGaussianBlur stdDeviation="4.2"/>
+                    </filter>
+                    <filter id="softer" x="-60%" y="-60%" width="220%" height="220%">
+                        <feGaussianBlur stdDeviation="7"/>
+                    </filter>
+                </defs>
+                <g id="petals-back" filter="url(#softer)" style="mix-blend-mode:screen"></g>
+                <g id="petals" filter="url(#soft)" style="mix-blend-mode:screen"></g>
+                <circle cx="0" cy="0" r="168" fill="url(#core)" filter="url(#softer)" style="mix-blend-mode:screen"/>
+            </svg>
+        </div>
+
+        <div id="icon-layer"></div>
+        <div id="toolbars"></div>
+        <div id="window-layer"></div>
+        <div id="popup-layer"></div>
+        <div id="fx-layer"></div>
+        <div id="bonzi"><div class="bubble" id="bonzi-say">Hi there!</div><div class="guy">🦍</div></div>
+        <div id="scanlines"></div>
+        <div id="glitch"></div>
+    </div>
+
+    <!-- ===================== TASKBAR ===================== -->
+    <div id="taskbar">
+        <button id="tb-weather" title="Widgets">
+            <span class="ic"></span>
+            <span class="wx"><b>19°C</b><i>Mostly sunny</i></span>
+        </button>
+        <div id="tb-center">
+            <button class="tb-btn" id="start-btn" title="Start">
+                <span class="tb-win"><i></i><i></i><i></i><i></i></span>
+            </button>
+            <button class="tb-btn" id="tb-search" title="Search"></button>
+            <button class="tb-btn" id="tb-taskview" title="Task view"></button>
+            <button class="tb-btn" data-open="explorer" title="File Explorer"></button>
+            <button class="tb-btn" data-open="store" title="Microsoft Store"></button>
+            <button class="tb-btn" data-open="taskmgr" title="Task Manager"></button>
+            <button class="tb-btn" data-open="defender" title="Windows Security"></button>
+        </div>
+        <div id="tb-right">
+            <div id="score-pill">Chaos <span id="score-val">0</span></div>
+            <div id="hp-pill" title="System health">
+                <span id="hp-bar"><i id="hp-fill"></i></span>
+            </div>
+            <button class="tray-chev" id="tray-chev" title="Show hidden icons"></button>
+            <button class="tray" id="tray"></button>
+            <button id="tb-clock"><span id="clock-t">00:00</span><span id="clock-d">1/1/2026</span></button>
+        </div>
+        <button id="show-desktop" title="Show desktop"></button>
+    </div>
+
+    <!-- ===================== START MENU ===================== -->
+    <div id="startmenu">
+        <div id="sm-search">
+            <span class="mag"></span>
+            <input id="sm-q" type="text" placeholder="Search for apps, drivers and viruses" autocomplete="off" spellcheck="false">
+        </div>
+        <div class="sm-head">
+            <b id="sm-head-label">Pinned</b>
+            <button class="sm-more" id="sm-toggle">All apps &nbsp;&gt;</button>
+        </div>
+        <div id="sm-body"></div>
+        <div id="sm-foot">
+            <button id="sm-user"><span class="pfp"></span><b>Andy</b></button>
+            <div class="sm-foot-btns">
+                <button id="sm-settings" title="Settings"></button>
+                <button id="sm-power" title="Power"></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toasts"></div>
+
+    <!-- ===================== UAC ===================== -->
+    <div id="uac">
+        <div id="uac-box">
+            <div id="uac-top">User Account Control</div>
+            <div id="uac-mid">
+                <div style="font-size:13.5px; margin-bottom:14px;">Do you want to allow this app to make changes to your device?</div>
+                <div id="uac-app">
+                    <span class="ic" id="uac-gl"></span>
+                    <div>
+                        <div id="uac-name">Thing.exe</div>
+                        <div id="uac-pub"></div>
+                    </div>
+                </div>
+            </div>
+            <div id="uac-btns">
+                <button class="btn primary" id="uac-yes">Yes</button>
+                <button class="btn" id="uac-no">No</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="ctx"></div>
+</div>
+
+<!-- ===================== BSOD ===================== -->
+<div id="bsod">
+    <div class="face">:(</div>
+    <div class="msg">Your PC ran into a problem and needs to restart. We're just collecting some error info, and then we'll restart for you.</div>
+    <div class="pct"><span id="bsod-pct">0</span>% complete</div>
+    <div class="foot">
+        <div class="qr" id="bsod-qr"></div>
+        <div class="fx">
+            For more information about this issue and possible fixes, visit<br>
+            https://bethqzak.github.io/andy/ — but honestly, you did this to yourself.<br><br>
+            If you call a support person, give them this info:<br>
+            Stop code: <b id="bsod-code">CRITICAL_PROCESS_DIED</b>
+        </div>
+    </div>
+</div>
+
+<!-- ===================== GAME OVER ===================== -->
+<div id="gameover">
+    <div id="go-card">
+        <h1>💀 SYSTEM DEAD</h1>
+        <div id="go-cause">Cause of death: unknown</div>
+        <div id="go-rank">
+            <div class="rl">YOUR RANK</div>
+            <div class="rv" id="go-rank-val">Tech Support Caller</div>
+        </div>
+        <div id="go-stats">
+            <div class="go-stat"><div class="k">Chaos Score</div><div class="v" id="go-score">0</div></div>
+            <div class="go-stat"><div class="k">Uptime</div><div class="v" id="go-time">0:00</div></div>
+            <div class="go-stat"><div class="k">Installed</div><div class="v" id="go-inst">0</div></div>
+            <div class="go-stat"><div class="k">Viruses</div><div class="v" id="go-virus">0</div></div>
+        </div>
+        <div id="go-best">🏆 Best ever: <span id="go-best-val">0</span></div>
+        <div id="go-btns">
+            <button id="go-again">🔄 Reboot &amp; play again</button>
+            <button class="ghost" onclick="location.href='./'">🏠 Play Centre</button>
+        </div>
+    </div>
+</div>
+
+<script src="save-tools.js"></script>
+<script>
+'use strict';
+
+/* =========================================================================
+   Virus PC Simulator — a fake Windows 11 desktop you are meant to destroy.
+   Download drivers and (very obviously fake) malware from the Start menu,
+   watch the machine get worse, and see how much chaos you rack up before
+   the blue screen. Nothing here touches the real machine: every "virus" is
+   a CSS class and a few emoji.
+   ========================================================================= */
+
+const $  = function (id) { return document.getElementById(id); };
+const el = function (tag, cls, html) {
+    const n = document.createElement(tag);
+    if (cls) n.className = cls;
+    if (html !== undefined) n.innerHTML = html;
+    return n;
+};
+const clamp = function (v, lo, hi) { return v < lo ? lo : (v > hi ? hi : v); };
+const rand  = function (a, b) { return a + Math.random() * (b - a); };
+const pick  = function (arr) { return arr[(Math.random() * arr.length) | 0]; };
+
+/* ================================================================== ICONS
+   Emoji were the thing giving the disguise away. The shell icons below are
+   drawn to match their Windows counterparts; every catalogue entry gets the
+   rounded-square-plus-glyph shape the Microsoft Store uses, so thirty-odd
+   downloads stay visually consistent without thirty bespoke drawings.
+   ====================================================================== */
+function svgWrap(inner) {
+    return '<svg class="ico" viewBox="0 0 32 32" aria-hidden="true">' + inner + '</svg>';
+}
+const SHELL = {
+    explorer: svgWrap(
+        '<path d="M3 9.5A2.5 2.5 0 0 1 5.5 7h6.2c.7 0 1.35.28 1.83.77L15.4 9.5H27a2 2 0 0 1 2 2v1.5H3z" fill="#dc9b2b"/>' +
+        '<path d="M3 12h26.4a1.6 1.6 0 0 1 1.6 1.75l-1.1 10.9A2.5 2.5 0 0 1 27.4 27H5.5A2.5 2.5 0 0 1 3 24.5z" fill="#ffc84a"/>'),
+    thispc: svgWrap(
+        '<rect x="3" y="6" width="26" height="17" rx="2" fill="#384655"/>' +
+        '<rect x="5" y="8" width="22" height="13" rx="1" fill="#2b88d8"/>' +
+        '<path d="M12 25h8l1 3.2H11z" fill="#5b6b7c"/>' +
+        '<rect x="8.5" y="28" width="15" height="2" rx="1" fill="#384655"/>'),
+    bin: svgWrap(
+        '<path d="M12.5 3.5h7a1 1 0 0 1 1 1V6H27a1 1 0 1 1 0 2H5a1 1 0 0 1 0-2h6.5V4.5a1 1 0 0 1 1-1z" fill="#77869a"/>' +
+        '<path d="M7.4 9h17.2l-1.3 17.7a2.5 2.5 0 0 1-2.5 2.3h-9.6a2.5 2.5 0 0 1-2.5-2.3z" fill="#8fa1b5"/>' +
+        '<path d="M7.4 9h8.6v20h-4.2a2.5 2.5 0 0 1-2.5-2.3z" fill="#a7b8ca"/>' +
+        '<g stroke="#5d6b7c" stroke-width="1.5" stroke-linecap="round"><path d="M12.8 13.5v11M16 13.5v11M19.2 13.5v11"/></g>'),
+    // wide, shallow handle — a taller one silhouettes as a padlock at 24px
+    store: svgWrap(
+        '<path d="M9.6 11.5V9.8a6.4 6.4 0 0 1 12.8 0v1.7" fill="none" stroke="#8ecbff" stroke-width="2"/>' +
+        '<path d="M3.6 11h24.8l-1.5 16a2.6 2.6 0 0 1-2.6 2.3H7.7a2.6 2.6 0 0 1-2.6-2.3z" fill="#0a6ed1"/>' +
+        '<g fill="#fff"><rect x="10.4" y="15.8" width="4.6" height="4.6" rx=".6"/>' +
+        '<rect x="16.4" y="15.8" width="4.6" height="4.6" rx=".6"/>' +
+        '<rect x="10.4" y="21.8" width="4.6" height="4.6" rx=".6"/>' +
+        '<rect x="16.4" y="21.8" width="4.6" height="4.6" rx=".6"/></g>'),
+    defender: svgWrap(
+        '<path d="M16 2.5 28 7v9.3c0 7.6-5 12.6-12 14.2V2.5z" fill="#0c5aa6"/>' +
+        '<path d="M16 2.5 4 7v9.3c0 7.6 5 12.6 12 14.2z" fill="#1683da"/>' +
+        '<path d="m10.6 16.3 3.9 3.9 7.2-7.6" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+    taskmgr: svgWrap(
+        '<rect x="3" y="4.5" width="26" height="23" rx="3" fill="#2b3440"/>' +
+        '<rect x="7" y="16" width="4.2" height="8" rx="1.2" fill="#4cc2ff"/>' +
+        '<rect x="13.9" y="11" width="4.2" height="13" rx="1.2" fill="#5fd38a"/>' +
+        '<rect x="20.8" y="7.5" width="4.2" height="16.5" rx="1.2" fill="#ffc14d"/>'),
+    settings: svgWrap(
+        '<path d="M26.3 16c0-.7-.06-1.37-.17-2.02l2.98-2.27-2.57-4.45-3.5 1.4a10.8 10.8 0 0 0-3.5-2.02L19.08 2.7h-5.14l-.46 3.9a10.8 10.8 0 0 0-3.5 2.03l-3.5-1.4-2.57 4.45 2.98 2.27a10.9 10.9 0 0 0 0 4.04l-2.98 2.27 2.57 4.45 3.5-1.4a10.8 10.8 0 0 0 3.5 2.02l.46 3.9h5.14l.46-3.9a10.8 10.8 0 0 0 3.5-2.02l3.5 1.4 2.57-4.45-2.98-2.27c.11-.65.17-1.32.17-2.02z" fill="#8e99a8"/>' +
+        '<circle cx="16" cy="16" r="4.7" fill="#242424"/>'),
+    search: svgWrap('<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><circle cx="14" cy="14" r="8"/><path d="m20 20 7 7"/></g>'),
+    taskview: svgWrap('<g fill="none" stroke="#fff" stroke-width="2"><rect x="3" y="7.5" width="13" height="17" rx="2.4"/><rect x="19" y="11" width="10" height="10" rx="2.2"/></g>'),
+    power: svgWrap('<g fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><path d="M16 4v11.5"/><path d="M23.6 8.6a10.5 10.5 0 1 1-15.2 0"/></g>'),
+    chevron: svgWrap('<path d="m9 19 7-7 7 7" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'),
+    wifi: svgWrap('<g fill="none" stroke="#fff" stroke-width="2.3" stroke-linecap="round"><path d="M4.5 12.5a18 18 0 0 1 23 0"/><path d="M9 17.5a11.5 11.5 0 0 1 14 0"/><path d="M13.4 22.3a5 5 0 0 1 5.2 0"/></g><circle cx="16" cy="26.4" r="1.9" fill="#fff"/>'),
+    volume: svgWrap('<path d="M6 12.5h4.6L17 7v18l-6.4-5.5H6z" fill="#fff"/><g fill="none" stroke="#fff" stroke-width="2.1" stroke-linecap="round"><path d="M21 12.8a5 5 0 0 1 0 6.4"/><path d="M24.6 9.4a10 10 0 0 1 0 13.2"/></g>'),
+    battery: svgWrap('<rect x="3" y="11" width="22" height="10" rx="3" fill="none" stroke="#fff" stroke-width="2"/><rect x="5.5" y="13.5" width="15" height="5" rx="1.3" fill="#fff"/><path d="M27.5 14v4" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>'),
+    weather: svgWrap('<circle cx="12" cy="11.5" r="5" fill="#ffc83d"/><path d="M10.5 26a5.8 5.8 0 0 1 .5-11.6 7.8 7.8 0 0 1 14.6 2.2A4.8 4.8 0 0 1 24.2 26z" fill="#cfdbe8"/>'),
+    user: svgWrap('<circle cx="16" cy="16" r="15" fill="#e2793d"/><circle cx="16" cy="12.6" r="5" fill="#fff"/><path d="M6.6 27a10.4 10.4 0 0 1 18.8 0z" fill="#fff"/>')
+};
+
+/* Stroke glyphs for the Store-style app tiles. */
+const GLYPH = {
+    chip:    '<rect x="10" y="10" width="12" height="12" rx="1.6"/><path d="M13 6v4M16 6v4M19 6v4M13 22v4M16 22v4M19 22v4M6 13h4M6 16h4M6 19h4M22 13h4M22 16h4M22 19h4"/>',
+    speaker: '<path d="M7 13h4l5.5-4.5v15L11 19H7z"/><path d="M21 13.2a4.6 4.6 0 0 1 0 5.6"/><path d="M24.4 10a9 9 0 0 1 0 12"/>',
+    wifi:    '<path d="M6 13.5a15 15 0 0 1 20 0"/><path d="M10 18a9.5 9.5 0 0 1 12 0"/><path d="M14 22.4a4 4 0 0 1 4 0"/>',
+    mouse:   '<rect x="10" y="5" width="12" height="22" rx="6"/><path d="M16 10v4.5"/>',
+    gpu:     '<rect x="4" y="10" width="24" height="12.5" rx="2"/><circle cx="11" cy="16.2" r="3"/><circle cx="21" cy="16.2" r="3"/><path d="M8.5 22.5V27M23.5 22.5V27"/>',
+    printer: '<path d="M9 12.5V5.5h14v7"/><rect x="4.5" y="12.5" width="23" height="9.5" rx="2"/><path d="M9 22h14v5.5H9z"/>',
+    snow:    '<path d="M16 4v24M6 10l20 12M26 10 6 22"/><path d="m12.6 6.4 3.4 2.4 3.4-2.4M12.6 25.6l3.4-2.4 3.4 2.4"/>',
+    flame:   '<path d="M16 3.5s7 6.8 7 12.8a7 7 0 0 1-14 0c0-3 2-5 2-5s.9 2 2.4 2S16 8.5 16 3.5z"/>',
+    flask:   '<path d="M13 4h6M14 4v8.4L7.8 24.2A3 3 0 0 0 10.4 28.7h11.2a3 3 0 0 0 2.6-4.5L18 12.4V4"/><path d="M10.6 20.5h10.8"/>',
+    broom:   '<path d="m22 4 6 6"/><path d="M20.4 7.6 10.8 17.2l4 4 9.6-9.6z"/><path d="m10.8 17.2-6 4 2 2 4-2z"/>',
+    disk:    '<circle cx="16" cy="16" r="11"/><circle cx="16" cy="16" r="3.2"/><path d="M16 5v3.4M27 16h-3.4"/>',
+    shield:  '<path d="m16 4 10 3.8v7.3c0 6.2-4.2 10.5-10 12.2-5.8-1.7-10-6-10-12.2V7.8z"/><path d="m11.6 15.8 3.2 3.2L21 12.6"/>',
+    tube:    '<path d="M12 4h8v6.2l4 13.6a3 3 0 0 1-2.9 3.9h-10.2A3 3 0 0 1 8 23.8L12 10.2z"/><path d="M12 10.4h8"/>',
+    globe:   '<circle cx="16" cy="16" r="12"/><path d="M4 16h24"/><path d="M16 4c4.2 4.4 4.2 19.6 0 24-4.2-4.4-4.2-19.6 0-24z"/>',
+    gamepad: '<path d="M11.5 11h9a7.8 7.8 0 0 1 7.7 9.4l-.6 2.7A3.3 3.3 0 0 1 22 24.6L19.6 22h-7.2L10 24.6a3.3 3.3 0 0 1-5.6-1.5l-.6-2.7A7.8 7.8 0 0 1 11.5 11z"/><path d="M11 15v3.8M9.1 16.9h3.8"/><circle cx="21.4" cy="16" r="1.3" fill="#fff"/><circle cx="24.2" cy="18.8" r="1.3" fill="#fff"/>',
+    chat:    '<path d="M5 9.5A3.5 3.5 0 0 1 8.5 6h15A3.5 3.5 0 0 1 27 9.5v9A3.5 3.5 0 0 1 23.5 22h-8.3L8.5 27v-5A3.5 3.5 0 0 1 5 18.5z"/>',
+    cube:    '<path d="m16 4 11.5 6v12L16 28 4.5 22V10z"/><path d="M4.5 10 16 16l11.5-6M16 16v12"/>',
+    gem:     '<path d="M9.5 5h13l6 8-12.5 14L3.5 13z"/><path d="M3.5 13h25M13 13l3-8 3 8-3 14z"/>',
+    cursor:  '<path d="m9 5 16.5 11.2-7.4 1.6-3.4 7.4z"/>',
+    face:    '<circle cx="16" cy="16" r="11.5"/><circle cx="12" cy="13.6" r="1.6" fill="#fff"/><circle cx="20" cy="13.6" r="1.6" fill="#fff"/><path d="M11.2 20a6.2 6.2 0 0 0 9.6 0"/>',
+    music:   '<path d="M12.5 24V8.2l14-3v15.4"/><circle cx="9" cy="24" r="3.5"/><circle cx="23" cy="20.6" r="3.5"/>',
+    grid:    '<rect x="4" y="4" width="10.5" height="10.5" rx="1.6"/><rect x="17.5" y="4" width="10.5" height="10.5" rx="1.6"/><rect x="4" y="17.5" width="10.5" height="10.5" rx="1.6"/><rect x="17.5" y="17.5" width="10.5" height="10.5" rx="1.6"/>',
+    flip:    '<path d="M5.5 13A11 11 0 0 1 26 10.5"/><path d="M26 4.5v6h-6"/><path d="M26.5 19A11 11 0 0 1 6 21.5"/><path d="M6 27.5v-6h6"/>',
+    pick:    '<path d="m4 28 12.5-12.5"/><path d="M9.5 11.5a12 12 0 0 1 13.8-4.2 12 12 0 0 1-4.2 13.8"/>',
+    terminal:'<rect x="3" y="6" width="26" height="20" rx="2.6"/><path d="m9 13 4 3.2-4 3.2M16.8 21h6.6"/>',
+    sadwin:  '<rect x="3" y="5" width="26" height="22" rx="2.6"/><circle cx="11.5" cy="14" r="1.7" fill="#fff"/><circle cx="20.5" cy="14" r="1.7" fill="#fff"/><path d="M11.5 21.6a6 6 0 0 1 9 0"/>',
+    lock:    '<rect x="6" y="14" width="20" height="14" rx="3.2"/><path d="M11 14v-3.8a5 5 0 0 1 10 0V14"/>',
+    skull:   '<path d="M6 14.5a10 10 0 1 1 20 0v4a3 3 0 0 1-1.6 2.7L23 22v4.4a1.6 1.6 0 0 1-1.6 1.6H10.6A1.6 1.6 0 0 1 9 26.4V22l-1.4-.8A3 3 0 0 1 6 18.5z"/><circle cx="11.8" cy="15" r="2.7" fill="#fff"/><circle cx="20.2" cy="15" r="2.7" fill="#fff"/>',
+    search:  '<circle cx="14" cy="14" r="8"/><path d="m20 20 7 7"/>',
+    warn:    '<path d="M16 4.5 29 27H3z"/><path d="M16 13.5v6.5M16 23.6v.01"/>'
+};
+function appIcon(colour, glyph) {
+    if (glyph === 'rgbring') {
+        // the one icon that has to be multicoloured to make any sense
+        let ring = '<rect x="2" y="2" width="28" height="28" rx="6.4" fill="#2a1a4d"/>';
+        ['#ff3b6b', '#ffd60a', '#2eff7b', '#4cc2ff'].forEach(function (col, i) {
+            ring += '<circle cx="16" cy="16" r="9" fill="none" stroke="' + col +
+                    '" stroke-width="4" stroke-dasharray="12.5 44" transform="rotate(' + (i * 90 - 45) + ' 16 16)"/>';
+        });
+        return svgWrap(ring);
+    }
+    return svgWrap(
+        '<rect x="2" y="2" width="28" height="28" rx="6.4" fill="' + colour + '"/>' +
+        '<g fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+        (GLYPH[glyph] || GLYPH.warn) + '</g>');
+}
+// Anything drawable: a catalogue entry, a shell item, or a bare shell key.
+function iconFor(x) {
+    if (!x) return '';
+    if (typeof x === 'string') return SHELL[x] || '';
+    if (x.sh) return SHELL[x.sh] || '';
+    return appIcon(x.col || '#4a4f5c', x.ic);
+}
+function iconBox(x, cls) { return '<span class="ic ' + (cls || '') + '">' + iconFor(x) + '</span>'; }
+
+/* ---------------------------------------------------------------- catalogue
+   Every downloadable thing. Fields:
+     cpu/ram/disk   load it adds        power    performance it gives back
+     cool           degrees it removes  chaos    score for installing it
+     inf            infection points    fx       visual effect id it turns on
+     uac            forces the "are you sure?" prompt
+     at             chaos score needed before it shows up in the Start menu
+------------------------------------------------------------------------- */
+const CATALOG = [
+    // ---- drivers: mostly helpful, a couple of terrible ideas ----
+    { id: 'chipset', name: 'Intel Chipset Utility',        ic: 'chip', col: '#0a68c9', cat: 'driver', pub: 'Intel Corporation',    mb: 90,   cpu: 1,  ram: 2,  power: 6,  chaos: 25 },
+    { id: 'audio',   name: 'Realtek HD Audio Driver',      ic: 'speaker', col: '#6f4fd6', cat: 'driver', pub: 'Realtek Semiconductor', mb: 120, cpu: 2,  ram: 3,  power: 4,  chaos: 25 },
+    { id: 'wifi',    name: 'Wi-Fi 6 Adapter Driver',       ic: 'wifi', col: '#0a68c9', cat: 'driver', pub: 'Intel Corporation',    mb: 60,   cpu: 1,  ram: 2,  power: 3,  chaos: 25, dl: 0.6 },
+    { id: 'mouse',   name: 'Gaming Mouse 7000 DPI Driver', ic: 'mouse', col: '#3a3f4b', cat: 'driver', pub: 'Lazer Peripherals',    mb: 210,  cpu: 2,  ram: 5,  power: 4,  chaos: 30 },
+    { id: 'gpu',     name: 'GeForce Game Ready Driver',    ic: 'gpu', col: '#3f9c35', cat: 'driver', pub: 'NVIDIA Corporation',   mb: 780,  cpu: 4,  ram: 6,  power: 18, temp: 6, chaos: 45 },
+    { id: 'printer', name: 'HP All-In-One Printer Suite',  ic: 'printer', col: '#0b7ec4', cat: 'driver', pub: 'HP Inc.',              mb: 1400, cpu: 5,  ram: 16, power: 1,  chaos: 40, note: 'Includes 41 things you did not ask for' },
+    { id: 'cooler',  name: 'Liquid Cooling Manager',       ic: 'snow', col: '#0e8ec9', cat: 'driver', pub: 'ArcticFlow',           mb: 240,  cpu: 2,  ram: 4,  cool: 22, chaos: 45, at: 200 },
+    { id: 'rgb',     name: 'RGB Fan Control Center',       ic: 'rgbring', col: '#2a1a4d', cat: 'driver', pub: 'GlowMaster Gaming',    mb: 620,  cpu: 6,  ram: 11, cool: 6,  chaos: 55, at: 200, fx: 'rgb' },
+    { id: 'oc',      name: 'Overclock Utility X',          ic: 'flame', col: '#d4491f', cat: 'driver', pub: 'Unknown publisher',    mb: 180,  cpu: 12, ram: 4,  power: 26, temp: 26, chaos: 90, at: 500, uac: 1 },
+    { id: 'beta',    name: 'GPU Driver v0.3 BETA (unsigned)', ic: 'flask', col: '#8a6d1f', cat: 'driver', pub: 'Unknown publisher', mb: 900,  cpu: 9,  ram: 8,  power: 34, temp: 14, chaos: 120, at: 900, uac: 1, fx: 'glitch', note: 'Definitely not tested' },
+
+    // ---- tools: your only way to buy more time ----
+    { id: 'cleaner', name: 'Registry Cleaner (the real one)', ic: 'broom', col: '#1f9d78', cat: 'tool', pub: 'TidyBits Ltd',     mb: 40,  cpu: 1, ram: 2, chaos: 35, tool: 'clean' },
+    { id: 'defrag',  name: 'Disk Defragmenter Deluxe',        ic: 'disk', col: '#2b7cd3', cat: 'tool', pub: 'TidyBits Ltd',     mb: 70,  cpu: 2, ram: 3, chaos: 35, tool: 'defrag' },
+    { id: 'sentinel',name: 'Sentinel Antivirus Pro',          ic: 'shield', col: '#0f6cbd', cat: 'tool', pub: 'Sentinel Labs',    mb: 480, cpu: 6, ram: 9, chaos: 60, at: 300, tool: 'av' },
+    { id: 'thermal', name: 'Thermal Paste (digital)',         ic: 'tube', col: '#5b6470', cat: 'tool', pub: 'ArcticFlow',       mb: 15,  cool: 12, chaos: 40, at: 700 },
+
+    // ---- apps & games: pure load, pure fun ----
+    { id: 'chroma',  name: 'Chroma Browser',        ic: 'globe', col: '#1a73e8', cat: 'app', pub: 'Chroma Project',  mb: 520,  cpu: 7,  ram: 26, chaos: 45, note: 'Opens with 47 tabs' },
+    { id: 'vapor',   name: 'Vapor Game Store',      ic: 'gamepad', col: '#1b3a57', cat: 'app', pub: 'Vapor Inc.',      mb: 1200, cpu: 5,  ram: 14, chaos: 45 },
+    { id: 'dischord',name: 'Dischord',              ic: 'chat', col: '#5865f2', cat: 'app', pub: 'Dischord Inc.',   mb: 340,  cpu: 5,  ram: 18, chaos: 40 },
+    { id: 'blocks',  name: 'Blockcraft: Java Ed.',  ic: 'cube', col: '#5d7c3f', cat: 'app', pub: 'Notch & Friends', mb: 2100, cpu: 14, ram: 20, temp: 8, chaos: 60, at: 200 },
+    { id: 'render',  name: 'Ray Tracing Benchmark', ic: 'gem', col: '#7b3fe4', cat: 'app', pub: 'BenchLab',        mb: 3400, cpu: 26, ram: 14, temp: 20, chaos: 90, at: 600 },
+
+    // ---- the bad stuff ----
+    { id: 'robux',   name: 'FREE_ROBUX_GENERATOR.exe',      ic: 'gem', col: '#1a7f37', cat: 'virus', pub: 'Unknown publisher', mb: 3,   cpu: 8,  ram: 10, inf: 7, chaos: 120, uac: 1, fx: 'popups' },
+    { id: 'toolbar', name: 'CoolSearch Toolbar Bundle',     ic: 'search', col: '#b5651d', cat: 'virus', pub: 'Unknown publisher', mb: 55,  cpu: 6,  ram: 14, inf: 6, chaos: 110, uac: 1, fx: 'toolbars' },
+    { id: 'cursors', name: 'Cursor Mania 3000',             ic: 'cursor', col: '#4a4f5c', cat: 'virus', pub: 'Unknown publisher', mb: 12,  cpu: 9,  ram: 8,  inf: 6, chaos: 115, uac: 1, fx: 'cursors' },
+    { id: 'bonzi',   name: 'Bonsai Buddy (your new pal!)',  ic: 'face', col: '#7a2ff2', cat: 'virus', pub: 'Unknown publisher', mb: 28,  cpu: 10, ram: 12, inf: 8, chaos: 140, uac: 1, fx: 'bonzi', at: 250 },
+    { id: 'rick',    name: 'song_not_a_rickroll.mp4.exe',   ic: 'music', col: '#c2185b', cat: 'virus', pub: 'Unknown publisher', mb: 7,   cpu: 9,  ram: 9,  inf: 7, chaos: 130, uac: 1, fx: 'rain', at: 250 },
+    { id: 'iconv',   name: 'Icon Multiplier 2000',          ic: 'grid', col: '#5a4fcf', cat: 'virus', pub: 'Unknown publisher', mb: 9,   cpu: 11, ram: 13, inf: 8, chaos: 145, uac: 1, fx: 'icons', at: 450 },
+    { id: 'flip',    name: 'Screen Flipper Pro',            ic: 'flip', col: '#d17f00', cat: 'virus', pub: 'Unknown publisher', mb: 4,   cpu: 12, ram: 9,  inf: 9, chaos: 155, uac: 1, fx: 'flip', at: 600 },
+    { id: 'miner',   name: 'Cryptominer Deluxe',            ic: 'pick', col: '#e8850c', cat: 'virus', pub: 'Unknown publisher', mb: 88,  cpu: 46, ram: 16, temp: 26, inf: 10, chaos: 190, uac: 1, at: 700 },
+    { id: 'hacker',  name: 'H4CK3R M0D3 v9',                ic: 'terminal', col: '#0b7a3b', cat: 'virus', pub: 'Unknown publisher', mb: 66,  cpu: 16, ram: 18, inf: 12, chaos: 200, uac: 1, fx: 'matrix', at: 900 },
+    { id: 'bluescr', name: 'BlueScreen Simulator (real)',   ic: 'sadwin', col: '#0078d7', cat: 'virus', pub: 'Unknown publisher', mb: 31,  cpu: 18, ram: 16, inf: 13, chaos: 220, uac: 1, fx: 'bsodflash', at: 1200 },
+    { id: 'wanna',   name: 'WannaSigh Ransom Demo',         ic: 'lock', col: '#8b1a1a', cat: 'virus', pub: 'Unknown publisher', mb: 120, cpu: 24, ram: 26, temp: 10, inf: 19, chaos: 280, uac: 1, fx: 'lock', at: 1600 },
+    { id: 'meltdown',name: 'TOTAL_SYSTEM_MELTDOWN.exe',     ic: 'skull', col: '#4a1010', cat: 'virus', pub: 'Unknown publisher', mb: 666, cpu: 55, ram: 40, temp: 40, inf: 30, chaos: 600, uac: 1, fx: 'meltdown', at: 2600, note: 'Do not press this. Please.' }
+];
+const BY_ID = {};
+CATALOG.forEach(function (c) { BY_ID[c.id] = c; });
+
+const CAT_LABEL  = { driver: 'Drivers', tool: 'Maintenance tools', app: 'Apps & games', virus: '⚠️ Unsafe downloads' };
+const CAT_ORDER  = ['driver', 'tool', 'app', 'virus'];
+
+const RANKS = [
+    [0,    'Tech Support Caller'],
+    [400,  'Script Kiddie'],
+    [1000, 'Driver Hoarder'],
+    [1900, 'Malware Magnet'],
+    [3000, 'Digital Arsonist'],
+    [4500, 'Blue Screen Royalty'],
+    [6500, 'LEGENDARY PC KILLER']
+];
+const STOP_CODES = [
+    'CRITICAL_PROCESS_DIED', 'IRQL_NOT_LESS_OR_EQUAL', 'ANDY_DID_THIS',
+    'FREE_ROBUX_NOT_FOUND', 'TOO_MANY_TOOLBARS', 'KERNEL_ON_FIRE',
+    'DRIVER_OVERRAN_STACK_BUFFER', 'UNEXPECTED_STORE_EXCEPTION', 'PC_LOAD_LETTER'
+];
+
+/* ---------------------------------------------------------------- state -- */
+const G = {
+    running: false, dead: false,
+    t: 0,                     // uptime seconds
+    score: 0, best: 0,
+    installed: [],            // ids, in install order
+    cpu: 6, ram: 24, disk: 14, temp: 41,
+    power: 0, cool: 0, infection: 0, health: 100,
+    fx: {},                   // active effect ids
+    ads: 0,                   // live popup count
+    killed: 0, cleaned: 0,
+    wallpaper: 'bloom',
+    sound: true,
+    explorerDown: 0,          // seconds left with no taskbar (end task gag)
+    scanUntil: 0, scanCd: 0,
+    cause: ''
+};
+const TOTAL_DISK = 14000;     // MB — a "512 GB SSD" shrunk so the bar actually moves.
+                              // Deliberately smaller than the whole catalogue: past a
+                              // point you have to uninstall something to install more.
+
+/* ------------------------------------------------------------------ save -- */
+const SAVE_KEY = 'andy-virus-pc-save';
+let autoSaveOn = AndySave.isEnabled(SAVE_KEY);
+
+function collectSave() {
+    return { best: G.best, wp: G.wallpaper, snd: G.sound ? 1 : 0 };
+}
+function writeSave() {
+    try { localStorage.setItem(SAVE_KEY, JSON.stringify(collectSave())); } catch (e) { /* private mode — play on */ }
+}
+function saveGame() { if (autoSaveOn) writeSave(); }
+function setAutoSave(on) {
+    autoSaveOn = on;
+    AndySave.setEnabled(SAVE_KEY, on);
+    if (on) writeSave();
+}
+function loadGame() {
+    try {
+        const raw = localStorage.getItem(SAVE_KEY);
+        if (!raw) return;
+        const s = JSON.parse(raw) || {};
+        G.best = Math.max(0, s.best | 0);
+        if (typeof s.wp === 'string') G.wallpaper = s.wp;
+        G.sound = s.snd !== 0;
+    } catch (e) { /* corrupt save — start fresh */ }
+}
+loadGame();
+window.addEventListener('pagehide', function () { if (autoSaveOn) writeSave(); });
+document.addEventListener('visibilitychange', function () {
+    if (document.visibilityState === 'hidden' && autoSaveOn) writeSave();
+});
+
+/* ----------------------------------------------------------------- sound -- */
+let actx = null;
+function beep(freq, dur, type, vol) {
+    if (!G.sound) return;
+    try {
+        if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = actx.createOscillator(), g = actx.createGain();
+        o.type = type || 'sine';
+        o.frequency.value = freq;
+        g.gain.value = vol === undefined ? 0.05 : vol;
+        g.gain.exponentialRampToValueAtTime(0.0001, actx.currentTime + dur);
+        o.connect(g); g.connect(actx.destination);
+        o.start(); o.stop(actx.currentTime + dur);
+    } catch (e) { /* no audio on this device — silent is fine */ }
+}
+const SFX = {
+    ding:  function () { beep(880, 0.16, 'sine', 0.05); setTimeout(function () { beep(1320, 0.22, 'sine', 0.04); }, 90); },
+    error: function () { beep(250, 0.18, 'square', 0.05); setTimeout(function () { beep(190, 0.3, 'square', 0.045); }, 150); },
+    pop:   function () { beep(560, 0.07, 'triangle', 0.045); },
+    bad:   function () { beep(120, 0.5, 'sawtooth', 0.05); },
+    boot:  function () { [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.4, 'sine', 0.035); }, i * 130); }); }
+};
+
+/* ================================================================ WALLPAPER
+   The bloom is eight rotated petals; swapping the hue is the whole
+   "Personalize" feature.                                                    */
+const WALLPAPERS = {
+    bloom:  { cls: '',         hue: 0,   label: 'Bloom' },
+    teal:   { cls: 'w-teal',   hue: 118, label: 'Flow' },
+    sunset: { cls: 'w-sunset', hue: 268, label: 'Sunset' },
+    hacked: { cls: 'w-hacked', hue: 95,  label: 'Definitely Not Hacked' }
+};
+(function buildPetals() {
+    // A long curved ribbon, wide near the core and tapering to a point. Evenly
+    // spaced copies read as a daisy, so every petal gets its own angle, scale
+    // and opacity, over a blurrier back layer for depth.
+    const D = 'M16,-20 C74,-64 152,-104 218,-84 C278,-66 268,-8 188,28 ' +
+              'C118,59 44,44 16,20 C4,10 4,-10 16,-20 Z';
+    function layer(el, specs, push) {
+        el.innerHTML = specs.map(function (sp) {
+            return '<path d="' + D + '" fill="url(#petal)" opacity="' + sp[2] +
+                   '" transform="rotate(' + sp[0] + ') translate(' + push + ',0) scale(' + sp[1] + ')"/>';
+        }).join('');
+    }
+    layer(document.getElementById('petals-back'), [
+        [22, 1.34, 0.2], [96, 1.2, 0.16], [168, 1.42, 0.18],
+        [236, 1.26, 0.15], [304, 1.36, 0.19]
+    ], 30);
+    layer(document.getElementById('petals'), [
+        [6, 1.0, 0.52],  [64, 0.88, 0.44], [127, 1.08, 0.54],
+        [186, 0.82, 0.4], [245, 0.98, 0.49], [307, 0.92, 0.46],
+        [154, 0.6, 0.42]
+    ], 22);
+})();
+function applyWallpaper() {
+    const w = WALLPAPERS[G.wallpaper] || WALLPAPERS.bloom;
+    const wp = $('wallpaper');
+    wp.className = w.cls;
+    wp.querySelector('svg').style.filter = w.hue ? 'hue-rotate(' + w.hue + 'deg)' : '';
+}
+
+/* ============================================================ DESKTOP ICONS */
+const BASE_ICONS = [
+    { id: 'bin',      sh: 'bin',      name: 'Recycle Bin',      open: 'bin' },
+    { id: 'thispc',   sh: 'thispc',   name: 'This PC',          open: 'explorer' },
+    { id: 'store',    sh: 'store',    name: 'Microsoft Store',  open: 'store' },
+    { id: 'defender', sh: 'defender', name: 'Windows Security', open: 'defender' },
+    { id: 'taskmgr',  sh: 'taskmgr',  name: 'Task Manager',     open: 'taskmgr' }
+];
+function renderIcons() {
+    const layer = $('icon-layer');
+    layer.innerHTML = '';
+    const list = BASE_ICONS.slice();
+    G.installed.forEach(function (id) {
+        const c = BY_ID[id];
+        if (c && c.cat !== 'driver') list.push({ id: 'app:' + id, ic: c.ic, col: c.col, name: c.name, app: id });
+    });
+    // "Icon Multiplier 2000" does exactly what it says on the tin
+    const dupes = G.fx.icons ? 3 : 1;
+    for (let d = 0; d < dupes; d++) {
+        list.forEach(function (ic) {
+            const n = el('button', 'dicon',
+                iconBox(ic) + '<span class="lbl">' +
+                esc(ic.name) + (d ? ' (' + (d + 1) + ')' : '') + '</span>');
+            n.onclick = function () {
+                document.querySelectorAll('.dicon.sel').forEach(function (x) { x.classList.remove('sel'); });
+                n.classList.add('sel');
+            };
+            n.ondblclick = function () { iconAction(ic); };
+            // a single tap has to work on touch, where there is no dblclick
+            let lastTap = 0;
+            n.addEventListener('pointerup', function (e) {
+                if (e.pointerType === 'mouse') return;
+                const now = Date.now();
+                if (now - lastTap < 500) iconAction(ic);
+                lastTap = now;
+            });
+            n.oncontextmenu = function (e) {
+                e.preventDefault();
+                iconMenu(e, ic);
+                return false;
+            };
+            layer.appendChild(n);
+        });
+    }
+}
+function iconAction(ic) {
+    if (ic.open) { openWin(ic.open); return; }
+    if (ic.app) { openWin('app', BY_ID[ic.app]); }
+}
+function iconMenu(e, ic) {
+    const items = [{ svg: CTX_GL.open, t: 'Open', fn: function () { iconAction(ic); } }];
+    if (ic.app) {
+        items.push({ sep: 1 });
+        items.push({ svg: CTX_GL.bin, t: 'Uninstall', fn: function () { uninstall(ic.app); } });
+    }
+    showCtx(e.clientX, e.clientY, items);
+}
+function esc(s) {
+    return String(s).replace(/[&<>"]/g, function (c) {
+        return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c];
+    });
+}
+
+/* ------------------------------------------------ paint the shell chrome */
+function paintShell() {
+    $('tb-search').innerHTML = iconFor('search');
+    $('tb-taskview').innerHTML = iconFor('taskview');
+    $('tb-weather').querySelector('.ic').innerHTML = iconFor('weather');
+    $('tray-chev').innerHTML = iconFor('chevron');
+    $('tray').innerHTML = iconFor('wifi') + iconFor('volume') + iconFor('battery');
+    $('sm-power').innerHTML = iconFor('power');
+    $('sm-settings').innerHTML = iconFor('settings');
+    $('sm-user').querySelector('.pfp').innerHTML = iconFor('user');
+    $('sm-search').querySelector('.mag').innerHTML = iconFor('search');
+    // the taskbar pins File Explorer itself, not the This PC window it opens
+    const TB_ICON = { explorer: 'explorer' };
+    document.querySelectorAll('[data-open]').forEach(function (b) {
+        const k = b.getAttribute('data-open');
+        b.innerHTML = iconFor(TB_ICON[k] || WIN_DEFS[k]);
+    });
+}
+
+/* ================================================================== CLOCK */
+function tickClock() {
+    const d = new Date();
+    let h = d.getHours(), ap = h >= 12 ? 'PM' : 'AM';
+    h = h % 12; if (h === 0) h = 12;
+    $('clock-t').textContent = h + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + ap;
+    $('clock-d').textContent = d.getDate() + '/' + (d.getMonth() + 1) + '/' + d.getFullYear();
+}
+
+/* ============================================================= START MENU */
+let smOpen = false, smAll = false, smQuery = '';
+let smPage = 0;
+const PAGE_SIZE = 18;   // 6 x 3, same as a real Start menu page
+function toggleStart(on) {
+    smOpen = on === undefined ? !smOpen : on;
+    $('startmenu').classList.toggle('on', smOpen);
+    $('start-btn').classList.toggle('active', smOpen);
+    if (smOpen) {
+        renderStart();
+        if (!isTouch()) setTimeout(function () { $('sm-q').focus(); }, 60);
+    } else {
+        $('sm-q').value = '';
+        smQuery = '';
+        smAll = false;
+    }
+}
+function isTouch() { return window.matchMedia('(hover: none) and (pointer: coarse)').matches; }
+
+function available() {
+    return CATALOG.filter(function (c) { return G.score >= (c.at || 0); });
+}
+function renderStart() {
+    const body = $('sm-body');
+    body.innerHTML = '';
+    const q = smQuery.trim().toLowerCase();
+    let list = available();
+    if (q) list = list.filter(function (c) { return c.name.toLowerCase().indexOf(q) >= 0 || c.cat.indexOf(q) >= 0; });
+
+    $('sm-head-label').textContent = q ? 'Search results' : (smAll ? 'All apps' : 'Pinned');
+    $('sm-toggle').innerHTML = smAll ? '<span class="chev back"></span>Back' : 'All apps<span class="chev"></span>';
+    $('sm-toggle').style.display = q ? 'none' : '';
+
+    if (!list.length) {
+        body.appendChild(el('div', 'sm-empty', q
+            ? 'No results for "' + esc(smQuery) + '". Try installing more junk to unlock more junk.'
+            : 'Nothing left to install. Impressive.'));
+        return;
+    }
+
+    if (smAll || q) {
+        CAT_ORDER.forEach(function (cat) {
+            const group = list.filter(function (c) { return c.cat === cat; });
+            if (!group.length) return;
+            body.appendChild(el('div', 'cat-title' + (cat === 'virus' ? ' danger' : ''), CAT_LABEL[cat]));
+            const grid = el('div', 'sm-grid');
+            group.forEach(function (c) { grid.appendChild(tileFor(c)); });
+            body.appendChild(grid);
+        });
+        return;
+    }
+
+    // --- Pinned: paged 6x3 like Windows, with the page dots down the right edge
+    const notYet = list.filter(function (c) { return G.installed.indexOf(c.id) < 0; });
+    notYet.sort(function (a, b) { return (b.chaos || 0) - (a.chaos || 0); });
+    const pages = Math.max(1, Math.ceil(notYet.length / PAGE_SIZE));
+    smPage = clamp(smPage, 0, pages - 1);
+
+    const wrap = el('div', 'pin-wrap');
+    const grid = el('div', 'sm-grid');
+    notYet.slice(smPage * PAGE_SIZE, (smPage + 1) * PAGE_SIZE).forEach(function (c) { grid.appendChild(tileFor(c)); });
+    wrap.appendChild(grid);
+    if (pages > 1) {
+        const dots = el('div', 'pin-dots');
+        for (let i = 0; i < pages; i++) {
+            const d = el('button', 'pin-dot' + (i === smPage ? ' on' : ''));
+            d.title = 'Page ' + (i + 1) + ' of ' + pages;
+            (function (n) { d.onclick = function () { smPage = n; renderStart(); }; })(i);
+            dots.appendChild(d);
+        }
+        wrap.appendChild(dots);
+    }
+    body.appendChild(wrap);
+
+    // --- Recommended: the two-column "recently added" list Windows shows
+    const rhead = el('div', 'sm-head rec-head', '<b>Recommended</b>');
+    const more = el('button', 'sm-more', 'More<span class="chev"></span>');
+    more.onclick = function () { smAll = true; renderStart(); $('sm-body').scrollTop = 0; };
+    rhead.appendChild(more);
+    body.appendChild(rhead);
+
+    const recent = G.installed.slice(-6).reverse();
+    if (!recent.length) {
+        body.appendChild(el('div', 'sm-empty',
+            'Nothing installed yet. Drivers make the PC faster — the tiles with a red dot are the ones that will ruin it.'));
+        return;
+    }
+    const recGrid = el('div', 'rec-grid');
+    recent.forEach(function (id, i) {
+        const c = BY_ID[id];
+        if (!c) return;
+        const r = el('button', 'rec',
+            iconBox(c) + '<span class="rt"><b>' + esc(c.name) + '</b><i>' +
+            (i === 0 ? 'Recently added' : c.cat === 'virus' ? 'Probably a mistake' : fmtMb(c.mb)) + '</i></span>');
+        r.onclick = function () { toggleStart(false); openWin('app', c); };
+        recGrid.appendChild(r);
+    });
+    body.appendChild(recGrid);
+}
+function tileFor(c) {
+    if (!c) return el('div');
+    const done = G.installed.indexOf(c.id) >= 0;
+    const t = el('button', 'tile' + (c.cat === 'virus' ? ' danger' : '') + (done ? ' done' : ''),
+        iconBox(c) +
+        '<span class="lbl">' + esc(c.name) + '</span>' +
+        '<span class="sub">' + (done ? 'Installed' : fmtMb(c.mb)) + '</span>' +
+        (c.cat === 'virus' && !done ? '<span class="dot"></span>' : ''));
+    t.title = c.name + (c.note ? ' — ' + c.note : '');
+    t.onclick = function () {
+        if (done) { openWin('app', c); toggleStart(false); return; }
+        startDownload(c);
+    };
+    return t;
+}
+function fmtMb(mb) { return mb >= 1000 ? (mb / 1000).toFixed(1) + ' GB' : mb + ' MB'; }
+
+$('start-btn').onclick = function (e) { e.stopPropagation(); toggleStart(); };
+$('sm-toggle').onclick = function () { smAll = !smAll; renderStart(); $('sm-body').scrollTop = 0; };
+$('sm-q').oninput = function () { smQuery = this.value; renderStart(); };
+$('sm-settings').onclick = function () { toggleStart(false); openWin('settings'); };
+$('sm-user').onclick = function () { toast(iconFor('user'), 'Andy', 'Signed in. Administrator. Obviously.', 3600, 'Accounts'); };
+$('sm-power').onclick = function () {
+    toggleStart(false);
+    showCtx(window.innerWidth - 230, window.innerHeight - 200, [
+        { svg: CTX_GL.moon, t: 'Sleep', fn: function () { toast(iconFor('settings'), 'Sleep', 'No time for that — there is malware to install.'); } },
+        { svg: CTX_GL.restart, t: 'Restart', fn: function () { if (confirm('Restart? You lose this run’s score.')) location.reload(); } },
+        { svg: CTX_GL.power, t: 'Shut down', fn: function () { G.cause = 'You shut it down yourself. Coward.'; die('USER_CHICKENED_OUT'); } }
+    ]);
+};
+document.querySelectorAll('[data-open]').forEach(function (b) {
+    b.onclick = function () { openWin(b.getAttribute('data-open')); };
+});
+$('show-desktop').onclick = function () {
+    const wins = Object.keys(WINS);
+    const anyOpen = wins.some(function (k) { return !WINS[k].node.classList.contains('min'); });
+    wins.forEach(function (k) { WINS[k].node.classList.toggle('min', anyOpen); });
+    toggleStart(false);
+};
+$('tb-search').onclick = function () { toggleStart(true); };
+$('tb-taskview').onclick = function () {
+    // Windows fans the open windows out; here it is enough to un-minimise them
+    Object.keys(WINS).forEach(function (k) { WINS[k].node.classList.remove('min'); });
+    toast(iconFor('taskmgr'), 'Task view', Object.keys(WINS).length + ' window(s) restored.');
+};
+$('tb-weather').onclick = function () {
+    toast(iconFor('weather'), 'Weather', '19°C and mostly sunny. Inside this PC it is ' + G.temp.toFixed(0) + '°C.');
+};
+$('tray-chev').onclick = function () {
+    toast(iconFor('defender'), 'Hidden icons', 'Six things you never installed on purpose are running here.');
+};
+$('tray').onclick = function () { toast(iconFor('volume'), 'Volume', 'Sounds are ' + (G.sound ? 'on' : 'off') + '. Change it in Settings.', 3600, 'Settings'); };
+$('tb-clock').onclick = function () { toast(iconFor('weather'), new Date().toDateString(), 'You have 0 meetings and 1 dying computer.', 3600, 'Calendar'); };
+
+/* ================================================================= TOASTS */
+// `gl` may be an SVG icon string or a plain emoji; both render fine inline.
+function toast(gl, title, sub, ms, app) {
+    const t = el('div', 'toast',
+        '<span class="ic">' + gl + '</span><div class="tx">' +
+        '<div class="ta">' + esc(app || 'Windows') + '</div>' +
+        '<div class="tt">' + esc(title) + '</div>' +
+        '<div class="ts">' + esc(sub || '') + '</div></div>');
+    t.style.pointerEvents = 'auto';
+    $('toasts').appendChild(t);
+    trimToasts();
+    setTimeout(function () { killToast(t); }, ms || 3600);
+    return t;
+}
+function killToast(t) {
+    if (!t || !t.parentNode) return;
+    t.classList.add('out');
+    setTimeout(function () { if (t.parentNode) t.parentNode.removeChild(t); }, 320);
+}
+function trimToasts() {
+    const box = $('toasts');
+    const max = window.innerHeight < 760 ? 2 : 4;
+    while (box.children.length > max) box.removeChild(box.firstChild);
+}
+
+/* =============================================================== DOWNLOADS */
+const downloading = {};
+function startDownload(c) {
+    if (G.dead) return;
+    if (downloading[c.id]) { toast(iconFor(c), 'Already downloading', c.name, 3600, 'Microsoft Store'); return; }
+    if (G.installed.indexOf(c.id) >= 0) { toast(iconFor(c), 'Already installed', c.name, 3600, 'Microsoft Store'); return; }
+    if (usedDisk() + c.mb > TOTAL_DISK) {
+        SFX.error();
+        toast(iconFor('thispc'), 'Not enough disk space', 'Uninstall something or run Disk Cleanup.', 4200, 'Storage');
+        return;
+    }
+    toggleStart(false);
+    downloading[c.id] = true;
+    SFX.pop();
+
+    const t = toast(iconFor(c), 'Downloading ' + c.name, fmtMb(c.mb) + ' — 0%', 60000, 'Microsoft Store');
+    const bar = el('div', 'meter', '<i style="width:0%"></i>');
+    t.querySelector('.tx').appendChild(bar);
+    const fill = bar.querySelector('i');
+    const sub = t.querySelector('.ts');
+
+    // bigger files take longer; the Wi-Fi driver makes everything quicker
+    const base = 1.1 + Math.min(3.4, c.mb / 700);
+    const speed = G.installed.indexOf('wifi') >= 0 ? 0.62 : 1;
+    const dur = base * speed * (c.dl || 1) * 1000;
+    const t0 = performance.now();
+
+    (function step(now) {
+        if (G.dead) { delete downloading[c.id]; killToast(t); return; }
+        const p = clamp((now - t0) / dur, 0, 1);
+        fill.style.width = (p * 100).toFixed(0) + '%';
+        sub.textContent = fmtMb(c.mb) + ' — ' + (p * 100).toFixed(0) + '%';
+        if (p < 1) { requestAnimationFrame(step); return; }
+        delete downloading[c.id];
+        killToast(t);
+        if (c.uac) askUac(c); else install(c);
+    })(performance.now());
+}
+
+/* ====================================================================== UAC */
+let uacPending = null;
+function askUac(c) {
+    uacPending = c;
+    const evil = c.cat === 'virus';
+    $('uac-top').className = evil ? 'bad' : '';
+    $('uac-top').textContent = evil ? 'User Account Control — are you SURE?' : 'User Account Control';
+    $('uac-gl').innerHTML = iconFor(c);
+    $('uac-name').textContent = c.name;
+    $('uac-pub').innerHTML =
+        'Publisher: <b class="' + (evil ? 'evil' : 'unk') + '">' + esc(c.pub) + '</b><br>' +
+        'File origin: ' + (evil ? 'Downloaded from a website your mum warned you about' : 'Hard drive on this computer') +
+        (c.note ? '<br><i>' + esc(c.note) + '</i>' : '');
+    $('uac').classList.add('on');
+    SFX.error();
+}
+$('uac-yes').onclick = function () {
+    $('uac').classList.remove('on');
+    if (uacPending) install(uacPending);
+    uacPending = null;
+};
+$('uac-no').onclick = function () {
+    $('uac').classList.remove('on');
+    if (uacPending) toast(iconFor(uacPending), 'Install cancelled', uacPending.name + ' — probably the right call.', 3600, 'Setup');
+    uacPending = null;
+};
+
+/* ================================================================= INSTALL */
+function usedDisk() {
+    return 1800 + G.installed.reduce(function (n, id) { return n + (BY_ID[id] ? BY_ID[id].mb : 0); }, 0);
+}
+function install(c) {
+    if (G.dead || G.installed.indexOf(c.id) >= 0) return;
+    G.installed.push(c.id);
+    G.score += c.chaos || 0;
+    G.power += c.power || 0;
+    G.cool  += c.cool || 0;
+    G.infection = clamp(G.infection + (c.inf || 0), 0, 100);
+    if (c.fx) G.fx[c.fx] = true;
+    if (c.cat === 'virus') { SFX.bad(); } else { SFX.ding(); }
+
+    if (c.cat === 'virus') {
+        toast(iconFor(c), 'Installed: ' + c.name, 'Your computer feels… different.', 4200, 'Setup');
+    } else {
+        toast(iconFor(c), 'Installed: ' + c.name,
+            (c.power ? '+' + c.power + '% performance. ' : '') + '+' + c.chaos + ' chaos', 3600, 'Setup');
+    }
+    if (c.fx) armEffect(c.fx);
+    if (c.tool === 'av') toast(iconFor(c), 'Sentinel Antivirus Pro', 'Windows Security scans are now much stronger.', 4200, 'Windows Security');
+
+    renderIcons();
+    refreshWindows();
+    if (smOpen) renderStart();
+    checkUnlocks();
+}
+let lastUnlockCount = 0;
+function checkUnlocks() {
+    const n = available().length;
+    if (lastUnlockCount && n > lastUnlockCount) {
+        toast(iconFor('store'), 'New downloads unlocked', 'Check the Start menu — ' + (n - lastUnlockCount) + ' new thing(s).', 4200, 'Microsoft Store');
+    }
+    lastUnlockCount = n;
+}
+function uninstall(id) {
+    const i = G.installed.indexOf(id);
+    if (i < 0) return;
+    const c = BY_ID[id];
+    if (c.cat === 'virus' && Math.random() < 0.55) {
+        SFX.error();
+        toast(iconFor(c), 'Access denied', c.name + ' says: "no <3"', 4200, 'Apps & features');
+        return;
+    }
+    G.installed.splice(i, 1);
+    G.power = Math.max(0, G.power - (c.power || 0));
+    G.cool  = Math.max(0, G.cool - (c.cool || 0));
+    if (c.fx) disarmEffect(c.fx);
+    if (c.cat === 'virus') {
+        G.infection = clamp(G.infection - (c.inf || 0), 0, 100);
+        G.cleaned++;
+        G.score += 30;   // cleaning up is worth something too
+    }
+    toast(iconFor(c), 'Uninstalled', c.name, 3600, 'Apps & features');
+    renderIcons();
+    refreshWindows();
+    if (smOpen) renderStart();
+}
+
+/* ================================================================= EFFECTS */
+function armEffect(fx) {
+    if (fx === 'toolbars') addToolbars(3);
+    if (fx === 'bonzi') startBonzi();
+    if (fx === 'cursors') spawnCursors(6);
+    if (fx === 'matrix') $('scanlines').classList.add('on');
+    if (fx === 'popups' || fx === 'rain' || fx === 'meltdown') spawnAd();
+    if (fx === 'lock') lockGag();
+    if (fx === 'meltdown') {
+        ['popups', 'cursors', 'toolbars', 'rain', 'icons', 'bsodflash', 'matrix'].forEach(function (f) {
+            G.fx[f] = true; armEffect(f);
+        });
+    }
+    applyFx();
+}
+function disarmEffect(fx) {
+    delete G.fx[fx];
+    if (fx === 'toolbars') $('toolbars').innerHTML = '';
+    if (fx === 'bonzi') $('bonzi').classList.remove('on');
+    if (fx === 'cursors') {
+        document.querySelectorAll('.fake-cursor').forEach(function (n) { n.remove(); });
+        fakeCursors.length = 0;
+    }
+    if (fx === 'matrix') $('scanlines').classList.remove('on');
+    if (fx === 'icons') renderIcons();
+    applyFx();
+}
+function applyFx() {
+    const s = $('stage');
+    s.className = '';
+    if (G.fx.matrix)   s.classList.add('fx-tint');
+    if (G.fx.glitch)   s.classList.add('fx-blur');
+    if (G.fx.flip)     s.classList.add('fx-flip');
+    // toggle (not re-add) so the shake animation is not restarted every frame
+    $('desktop').classList.toggle('fx-jitter', !!G.fx.meltdown || G.temp > 96 || G.cpu > 97);
+    if (G.fx.rgb) {
+        document.documentElement.style.setProperty('--accent', 'hsl(' + ((G.t * 60) % 360) + ' 100% 68%)');
+    }
+}
+
+/* --- junk toolbars stack down from the top of the screen --- */
+const TOOLBAR_NAMES = ['CoolSearch', 'MyWebFun!', 'SmileyCentral', 'ShopHelper Pro', 'Ask Jareth', 'WeatherBug 98'];
+function addToolbars(n) {
+    const box = $('toolbars');
+    for (let i = 0; i < n; i++) {
+        if (box.children.length >= (window.innerHeight < 760 ? 3 : 6)) break;
+        const name = TOOLBAR_NAMES[box.children.length % TOOLBAR_NAMES.length];
+        const bar = el('div', 'jtoolbar',
+            '<span>' + name + '</span><span class="fakeinput"></span>' +
+            '<span class="fakebtn">Search</span><span class="fakebtn">☺</span><span class="fakebtn">✕</span>');
+        // the ✕ is a lie, obviously
+        bar.querySelectorAll('.fakebtn')[2].onclick = function () {
+            SFX.error();
+            toast(iconFor(BY_ID.toolbar), 'Nice try', 'Toolbars cannot be closed. Uninstall it properly.', 3600, 'CoolSearch');
+        };
+        box.appendChild(bar);
+    }
+}
+
+/* --- fake cursors that chase the real one --- */
+const fakeCursors = [];
+let mouseX = window.innerWidth / 2, mouseY = window.innerHeight / 2;
+window.addEventListener('pointermove', function (e) { mouseX = e.clientX; mouseY = e.clientY; });
+function spawnCursors(n) {
+    const glyphs = ['🖱️', '👆', '👉', '🖐️', '🕹️', '✏️'];
+    for (let i = 0; i < n; i++) {
+        const c = el('div', 'fake-cursor', pick(glyphs));
+        c.x = rand(0, window.innerWidth);
+        c.y = rand(0, window.innerHeight);
+        c.lag = rand(0.02, 0.1);
+        $('fx-layer').appendChild(c);
+        fakeCursors.push(c);
+    }
+}
+function moveCursors() {
+    for (let i = 0; i < fakeCursors.length; i++) {
+        const c = fakeCursors[i];
+        c.x += (mouseX - c.x) * c.lag;
+        c.y += (mouseY - c.y) * c.lag;
+        c.style.transform = 'translate(' + c.x.toFixed(1) + 'px,' + c.y.toFixed(1) + 'px)';
+    }
+}
+
+/* --- falling junk --- */
+function dropFaller() {
+    const glyphs = G.fx.matrix ? ['0', '1', '1', '0', '🟩'] : ['🎵', '🎶', '💿', '🕺', '❤️'];
+    const f = el('div', 'faller', pick(glyphs));
+    f.style.left = rand(0, 100) + '%';
+    f.style.animationDuration = rand(3.2, 6.5) + 's';
+    if (G.fx.matrix) { f.style.color = '#3dff6e'; f.style.fontWeight = '800'; }
+    $('fx-layer').appendChild(f);
+    setTimeout(function () { f.remove(); }, 7000);
+}
+
+/* --- Bonsai Buddy --- */
+const BONZI_LINES = [
+    'Hi there! I live here now!',
+    'Would you like me to slow down your PC?',
+    'I have told 6 of my friends about you.',
+    'Your CPU looks delicious.',
+    'Did you know? You cannot uninstall me. (You can.)',
+    'I reorganised your files. Good luck!',
+    'Purple is a personality.'
+];
+let bonziTimer = 0;
+function startBonzi() {
+    const b = $('bonzi');
+    b.classList.add('on');
+    moveBonzi();
+}
+function moveBonzi() {
+    const b = $('bonzi');
+    b.style.left = rand(4, Math.max(6, window.innerWidth - 190)) + 'px';
+    b.style.top  = rand(60, Math.max(80, window.innerHeight - 240)) + 'px';
+    $('bonzi-say').textContent = pick(BONZI_LINES);
+}
+
+/* --- ransomware gag: a window nobody asked for --- */
+function lockGag() {
+    openWin('locked');
+}
+
+/* --- blue flashes --- */
+function flashBlue() {
+    const g = $('glitch');
+    g.classList.add('on');
+    setTimeout(function () { g.classList.remove('on'); }, 170);
+}
+
+/* ============================================================= AD POPUPS */
+const AD_ADS = [
+    { gl: '💎', t: 'CONGRATULATIONS!<br>You are visitor 1,000,000!', cta: 'CLAIM PRIZE' },
+    { gl: '🚨', t: 'YOUR PC HAS 47 VIRUSES!<br>(we counted)', cta: 'FIX NOW' },
+    { gl: '💰', t: 'Make $9000 a day from<br>your gaming chair!', cta: 'TELL ME MORE' },
+    { gl: '👽', t: 'Singles in your area<br>want to defrag', cta: 'MEET THEM' },
+    { gl: '🐒', t: 'PUNCH THE MONKEY<br>and win a free iPod', cta: 'PUNCH IT' },
+    { gl: '⚡', t: 'Your RAM is 80% empty!<br>Download more RAM!', cta: 'DOWNLOAD RAM' },
+    { gl: '🎁', t: 'FREE V-BUCKS GENERATOR<br>no human verification*', cta: 'GENERATE' },
+    { gl: '🧊', t: 'Is your PC too hot?<br>Try our free ice cubes', cta: 'GET ICE' }
+];
+function spawnAd() {
+    if (G.dead || G.ads >= 14) return;
+    const a = pick(AD_ADS);
+    const box = el('div', 'ad',
+        '<div class="abar"><span>' + pick(['Advertisement', 'Special Offer', 'about:blank', 'winner.htm', 'SYSTEM ALERT']) +
+        '</span><button>✕</button></div>' +
+        '<div class="abody"><div class="big">' + a.gl + '</div><div class="txt">' + a.t +
+        '</div><div class="cta">' + a.cta + '</div></div>');
+    const w = 258, h = 190;
+    box.style.left = rand(6, Math.max(10, window.innerWidth - w - 6)) + 'px';
+    box.style.top  = rand(6, Math.max(10, window.innerHeight - h - 70)) + 'px';
+    $('popup-layer').appendChild(box);
+    G.ads++;
+    SFX.pop();
+
+    box.querySelector('.abar button').onclick = function (e) {
+        e.stopPropagation();
+        closeAd(box);
+        G.score += 6;                        // closing them is worth a trickle
+        if (Math.random() < 0.45) spawnAd(); // ...but they breed
+    };
+    box.querySelector('.cta').onclick = function () {
+        SFX.error();
+        G.infection = clamp(G.infection + 3, 0, 100);
+        closeAd(box);
+        spawnAd(); spawnAd();
+        toast(iconFor('defender'), 'You clicked the ad', 'Infection went up. What did you expect?', 3600, 'Windows Security');
+    };
+}
+function closeAd(box) {
+    if (!box.parentNode) return;
+    box.remove();
+    G.ads = Math.max(0, G.ads - 1);
+}
+
+/* ========================================================== WINDOW MANAGER */
+const WINS = {};
+let zTop = 210;
+const WIN_DEFS = {
+    store:    { sh: 'store',    name: 'Microsoft Store',    w: 540, h: 470, render: renderStore },
+    explorer: { sh: 'thispc',   name: 'This PC',            w: 520, h: 440, render: renderExplorer },
+    taskmgr:  { sh: 'taskmgr',  name: 'Task Manager',       w: 540, h: 480, render: renderTaskMgr },
+    defender: { sh: 'defender', name: 'Windows Security',   w: 490, h: 440, render: renderDefender },
+    settings: { sh: 'settings', name: 'Settings',           w: 500, h: 480, render: renderSettings },
+    bin:      { sh: 'bin',      name: 'Recycle Bin',        w: 430, h: 310, render: renderBin },
+    locked:   { col: '#8b1a1a', ic: 'lock', name: 'YOUR FILES ARE MINE', w: 410, h: 340, render: renderLocked },
+    app:      { col: '#4a4f5c', ic: 'warn', name: 'App',    w: 430, h: 340, render: renderApp }
+};
+function openWin(id, arg) {
+    if (G.dead) return;
+    const def = WIN_DEFS[id];
+    if (!def) return;
+    const key = id === 'app' && arg ? 'app:' + arg.id : id;
+    if (WINS[key]) { focusWin(WINS[key]); WINS[key].node.classList.remove('min'); return; }
+
+    const w = Math.min(def.w, window.innerWidth - 20);
+    const h = Math.min(def.h, window.innerHeight - 80);
+    const node = el('div', 'win');
+    node.style.width = w + 'px';
+    node.style.height = h + 'px';
+    node.style.left = clamp(rand(30, window.innerWidth - w - 30), 8, Math.max(8, window.innerWidth - w - 8)) + 'px';
+    node.style.top  = clamp(rand(30, window.innerHeight - h - 90), 8, Math.max(8, window.innerHeight - h - 60)) + 'px';
+    node.innerHTML =
+        '<div class="titlebar">' + iconBox(arg || def, 'xs') +
+        '<span class="t-name">' + esc(arg ? arg.name : def.name) + '</span>' +
+        '<span class="wbtns">' +
+        '<button class="mn" title="Minimise"><svg viewBox="0 0 10 10"><path d="M0 5h10"/></svg></button>' +
+        '<button class="mx" title="Maximise"><svg viewBox="0 0 10 10"><rect x="0.5" y="0.5" width="9" height="9" rx="1"/></svg></button>' +
+        '<button class="x" title="Close"><svg viewBox="0 0 10 10"><path d="M0 0l10 10M10 0L0 10"/></svg></button>' +
+        '</span></div>' +
+        '<div class="wbody"></div>';
+    $('window-layer').appendChild(node);
+
+    const win = { id: id, key: key, node: node, arg: arg, def: def, body: node.querySelector('.wbody') };
+    WINS[key] = win;
+    node.querySelector('.x').onclick  = function () { closeWin(key); };
+    node.querySelector('.mn').onclick = function () { node.classList.add('min'); };
+    node.querySelector('.mx').onclick = function () { maxWin(win); };
+    node.onpointerdown = function () { focusWin(win); };
+    dragify(node, node.querySelector('.titlebar'));
+    focusWin(win);
+    def.render(win);
+    markTaskbar();
+    SFX.pop();
+    return win;
+}
+function closeWin(key) {
+    const w = WINS[key];
+    if (!w) return;
+    if (key === 'locked' && G.fx.lock && G.installed.indexOf('wanna') >= 0) {
+        SFX.error();
+        toast(iconFor(BY_ID.wanna), 'Nope', 'Uninstall WannaSigh first. It is holding the close button hostage.', 3600, 'WannaSigh');
+        return;
+    }
+    w.node.remove();
+    delete WINS[key];
+    markTaskbar();
+}
+function focusWin(w) { w.node.style.zIndex = ++zTop; }
+function maxWin(w) {
+    if (w.node.dataset.max) {
+        w.node.style.cssText = w.node.dataset.prev;
+        delete w.node.dataset.max;
+    } else {
+        w.node.dataset.prev = w.node.style.cssText;
+        w.node.dataset.max = '1';
+        w.node.style.left = '0px';
+        w.node.style.top = '0px';
+        w.node.style.width = '100%';
+        w.node.style.height = 'calc(100% - var(--tb))';
+        w.node.style.zIndex = ++zTop;
+    }
+}
+function markTaskbar() {
+    document.querySelectorAll('[data-open]').forEach(function (b) {
+        b.classList.toggle('open', !!WINS[b.getAttribute('data-open')]);
+    });
+}
+function refreshWindows() {
+    Object.keys(WINS).forEach(function (k) {
+        const w = WINS[k];
+        if (w.def.render) w.def.render(w);
+    });
+}
+function dragify(node, handle) {
+    let ox = 0, oy = 0, on = false;
+    handle.addEventListener('pointerdown', function (e) {
+        if (e.target.closest('.wbtns')) return;
+        on = true;
+        ox = e.clientX - node.offsetLeft;
+        oy = e.clientY - node.offsetTop;
+        handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', function (e) {
+        if (!on) return;
+        node.style.left = clamp(e.clientX - ox, -node.offsetWidth + 90, window.innerWidth - 90) + 'px';
+        node.style.top  = clamp(e.clientY - oy, 0, window.innerHeight - 44) + 'px';
+    });
+    handle.addEventListener('pointerup', function () { on = false; });
+    handle.addEventListener('pointercancel', function () { on = false; });
+}
+
+/* --------------------------------------------------------- Downloads app */
+function renderStore(w) {
+    let html = '<div class="w-h1">Downloads</div>' +
+        '<div class="w-sub">Everything here also lives in the Start menu. Drivers make the PC faster. ' +
+        'The other stuff… does not.</div>';
+    CAT_ORDER.forEach(function (cat) {
+        const group = available().filter(function (c) { return c.cat === cat; });
+        if (!group.length) return;
+        html += '<div class="cat-title' + (cat === 'virus' ? ' danger' : '') + '">' + CAT_LABEL[cat] + '</div>';
+        group.forEach(function (c) {
+            const done = G.installed.indexOf(c.id) >= 0;
+            html += '<div class="card"><div class="row"><div class="cardline">' + iconBox(c, 'sm') + '<div>' +
+                '<b>' + esc(c.name) + '</b><br>' +
+                '<span style="color:#a5a5a5; font-size:11.5px;">' + fmtMb(c.mb) + ' • ' + esc(c.pub) +
+                ' • +' + c.chaos + ' chaos' + (c.power ? ' • +' + c.power + '% perf' : '') +
+                (c.inf ? ' • +' + c.inf + ' infection' : '') + '</span></div></div>' +
+                '<button class="btn ' + (cat === 'virus' ? 'danger' : 'primary') + '" data-get="' + c.id + '"' +
+                (done ? ' disabled' : '') + '>' + (done ? 'Installed' : 'Get') + '</button>' +
+                '</div></div>';
+        });
+    });
+    w.body.innerHTML = html;
+    w.body.querySelectorAll('[data-get]').forEach(function (b) {
+        b.onclick = function () { startDownload(BY_ID[b.getAttribute('data-get')]); };
+    });
+}
+
+/* ------------------------------------------------------------ This PC */
+function renderExplorer(w) {
+    const used = usedDisk(), pct = clamp(used / TOTAL_DISK * 100, 0, 100);
+    let html = '<div class="w-h1">This PC</div><div class="w-sub">Windows 11 Home • Andy-PC</div>' +
+        '<div class="card"><b>Local Disk (C:)</b>' +
+        '<div class="meter' + (pct > 88 ? ' hot' : '') + '"><i style="width:' + pct.toFixed(1) + '%"></i></div>' +
+        '<div style="color:#a5a5a5; font-size:11.5px; margin-top:6px;">' +
+        fmtMb(Math.max(0, Math.round(TOTAL_DISK - used))) + ' free of ' + fmtMb(TOTAL_DISK) + '</div></div>' +
+        '<div class="cat-title">Installed programs (' + G.installed.length + ')</div>';
+    if (!G.installed.length) {
+        html += '<div class="card" style="color:#a5a5a5;">Nothing installed yet. Open the Start menu and fix that.</div>';
+    }
+    G.installed.forEach(function (id) {
+        const c = BY_ID[id];
+        html += '<div class="card"><div class="row"><div class="cardline">' + iconBox(c, 'sm') + '<div><b>' + esc(c.name) + '</b><br>' +
+            '<span style="color:#a5a5a5; font-size:11.5px;">' + fmtMb(c.mb) + ' • ' + esc(c.pub) + '</span></div></div>' +
+            '<button class="btn danger" data-rm="' + c.id + '">Uninstall</button></div></div>';
+    });
+    w.body.innerHTML = html;
+    w.body.querySelectorAll('[data-rm]').forEach(function (b) {
+        b.onclick = function () { uninstall(b.getAttribute('data-rm')); };
+    });
+}
+
+/* -------------------------------------------------------- Task Manager */
+let tmTab = 'proc', tmSel = null;
+const cpuHist = [], ramHist = [];
+function processList() {
+    const list = [
+        { id: '_sys',  n: 'System',          cpu: 1.2, ram: 90,  sys: 1 },
+        { id: '_exp',  n: 'explorer.exe',    cpu: 2.1, ram: 180, sys: 1 },
+        { id: '_def',  n: 'Antimalware Service Executable', cpu: 9.4, ram: 260, sys: 1 }
+    ];
+    G.installed.forEach(function (id) {
+        const c = BY_ID[id];
+        list.push({
+            id: c.id,
+            n: c.id.replace(/[^a-z0-9]/gi, '') + '.exe',
+            label: c.name,
+            cpu: (c.cpu || 1) + (c.cat === 'virus' ? G.infection * 0.05 : 0),
+            ram: (c.ram || 1) * 26,
+            bad: c.cat === 'virus'
+        });
+    });
+    if (G.ads) list.push({ id: '_ads', n: 'adservice_x86.exe', cpu: G.ads * 1.4, ram: G.ads * 38, bad: 1, sys: 1 });
+    return list;
+}
+function renderTaskMgr(w) {
+    const procs = processList();
+    let html = '<div class="row" style="margin-bottom:12px;">' +
+        '<div><div class="w-h1" style="font-size:17px;">Task Manager</div></div>' +
+        '<div style="display:flex; gap:6px;">' +
+        '<button class="btn' + (tmTab === 'proc' ? ' primary' : '') + '" data-tab="proc">Processes</button>' +
+        '<button class="btn' + (tmTab === 'perf' ? ' primary' : '') + '" data-tab="perf">Performance</button>' +
+        '</div></div>';
+
+    if (tmTab === 'proc') {
+        html += '<div class="proc-head"><span class="pn">Name</span><span class="pv">CPU</span><span class="pv">Memory</span></div>';
+        procs.forEach(function (p) {
+            html += '<div class="proc' + (p.bad ? ' bad' : '') + (tmSel === p.id ? ' sel' : '') + '" data-p="' + p.id + '">' +
+                '<span class="pn">' + esc(p.n) + (p.label ? ' <span style="color:#8f8f8f">— ' + esc(p.label) + '</span>' : '') + '</span>' +
+                '<span class="pv">' + p.cpu.toFixed(1) + '%</span>' +
+                '<span class="pv">' + Math.round(p.ram) + ' MB</span></div>';
+        });
+        html += '<div style="display:flex; justify-content:flex-end; margin-top:12px;">' +
+            '<button class="btn danger" id="tm-end"' + (tmSel ? '' : ' disabled') + '>End task</button></div>';
+    } else {
+        html += '<div class="gauges">' +
+            gauge('CPU', G.cpu.toFixed(0) + '%', 'g-cpu') +
+            gauge('Memory', G.ram.toFixed(0) + '%', 'g-ram') +
+            gauge('Temperature', G.temp.toFixed(0) + '°C', null) +
+            gauge('Infection', G.infection.toFixed(0) + '%', null) +
+            '</div>' +
+            '<div class="card" style="margin-top:12px;"><div class="row"><b>System health</b><span>' +
+            G.health.toFixed(0) + '%</span></div><div class="meter' + (G.health < 40 ? ' hot' : '') +
+            '"><i style="width:' + G.health.toFixed(0) + '%"></i></div>' +
+            '<div style="color:#a5a5a5; font-size:11.5px; margin-top:8px;">' + healthAdvice() + '</div></div>';
+    }
+    w.body.innerHTML = html;
+    w.body.querySelectorAll('[data-tab]').forEach(function (b) {
+        b.onclick = function () { tmTab = b.getAttribute('data-tab'); renderTaskMgr(w); };
+    });
+    w.body.querySelectorAll('[data-p]').forEach(function (n) {
+        n.onclick = function () { tmSel = n.getAttribute('data-p'); renderTaskMgr(w); };
+    });
+    const endBtn = $('tm-end');
+    if (endBtn) endBtn.onclick = endTask;
+    if (tmTab === 'perf') { drawSpark('g-cpu', cpuHist, '#4cc2ff'); drawSpark('g-ram', ramHist, '#a97bff'); }
+}
+function gauge(label, val, canvasId) {
+    return '<div class="gauge"><b>' + label + '</b><div class="v">' + val + '</div>' +
+        (canvasId ? '<canvas id="' + canvasId + '" width="200" height="42"></canvas>' : '') + '</div>';
+}
+function drawSpark(id, hist, colour) {
+    const cv = $(id);
+    if (!cv) return;
+    const ctx = cv.getContext('2d');
+    ctx.clearRect(0, 0, cv.width, cv.height);
+    if (hist.length < 2) return;
+    ctx.beginPath();
+    hist.forEach(function (v, i) {
+        const x = i / (hist.length - 1) * cv.width;
+        const y = cv.height - (v / 100) * cv.height;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    });
+    ctx.lineTo(cv.width, cv.height);
+    ctx.lineTo(0, cv.height);
+    ctx.closePath();
+    ctx.fillStyle = colour + '33';
+    ctx.fill();
+    ctx.beginPath();
+    hist.forEach(function (v, i) {
+        const x = i / (hist.length - 1) * cv.width;
+        const y = cv.height - (v / 100) * cv.height;
+        if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y);
+    });
+    ctx.strokeStyle = colour;
+    ctx.lineWidth = 1.6;
+    ctx.stroke();
+}
+function healthAdvice() {
+    if (G.health > 75) return 'Everything is fine. Suspiciously fine.';
+    if (G.temp > 92) return 'It is too hot. Install a cooler, or uninstall whatever is cooking it.';
+    if (G.cpu > 92)  return 'CPU is pinned. End a task or uninstall something greedy.';
+    if (G.ram > 92)  return 'Out of memory. Close the ad popups!';
+    if (G.infection > 40) return 'Heavily infected. Run a scan in Windows Security.';
+    return 'Struggling. A scan or an uninstall would help.';
+}
+function endTask() {
+    if (!tmSel) return;
+    if (tmSel === '_ads') {
+        document.querySelectorAll('.ad').forEach(function (a) { closeAd(a); });
+        toast(iconFor('taskmgr'), 'Ended adservice_x86.exe', 'All popups closed. For now.', 3600, 'Task Manager');
+        tmSel = null; refreshWindows(); return;
+    }
+    if (tmSel === '_exp') {
+        // the classic: kill explorer.exe, lose your taskbar
+        G.explorerDown = 6;
+        $('taskbar').style.opacity = '0';
+        $('taskbar').style.pointerEvents = 'none';
+        toggleStart(false);
+        toast(iconFor('explorer'), 'Ended explorer.exe', 'You just deleted your own taskbar. It comes back. Probably.', 5000, 'Task Manager');
+        tmSel = null; refreshWindows(); return;
+    }
+    if (tmSel === '_sys' || tmSel === '_def') {
+        SFX.error();
+        toast(iconFor('taskmgr'), 'Access denied', 'Windows would quite like to keep that one running.', 3600, 'Task Manager');
+        return;
+    }
+    const c = BY_ID[tmSel];
+    if (!c) return;
+    if (c.cat === 'virus' && Math.random() < 0.5) {
+        SFX.error();
+        toast(iconFor(c), 'Access denied', esc(c.name) + ' is "protected by the operating system" (it is lying).', 4200, 'Task Manager');
+        return;
+    }
+    G.killed++;
+    uninstall(tmSel);
+    tmSel = null;
+    refreshWindows();
+}
+
+/* ------------------------------------------------------ Windows Security */
+function renderDefender(w) {
+    const hasAv = G.installed.indexOf('sentinel') >= 0;
+    const scanning = G.scanUntil > G.t;
+    const threats = G.installed.filter(function (id) { return BY_ID[id].cat === 'virus'; });
+    let html = '<div class="w-h1">Windows Security</div>' +
+        '<div class="w-sub">Virus &amp; threat protection' + (hasAv ? ' — boosted by Sentinel Antivirus Pro' : '') + '</div>';
+
+    html += '<div class="card"><div class="row"><div><b>' +
+        (threats.length
+            ? '<span style="color:#ff9c8c;">' + threats.length + ' threat(s) found</span>'
+            : '<span style="color:#6ccb7f;">No current threats</span>') + '</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Infection level: ' + G.infection.toFixed(0) + '%</span></div>' +
+        '<button class="btn primary" id="def-scan"' + (scanning || G.scanCd > G.t ? ' disabled' : '') + '>' +
+        (scanning ? 'Scanning…' : (G.scanCd > G.t ? 'Cooling down ' + Math.ceil(G.scanCd - G.t) + 's' : 'Quick scan')) +
+        '</button></div>' +
+        (scanning ? '<div class="meter"><i id="def-bar" style="width:' +
+            (100 - (G.scanUntil - G.t) / SCAN_LEN * 100).toFixed(0) + '%"></i></div>' : '') +
+        '</div>';
+
+    threats.forEach(function (id) {
+        const c = BY_ID[id];
+        html += '<div class="card"><div class="row"><div class="cardline">' + iconBox(c, 'sm') +
+            '<div><b style="color:#ff9c8c;">' + esc(c.name) +
+            '</b><br><span style="color:#a5a5a5; font-size:11.5px;">Severe • Trojan:Andy/' +
+            c.id.toUpperCase() + '</span></div></div>' +
+            '<button class="btn danger" data-rm="' + c.id + '">Remove</button></div></div>';
+    });
+    html += '<div class="card"><div class="row"><div><b>Disk Cleanup</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Frees space and cools things down a little</span></div>' +
+        '<button class="btn" id="def-clean">Clean up</button></div></div>';
+    if (!hasAv) {
+        html += '<div class="card" style="border-color:rgba(76,194,255,0.35);">Tip: install <b>Sentinel Antivirus Pro</b> ' +
+            'from the Start menu — scans then remove far more at once.</div>';
+    }
+    w.body.innerHTML = html;
+    const sc = $('def-scan');
+    if (sc) sc.onclick = startScan;
+    const cl = $('def-clean');
+    if (cl) cl.onclick = diskCleanup;
+    w.body.querySelectorAll('[data-rm]').forEach(function (b) {
+        b.onclick = function () { uninstall(b.getAttribute('data-rm')); };
+    });
+}
+const SCAN_LEN = 6;
+function startScan() {
+    if (G.scanUntil > G.t || G.scanCd > G.t) return;
+    G.scanUntil = G.t + SCAN_LEN;
+    G.scanCd = G.t + SCAN_LEN + 18;
+    toast(iconFor('defender'), 'Quick scan started', 'This will pin the CPU for a few seconds.', 3600, 'Windows Security');
+    refreshWindows();
+}
+function finishScan() {
+    const hasAv = G.installed.indexOf('sentinel') >= 0;
+    const threats = G.installed.filter(function (id) { return BY_ID[id].cat === 'virus'; });
+    if (!threats.length) {
+        toast(iconFor('defender'), 'Scan complete', 'No threats found. Go and download some.', 3600, 'Windows Security');
+        refreshWindows();
+        return;
+    }
+    const n = Math.max(1, Math.min(threats.length, hasAv ? 3 : 1));
+    let removed = 0;
+    for (let i = 0; i < n; i++) {
+        const id = threats[i];
+        const c = BY_ID[id];
+        const ix = G.installed.indexOf(id);
+        if (ix < 0) continue;
+        G.installed.splice(ix, 1);
+        if (c.fx) disarmEffect(c.fx);
+        G.infection = clamp(G.infection - (c.inf || 0), 0, 100);
+        G.cleaned++;
+        removed++;
+    }
+    G.health = clamp(G.health + removed * 5, 0, 100);
+    G.score += removed * 40;
+    SFX.ding();
+    toast(iconFor('defender'), 'Scan complete', 'Removed ' + removed + ' threat(s). +' + (removed * 40) + ' chaos for the cleanup.', 4600, 'Windows Security');
+    renderIcons();
+    refreshWindows();
+}
+function diskCleanup() {
+    G.temp = Math.max(38, G.temp - 6);
+    G.health = clamp(G.health + 4, 0, 100);
+    G.score += 15;
+    SFX.ding();
+    toast(iconFor('thispc'), 'Disk Cleanup', 'Deleted 4.2 GB of temp files and one mystery folder called "new folder (7)".', 3600, 'Disk Cleanup');
+    refreshWindows();
+}
+
+/* ---------------------------------------------------------------- Settings */
+function renderSettings(w) {
+    let wpOpts = '';
+    Object.keys(WALLPAPERS).forEach(function (k) {
+        wpOpts += '<option value="' + k + '"' + (G.wallpaper === k ? ' selected' : '') + '>' + WALLPAPERS[k].label + '</option>';
+    });
+    w.body.innerHTML =
+        '<div class="w-h1">Settings</div><div class="w-sub">Andy-PC • Windows 11 Home (very legally obtained)</div>' +
+        '<div class="card"><div class="row"><div><b>Personalise</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Desktop background</span></div>' +
+        '<select class="inp" id="set-wp">' + wpOpts + '</select></div></div>' +
+        '<div class="card"><div class="row"><div><b>Sound</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Dings, errors and doom</span></div>' +
+        '<select class="inp" id="set-snd"><option value="on"' + (G.sound ? ' selected' : '') + '>On</option>' +
+        '<option value="off"' + (G.sound ? '' : ' selected') + '>Off</option></select></div></div>' +
+        '<div class="card"><div class="row"><div><b>Save progress</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Keeps your best score on this device (' +
+        esc(AndySave.deviceId()) + ')</span></div>' +
+        '<select class="inp" id="set-auto"><option value="on"' + (autoSaveOn ? ' selected' : '') + '>On</option>' +
+        '<option value="off"' + (autoSaveOn ? '' : ' selected') + '>Off</option></select></div></div>' +
+        '<div class="card"><div><b>Transfer progress</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Move your best score to another device with a code</span></div>' +
+        '<div style="display:flex; gap:8px; flex-wrap:wrap; margin-top:10px;">' +
+        '<button class="btn" id="set-save">Save now</button>' +
+        '<button class="btn" id="set-copy">Copy code</button>' +
+        '<button class="btn" id="set-enter">Enter code</button></div></div>' +
+        '<div class="card"><div class="row"><div><b>Reset save</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Wipes your best score and settings</span></div>' +
+        '<button class="btn danger" id="set-reset">Reset</button></div></div>' +
+        '<div class="card"><div class="row"><div><b>Play Centre</b><br>' +
+        '<span style="color:#a5a5a5; font-size:11.5px;">Back to the games menu</span></div>' +
+        '<button class="btn" onclick="location.href=\'./\'">Home</button></div></div>';
+
+    $('set-wp').onchange = function () { G.wallpaper = this.value; applyWallpaper(); saveGame(); };
+    $('set-snd').onchange = function () { G.sound = this.value === 'on'; saveGame(); if (G.sound) SFX.ding(); };
+    $('set-auto').onchange = function () { setAutoSave(this.value === 'on'); };
+    $('set-save').onclick = function () { writeSave(); AndySave.flashButton(this, '✅ Saved!'); };
+    $('set-copy').onclick = function () {
+        const btn = this;
+        AndySave.copyText(AndySave.makeCode('viruspc', collectSave()), function (ok) {
+            if (ok) AndySave.flashButton(btn, '✅ Copied!');
+        });
+    };
+    $('set-enter').onclick = function () {
+        const code = window.prompt('Paste a Virus PC save code from your other device:');
+        if (!code) return;
+        const payload = AndySave.readCode('viruspc', code);
+        if (!payload) { alert('That code is not a valid Virus PC save code.'); return; }
+        if (!confirm('Load this save? It replaces the best score on this device.')) return;
+        autoSaveOn = false;   // stop the pagehide saver clobbering the imported save
+        try { localStorage.setItem(SAVE_KEY, JSON.stringify(payload.d)); } catch (e) {}
+        location.reload();
+    };
+    $('set-reset').onclick = function () {
+        if (!confirm('Wipe your best score and settings? This cannot be undone.')) return;
+        autoSaveOn = false;
+        try { localStorage.removeItem(SAVE_KEY); } catch (e) {}
+        location.reload();
+    };
+}
+
+/* -------------------------------------------------------------- odds & ends */
+function renderBin(w) {
+    w.body.innerHTML = '<div class="w-h1">Recycle Bin</div>' +
+        '<div class="w-sub">' + (G.cleaned ? G.cleaned + ' item(s)' : 'This folder is empty') + '</div>' +
+        '<div class="card">Things you have removed: <b>' + G.cleaned + '</b><br>' +
+        'Processes you have murdered: <b>' + G.killed + '</b></div>' +
+        '<div class="card" style="color:#a5a5a5;">Emptying the bin does nothing. It is a bin.</div>';
+}
+function renderLocked(w) {
+    w.body.innerHTML = '<div style="text-align:center;">' +
+        iconBox({ col: '#8b1a1a', ic: 'lock' }, 'lg') +
+        '<div class="w-h1" style="color:#ff6a5a; margin-top:10px;">Oops, your files are encrypted!</div>' +
+        '<div class="w-sub">Send 0.4 imaginary coins to an address we made up and you will get them back. Probably not.</div>' +
+        '<div class="card" style="font-family:monospace; font-size:11px; word-break:break-all;">' +
+        '1An4yD1dTh1sT0H1s0wnC0mput3rXyZ</div>' +
+        '<button class="btn danger" id="lk-pay">Pay the ransom</button></div>';
+    $('lk-pay').onclick = function () {
+        SFX.error();
+        G.infection = clamp(G.infection + 6, 0, 100);
+        toast(iconFor(BY_ID.wanna), 'Payment sent', 'They took it and left. Obviously. Infection +6.', 4600, 'WannaSigh');
+    };
+}
+function renderApp(w) {
+    const c = w.arg;
+    if (!c) return;
+    const installed = G.installed.indexOf(c.id) >= 0;
+    w.body.innerHTML = '<div style="text-align:center; padding-top:10px;">' +
+        iconBox(c, 'lg') +
+        '<div class="w-h1" style="margin-top:10px;">' + esc(c.name) + '</div>' +
+        '<div class="w-sub">' + esc(c.pub) + ' • ' + fmtMb(c.mb) + '</div>' +
+        '<div class="card" style="text-align:left;">' +
+        (c.cat === 'virus'
+            ? 'This program does not have a user interface. It just sits there, quietly ruining things.'
+            : 'This program works perfectly and does exactly what you would expect. There is nothing to click.') +
+        (c.note ? '<br><br><i style="color:#a5a5a5;">' + esc(c.note) + '</i>' : '') + '</div>' +
+        (installed ? '<button class="btn danger" id="app-rm">Uninstall</button>' : '') + '</div>';
+    const rm = $('app-rm');
+    if (rm) rm.onclick = function () { uninstall(c.id); closeWin(w.key); };
+}
+
+/* =========================================================== CONTEXT MENU */
+function ctxGl(d) {
+    return '<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.3" ' +
+           'stroke-linecap="round" stroke-linejoin="round">' + d + '</svg>';
+}
+const CTX_GL = {
+    view:    ctxGl('<rect x="1.5" y="2.5" width="5" height="5" rx="1"/><rect x="9.5" y="2.5" width="5" height="5" rx="1"/><rect x="1.5" y="10.5" width="5" height="3" rx="1"/><rect x="9.5" y="10.5" width="5" height="3" rx="1"/>'),
+    sort:    ctxGl('<path d="M2 4h12M2 8h8M2 12h4"/>'),
+    refresh: ctxGl('<path d="M13.5 8a5.5 5.5 0 1 1-1.7-4"/><path d="M13.8 1.6v3h-3"/>'),
+    plus:    ctxGl('<path d="M8 3v10M3 8h10"/>'),
+    brush:   ctxGl('<path d="M13.4 2.6 6.8 9.2"/><path d="M6.4 8.8 8 10.4 5.2 13a2 2 0 0 1-3.4-1.4z"/>'),
+    chart:   ctxGl('<path d="M2.5 13.5v-4M6.8 13.5v-8M11.2 13.5v-5M15 13.5V3"/>'),
+    shield:  ctxGl('<path d="M8 1.6 13.4 3.7v3.9c0 3.4-2.2 5.7-5.4 6.7-3.2-1-5.4-3.3-5.4-6.7V3.7z"/>'),
+    open:    ctxGl('<path d="M1.8 4.2A1.4 1.4 0 0 1 3.2 2.8h3a1.4 1.4 0 0 1 1 .4l1 1h5A1.2 1.2 0 0 1 14.4 5.4v6.4a1.4 1.4 0 0 1-1.4 1.4H3.2a1.4 1.4 0 0 1-1.4-1.4z"/>'),
+    bin:     ctxGl('<path d="M2.5 4h11M6 4V2.6h4V4M4 4l.7 9a1.2 1.2 0 0 0 1.2 1.1h4.2A1.2 1.2 0 0 0 11.3 13L12 4"/>'),
+    more:    ctxGl('<circle cx="3.5" cy="8" r="1"/><circle cx="8" cy="8" r="1"/><circle cx="12.5" cy="8" r="1"/>'),
+    moon:    ctxGl('<path d="M13.4 9.9A5.8 5.8 0 0 1 6.1 2.6a6.2 6.2 0 1 0 7.3 7.3z"/>'),
+    restart: ctxGl('<path d="M13.5 8a5.5 5.5 0 1 1-1.7-4"/><path d="M13.8 1.6v3h-3"/>'),
+    power:   ctxGl('<path d="M8 2v6"/><path d="M11.8 4.2a5.4 5.4 0 1 1-7.6 0"/>')
+};
+function showCtx(x, y, items) {
+    const c = $('ctx');
+    c.innerHTML = '';
+    items.forEach(function (it) {
+        if (it.sep) { c.appendChild(el('div', 'ctx-sep')); return; }
+        const b = el('button', 'ctx-i' + (it.dim ? ' dim' : ''),
+            '<span class="ci">' + (it.svg || '') + '</span><span class="ct">' + esc(it.t) + '</span>' +
+            (it.sub ? '<span class="chev sm"></span>' : '') +
+            (it.key ? '<span class="ck">' + esc(it.key) + '</span>' : ''));
+        b.onclick = function () { hideCtx(); if (it.fn) it.fn(); };
+        c.appendChild(b);
+    });
+    c.classList.add('on');
+    const w = c.offsetWidth, h = c.offsetHeight;
+    c.style.left = clamp(x, 4, window.innerWidth - w - 4) + 'px';
+    c.style.top  = clamp(y, 4, window.innerHeight - h - 60) + 'px';
+}
+function hideCtx() { $('ctx').classList.remove('on'); }
+
+$('desktop').addEventListener('contextmenu', function (e) {
+    if (e.target.closest('.dicon') || e.target.closest('.win')) return;
+    e.preventDefault();
+    showCtx(e.clientX, e.clientY, [
+        { svg: CTX_GL.view, t: 'View', sub: 1, dim: 1 },
+        { svg: CTX_GL.sort, t: 'Sort by', sub: 1, dim: 1 },
+        { svg: CTX_GL.refresh, t: 'Refresh', key: 'F5', fn: function () {
+            G.health = clamp(G.health + 1.5, 0, 100);
+            SFX.pop();
+            toast(iconFor('settings'), 'Refreshed', 'Pressing F5 fixes everything. (It fixed 1.5% of everything.)', 2600);
+        } },
+        { sep: 1 },
+        { svg: CTX_GL.plus, t: 'New', sub: 1, dim: 1 },
+        { sep: 1 },
+        { svg: CTX_GL.brush, t: 'Personalise', fn: function () { openWin('settings'); } },
+        { svg: CTX_GL.chart, t: 'Task Manager', fn: function () { openWin('taskmgr'); } },
+        { svg: CTX_GL.shield, t: 'Windows Security', fn: function () { openWin('defender'); } },
+        { sep: 1 },
+        { svg: CTX_GL.more, t: 'Show more options', key: 'Shift+F10', fn: function () { openWin('store'); } }
+    ]);
+});
+document.addEventListener('pointerdown', function (e) {
+    if (!e.target.closest('#ctx')) hideCtx();
+    if (!e.target.closest('#startmenu') && !e.target.closest('#start-btn') && smOpen) toggleStart(false);
+});
+window.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape') { hideCtx(); toggleStart(false); }
+});
+
+/* ============================================================== SIMULATION */
+let effTimers = { ad: 0, fall: 0, flash: 0, bonzi: 0, bar: 0, spark: 0 };
+let lastMilestone = 0;
+
+function simulate(dt) {
+    G.t += dt;
+
+    /* ---- load from everything that is installed ---- */
+    let load = 6, ramUnits = 0, tempAdd = 0;
+    G.installed.forEach(function (id) {
+        const c = BY_ID[id];
+        load += c.cpu || 0;
+        ramUnits += c.ram || 0;
+        tempAdd += c.temp || 0;
+    });
+    load += G.ads * 1.3 + G.infection * 0.28;
+    // ~0.42% of the memory pool per unit: drivers + apps land around 80%,
+    // so it is the malware that finally fills it
+    const ramLoad = 18 + ramUnits * 0.42 + G.ads * 2.4 + G.infection * 0.15;
+    const scanning = G.scanUntil > G.t;
+    if (scanning) load += 28;
+
+    const targetCpu = clamp(load - G.power * 0.42 + Math.sin(G.t * 2.3) * 2.5 + rand(-1.5, 1.5), 2, 100);
+    G.cpu += (targetCpu - G.cpu) * Math.min(1, dt * 3.5);
+    G.ram = clamp(ramLoad, 4, 100);
+
+    const targetTemp = 38 + G.cpu * 0.58 + tempAdd - G.cool;
+    G.temp += (clamp(targetTemp, 32, 118) - G.temp) * Math.min(1, dt * 0.55);
+
+    /* ---- damage ---- */
+    let hurt = 0;
+    if (G.cpu > 90)  hurt += (G.cpu - 90) / 10 * 3.0;
+    if (G.temp > 95) hurt += (G.temp - 95) / 15 * 4.2;
+    if (G.ram > 93)  hurt += (G.ram - 93) / 7 * 3.0;
+    if (G.infection > 30) hurt += (G.infection - 30) / 70 * 2.6;
+    if (usedDisk() >= TOTAL_DISK) hurt += 0.8;
+
+    if (hurt > 0) {
+        G.health = clamp(G.health - hurt * dt, 0, 100);
+    } else if (G.health < 100) {
+        G.health = clamp(G.health + 1.3 * dt, 0, 100);
+    }
+
+    /* ---- score: installing is most of it, surviving infected pays a wage ---- */
+    const viruses = G.installed.filter(function (id) { return BY_ID[id].cat === 'virus'; }).length;
+    G.score += (0.6 + G.infection * 0.05 + viruses * 1.1) * dt;
+
+    /* ---- scan finishing ---- */
+    if (G.scanUntil !== 0 && G.scanUntil <= G.t) { G.scanUntil = 0; finishScan(); }
+
+    /* ---- explorer.exe comes back ---- */
+    if (G.explorerDown > 0) {
+        G.explorerDown -= dt;
+        if (G.explorerDown <= 0) {
+            $('taskbar').style.opacity = '';
+            $('taskbar').style.pointerEvents = '';
+            toast(iconFor('explorer'), 'explorer.exe restarted', 'Windows quietly put your taskbar back. You are welcome.');
+        }
+    }
+
+    /* ---- effect timers ---- */
+    if (G.fx.popups || G.fx.meltdown) {
+        effTimers.ad -= dt;
+        if (effTimers.ad <= 0) {
+            spawnAd();
+            effTimers.ad = Math.max(1.1, 6.5 - G.infection * 0.05 - (G.fx.meltdown ? 4 : 0));
+        }
+    }
+    if (G.fx.rain || G.fx.matrix) {
+        effTimers.fall -= dt;
+        if (effTimers.fall <= 0) { dropFaller(); effTimers.fall = G.fx.matrix ? 0.09 : 0.34; }
+    }
+    if (G.fx.bsodflash || G.fx.meltdown) {
+        effTimers.flash -= dt;
+        if (effTimers.flash <= 0) { flashBlue(); SFX.error(); effTimers.flash = rand(4.5, 10); }
+    }
+    if (G.fx.bonzi) {
+        effTimers.bonzi -= dt;
+        if (effTimers.bonzi <= 0) { moveBonzi(); effTimers.bonzi = rand(3.5, 6.5); }
+    }
+    if (G.fx.toolbars) {
+        effTimers.bar -= dt;
+        if (effTimers.bar <= 0) { addToolbars(1); effTimers.bar = 22; }
+    }
+
+    /* ---- rolling graphs for Task Manager ---- */
+    effTimers.spark -= dt;
+    if (effTimers.spark <= 0) {
+        effTimers.spark = 0.5;
+        cpuHist.push(G.cpu); if (cpuHist.length > 48) cpuHist.shift();
+        ramHist.push(G.ram); if (ramHist.length > 48) ramHist.shift();
+        const tm = WINS.taskmgr;
+        if (tm && tmTab === 'perf') renderTaskMgr(tm);
+        const df = WINS.defender;
+        if (df && (G.scanUntil > G.t || Math.abs(G.scanCd - G.t) < 1)) renderDefender(df);
+    }
+
+    moveCursors();
+    applyFx();
+    paintHud();
+
+    /* ---- milestones ---- */
+    const rank = rankFor(G.score);
+    if (rank[0] > lastMilestone) {
+        lastMilestone = rank[0];
+        if (rank[0] > 0) toast(iconFor('taskmgr'), 'New rank: ' + rank[1], 'Chaos score ' + Math.floor(G.score), 3600, 'Andy-PC');
+        checkUnlocks();
+        if (smOpen) renderStart();
+    }
+
+    if (G.health <= 0) die();
+}
+
+function rankFor(score) {
+    let r = RANKS[0];
+    for (let i = 0; i < RANKS.length; i++) if (score >= RANKS[i][0]) r = RANKS[i];
+    return r;
+}
+
+function paintHud() {
+    $('score-val').textContent = Math.floor(G.score).toLocaleString();
+    $('hp-fill').style.width = G.health.toFixed(1) + '%';
+    const pill = $('hp-pill');
+    pill.classList.toggle('warn', G.health <= 60 && G.health > 28);
+    pill.classList.toggle('crit', G.health <= 28);
+    pill.title = 'Health ' + G.health.toFixed(0) + '% • CPU ' + G.cpu.toFixed(0) +
+                 '% • RAM ' + G.ram.toFixed(0) + '% • ' + G.temp.toFixed(0) + '°C';
+}
+
+/* ===================================================================== DEATH */
+function causeOfDeath() {
+    if (G.cause) return G.cause;
+    if (G.temp > 95)  return 'The CPU reached ' + G.temp.toFixed(0) + '°C. That is oven temperature.';
+    if (G.cpu > 92)   return 'The processor was at ' + G.cpu.toFixed(0) + '% and simply gave up.';
+    if (G.ram > 92)   return 'Every last byte of memory was full of advertisements.';
+    if (G.infection > 45) return 'Infection hit ' + G.infection.toFixed(0) + '%. The malware runs this machine now.';
+    return 'Too much junk. Death by a thousand installs.';
+}
+function die(code) {
+    if (G.dead) return;
+    G.dead = true;
+    G.running = false;
+    toggleStart(false);
+    hideCtx();
+    $('uac').classList.remove('on');
+    SFX.bad();
+
+    // build a bogus QR block
+    const qr = $('bsod-qr');
+    qr.innerHTML = '';
+    for (let i = 0; i < 81; i++) qr.appendChild(el('i', Math.random() < 0.5 ? 'b' : ''));
+
+    $('bsod-code').textContent = code || pick(STOP_CODES);
+    $('bsod-pct').textContent = '0';
+    $('bsod').classList.add('on');
+
+    let p = 0;
+    const iv = setInterval(function () {
+        p += rand(2, 11);
+        if (p >= 100) {
+            p = 100;
+            clearInterval(iv);
+            setTimeout(gameOver, 900);
+        }
+        $('bsod-pct').textContent = Math.floor(p);
+    }, 180);
+}
+function gameOver() {
+    $('bsod').classList.remove('on');
+    const score = Math.floor(G.score);
+    const isBest = score > G.best;
+    if (isBest) { G.best = score; saveGame(); }
+
+    const viruses = G.installed.filter(function (id) { return BY_ID[id].cat === 'virus'; }).length;
+    const mins = Math.floor(G.t / 60), secs = Math.floor(G.t % 60);
+    $('go-cause').textContent = 'Cause of death: ' + causeOfDeath();
+    $('go-rank-val').textContent = rankFor(score)[1];
+    $('go-score').textContent = score.toLocaleString();
+    $('go-time').textContent = mins + ':' + String(secs).padStart(2, '0');
+    $('go-inst').textContent = G.installed.length;
+    $('go-virus').textContent = viruses;
+    $('go-best-val').textContent = G.best.toLocaleString();
+    $('go-best').innerHTML = isBest
+        ? '🎉 <b>NEW BEST SCORE!</b> ' + G.best.toLocaleString()
+        : '🏆 Best ever: <span>' + G.best.toLocaleString() + '</span>';
+    $('gameover').classList.add('on');
+}
+$('go-again').onclick = function () { location.reload(); };
+
+/* ====================================================================== BOOT */
+(function buildBootSpinner() {
+    const s = $('boot-spin');
+    for (let i = 0; i < 5; i++) {
+        const d = el('i');
+        d.style.animationDelay = (i * 0.14) + 's';
+        s.appendChild(d);
+    }
+})();
+
+let booted = false;
+function bootDone() {
+    if (booted) return;
+    booted = true;
+    $('boot').classList.add('gone');
+    setTimeout(function () { $('boot').style.display = 'none'; }, 600);
+    $('desktop').classList.add('on');
+    G.running = true;
+    SFX.boot();
+    setTimeout(function () {
+        toast(iconFor('user'), 'Welcome to Andy-PC', 'Open the Start menu to download drivers… and worse.', 6000, 'Get Started');
+    }, 900);
+    setTimeout(function () {
+        toast(iconFor('store'), 'How to play', 'Install as much as you can before the PC dies. Everything you install is chaos points.', 7000, 'Get Started');
+    }, 4200);
+}
+$('boot').onclick = bootDone;
+setTimeout(bootDone, 2400);
+
+/* ====================================================================== INIT */
+applyWallpaper();
+paintShell();
+renderIcons();
+tickClock();
+setInterval(tickClock, 15000);
+lastUnlockCount = available().length;
+paintHud();
+
+let lastT = performance.now();
+(function frame(now) {
+    const dt = Math.min(0.1, (now - lastT) / 1000);
+    lastT = now;
+    if (G.running && !G.dead) simulate(dt);
+    requestAnimationFrame(frame);
+})(performance.now());
+
+window.addEventListener('resize', function () {
+    Object.keys(WINS).forEach(function (k) {
+        const n = WINS[k].node;
+        n.style.left = clamp(n.offsetLeft, 0, Math.max(0, window.innerWidth - 90)) + 'px';
+        n.style.top  = clamp(n.offsetTop, 0, Math.max(0, window.innerHeight - 44)) + 'px';
+    });
+});
+</script>
+</body>
+</html>
