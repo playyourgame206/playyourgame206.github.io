@@ -1,0 +1,8 @@
+{
+  "name": "Play Centre",
+  "description": "An online game platform that is multiplayer and you don't need a powerful device, just a browser. The system requirements… just your browser!",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
