@@ -1135,7 +1135,7 @@ const G = {
     view: 'grid', pinned: ['edge', 'youtube', 'roblox', 'explorer', 'notepad', 'calc', 'paint', 'terminal', 'photos', 'clock', 'settings', 'store', 'taskmgr', 'playcentre'],
     tbpins: ['explorer', 'edge', 'store', 'notepad', 'calc', 'settings'],
     installed: [], recent: [], notes: [], fs: null, bin: [], booted: 0, shortcuts: ['youtube', 'roblox'],
-    setup: false, pcName: 'Andy-PC', pin: '', region: 'Australia', wpChosen: false,
+    setup: false, pcName: 'Andy-PC', pin: '', region: 'Australia', wpChosen: false, ownerWpSeen: false,
     yt: { subs: [], liked: [], comments: {} }, roblox: { head: '#f5c542', torso: '#0074bd', legs: '#a4a5a6', hat: '' }
 };
 function nowStamp() { return Date.now(); }
@@ -1156,7 +1156,7 @@ function collectSave() {
         v: 1, name: G.name, theme: G.theme, wp: G.wp, accent: G.accent, night: G.night, wifi: G.wifi, bt: G.bt, plane: G.plane,
         snd: G.snd, vol: G.vol, bright: G.bright, view: G.view, pinned: G.pinned, tbpins: G.tbpins, installed: G.installed,
         recent: G.recent.slice(0, 6), fs: G.fs, bin: G.bin, booted: G.booted, shortcuts: G.shortcuts,
-        setup: G.setup, pcName: G.pcName, pin: G.pin, region: G.region, wpChosen: G.wpChosen, yt: G.yt, roblox: G.roblox
+        setup: G.setup, pcName: G.pcName, pin: G.pin, region: G.region, wpChosen: G.wpChosen, ownerWpSeen: G.ownerWpSeen, yt: G.yt, roblox: G.roblox
     };
 }
 let autoSaveOn = AndySave.isEnabled(SAVE_KEY);
@@ -1196,6 +1196,7 @@ function applySave(s) {
     if (typeof s.pin === 'string' && /^\d{0,6}$/.test(s.pin)) G.pin = s.pin;
     if (typeof s.region === 'string') G.region = s.region.slice(0, 30);
     if (typeof s.wpChosen === 'boolean') G.wpChosen = s.wpChosen;
+    if (typeof s.ownerWpSeen === 'boolean') G.ownerWpSeen = s.ownerWpSeen;
     if (s.yt && typeof s.yt === 'object') {
         G.yt = { subs: Array.isArray(s.yt.subs) ? s.yt.subs.slice(0, 50) : [], liked: Array.isArray(s.yt.liked) ? s.yt.liked.slice(0, 100) : [],
                  comments: (s.yt.comments && typeof s.yt.comments === 'object') ? s.yt.comments : {} };
@@ -1381,8 +1382,12 @@ function probeOwnerWallpaper() {
         const img = new Image();
         img.onload = function () {
             WALLPAPERS.owner = { label: "Andy's background", theme: 'light', svg: function () { return '<img src="' + candidates[i] + '" alt="">'; } };
-            if (!G.wpChosen) G.wp = 'owner';
+            // Switch to it the first time it turns up on this device, even on an
+            // older save where another wallpaper had been picked, and any time
+            // nothing else was chosen. A later pick in Settings sticks.
+            if (!G.ownerWpSeen || (!G.wpChosen && G.wp !== 'custom')) { G.wp = 'owner'; G.ownerWpSeen = true; saveGame(); }
             applyWallpaper(); refreshWindows();
+            if ($('oobe').classList.contains('on')) $('ob-bg').innerHTML = wallpaperMarkup('owner');
         };
         img.onerror = function () { tryNext(i + 1); };
         img.src = candidates[i];
@@ -3382,7 +3387,7 @@ const OOBE_WIFI = [['Play-Centre-5G', 3, true], ['Andy-Home', 3, true], ['NETGEA
 let oobe = { step: 0, region: 'Australia', kb: 'US', wifi: '', pcName: 'Andy-PC', name: 'Andy', pin: '', priv: { loc: true, find: true, diag: true, ads: false, tips: true }, uses: [] };
 const OOBE_STEPS = ['region', 'keyboard', 'wifi', 'license', 'pcname', 'account', 'pin', 'privacy', 'customise', 'updates'];
 function showOOBE() {
-    $('ob-bg').innerHTML = wallpaperMarkup('bloom');
+    $('ob-bg').innerHTML = wallpaperMarkup(WALLPAPERS.owner ? 'owner' : 'bloom');
     $('oobe').classList.add('on');
     oobe.step = 0;
     renderOobe();

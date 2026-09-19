@@ -2,8 +2,8 @@
  * Play Centre - Pull-Down Volume Control Menu
  * A master audio volume controller that drops down from the top of the page
  * when you tap the tab hanging from the top edge, or swipe down on it.
- * The level runs 0-100: 10 is normal volume, anything above is boost, and
- * 100 is ten times normal (1000%) with a limiter to keep it from clipping.
+ * The level runs 0-1000%: 100% is normal volume, anything above is boost,
+ * and 1000% is ten times normal with a limiter to keep it from clipping.
  */
 (function () {
   'use strict';
@@ -11,14 +11,15 @@
   // -------------------------------------------------------------------------
   // State & Persistence
   // -------------------------------------------------------------------------
-  const STORAGE_KEY_VOL = 'andy_master_level';      // 0-100, 10 = normal
+  const STORAGE_KEY_VOL = 'andy_master_pct';        // 0-1000, 100 = normal
   const STORAGE_KEY_MUTE = 'andy_master_muted';
-  const LEGACY_KEY_VOL = 'andy_master_volume';      // older 0-300% scale
-  const NORMAL = 10;   // level that equals 100% (gain 1.0)
-  const MAX_LEVEL = 100; // gain 10.0 = 1000%
-  const ULTRA = 50;    // above this the level is shown as "ultra"
+  const LEVEL_KEY_VOL = 'andy_master_level';        // previous 0-100 scale (10 = normal)
+  const LEGACY_KEY_VOL = 'andy_master_volume';      // oldest 0-300% scale
+  const NORMAL = 100;    // 100% = gain 1.0
+  const MAX_LEVEL = 1000; // gain 10.0
+  const ULTRA = 500;     // above this the level is shown as "ultra"
 
-  let currentVol = 8; // 0 to 100 (8 = 80% of normal)
+  let currentVol = 80; // 0 to 1000 (%)
   // Where the pull tab hangs from the top edge. Default is top-centre; a page
   // that keeps its own HUD there sets data-position="top-right" on its
   // <script> tag and gets a smaller tab in the top-right corner instead.
@@ -33,9 +34,11 @@
       const parsed = parseInt(savedV, 10);
       if (!isNaN(parsed)) currentVol = Math.max(0, Math.min(MAX_LEVEL, parsed));
     } else {
-      // migrate a save from the old 0-300% scale
+      // migrate older saves: the 0-100 level scale (x10), or the first 0-300% scale (as is)
+      const level = parseInt(localStorage.getItem(LEVEL_KEY_VOL), 10);
       const legacy = parseInt(localStorage.getItem(LEGACY_KEY_VOL), 10);
-      if (!isNaN(legacy)) currentVol = Math.max(0, Math.min(MAX_LEVEL, Math.round(legacy / 10)));
+      if (!isNaN(level)) currentVol = Math.max(0, Math.min(MAX_LEVEL, level * 10));
+      else if (!isNaN(legacy)) currentVol = Math.max(0, Math.min(MAX_LEVEL, legacy));
     }
     const savedM = localStorage.getItem(STORAGE_KEY_MUTE);
     if (savedM !== null) {
@@ -114,7 +117,7 @@
     function ensureMasterGain(ctx) {
       if (!ctx.__andyMasterGain) {
         try {
-          // Master Gain Node: level 0-100 maps to gain 0.0 - 10.0
+          // Master Gain Node: 0-1000% maps to gain 0.0 - 10.0
           const mg = ctx.createGain();
           mg.gain.setValueAtTime(masterGainValue(), ctx.currentTime);
 
@@ -909,7 +912,7 @@
         <span class="andy-arrow">▼</span>
         <span id="andy-trigger-icon">🔊</span>
         <span>Volume</span>
-        <span class="andy-badge" id="andy-trigger-pct">${isMuted ? 'Muted' : currentVol}</span>
+        <span class="andy-badge" id="andy-trigger-pct">${isMuted ? 'Muted' : currentVol + '%'}</span>
       </div>
     `;
     document.body.appendChild(triggerEl);
@@ -936,7 +939,7 @@
 
       <div class="andy-vol-display-card" id="andy-vol-card">
         <div class="andy-vol-info">
-          <div class="andy-vol-number" id="andy-vol-num">${isMuted ? '0' : currentVol}</div>
+          <div class="andy-vol-number" id="andy-vol-num">${isMuted ? '0%' : currentVol + '%'}</div>
           <div class="andy-vol-status-wrap">
             <div class="andy-vol-status-text" id="andy-vol-status">${isMuted ? 'Muted' : 'Level'}</div>
             <div class="andy-vol-boost-badge" id="andy-boost-badge" style="display: ${isBoosted() ? 'inline-flex' : 'none'};">⚡ BOOSTED</div>
@@ -965,11 +968,11 @@
             <input
               type="range"
               min="0"
-              max="100"
+              max="1000"
               value="${currentVol}"
               class="andy-range-slider ${isUltraBoosted() ? 'andy-slider-ultra' : (isBoosted() ? 'andy-slider-boosted' : '')}"
               id="andy-vol-slider"
-              aria-label="Volume level (0 to 100, 10 is normal)"
+              aria-label="Volume (0% to 1000%, 100% is normal)"
             />
           </div>
           <span class="andy-slider-icon" id="andy-slider-icon-right">💥</span>
@@ -977,16 +980,16 @@
       </div>
 
       <div class="andy-presets-header">
-        <div class="andy-presets-label">Quick Presets · 10 = normal</div>
-        <div class="andy-presets-boost-tag">Boost zone (11 - 100) 💥</div>
+        <div class="andy-presets-label">Quick Presets</div>
+        <div class="andy-presets-boost-tag">Boost zone (101% - 1000%) 💥</div>
       </div>
       <div class="andy-presets-grid">
         <button class="andy-preset-btn" data-val="0">Mute</button>
-        <button class="andy-preset-btn" data-val="5">5</button>
-        <button class="andy-preset-btn" data-val="10">10</button>
-        <button class="andy-preset-btn andy-preset-boost" data-val="25">25 ⚡</button>
-        <button class="andy-preset-btn andy-preset-boost" data-val="50">50 🔥</button>
-        <button class="andy-preset-btn andy-preset-ultra" data-val="100">100 💥</button>
+        <button class="andy-preset-btn" data-val="50">50%</button>
+        <button class="andy-preset-btn" data-val="100">100%</button>
+        <button class="andy-preset-btn andy-preset-boost" data-val="250">250% ⚡</button>
+        <button class="andy-preset-btn andy-preset-boost" data-val="500">500% 🔥</button>
+        <button class="andy-preset-btn andy-preset-ultra" data-val="1000">1000% 💥</button>
       </div>
 
       <div class="andy-footer-row">
@@ -1013,8 +1016,8 @@
   // -------------------------------------------------------------------------
   function getVolumeIcon(pct, muted) {
     if (muted || pct === 0) return '🔇';
-    if (pct <= 3) return '🔈';
-    if (pct <= 7) return '🔉';
+    if (pct <= 35) return '🔈';
+    if (pct <= 70) return '🔉';
     if (pct <= NORMAL) return '🔊';
     if (pct <= ULTRA) return '⚡';
     return '💥';
@@ -1022,18 +1025,19 @@
 
   function updateSliderBackground(sliderEl) {
     if (!sliderEl) return;
-    const val = isMuted ? 0 : currentVol; // 0 to 100, which is also the % of the bar width
-    const rest = `rgba(255,255,255,0.12) ${val}%, rgba(255,255,255,0.12) 100%`;
+    const val = isMuted ? 0 : currentVol; // 0 to 1000
+    const pos = val / 10, nPos = NORMAL / 10, uPos = ULTRA / 10; // % of the bar width
+    const rest = `rgba(255,255,255,0.12) ${pos}%, rgba(255,255,255,0.12) 100%`;
 
     if (val <= NORMAL) {
       // Normal range: Cyan to Blue
-      sliderEl.style.background = `linear-gradient(to right, #00f2fe 0%, #4facfe ${val}%, ${rest})`;
+      sliderEl.style.background = `linear-gradient(to right, #00f2fe 0%, #4facfe ${pos}%, ${rest})`;
     } else if (val <= ULTRA) {
       // Boost: Neon Gold
-      sliderEl.style.background = `linear-gradient(to right, #00f2fe 0%, #4facfe ${NORMAL}%, #ffd60a ${val}%, ${rest})`;
+      sliderEl.style.background = `linear-gradient(to right, #00f2fe 0%, #4facfe ${nPos}%, #ffd60a ${pos}%, ${rest})`;
     } else {
       // Ultra: Fiery Hot Pink & Crimson
-      sliderEl.style.background = `linear-gradient(to right, #00f2fe 0%, #4facfe ${NORMAL}%, #ffd60a ${ULTRA}%, #ff0055 ${val}%, ${rest})`;
+      sliderEl.style.background = `linear-gradient(to right, #00f2fe 0%, #4facfe ${nPos}%, #ffd60a ${uPos}%, #ff0055 ${pos}%, ${rest})`;
     }
   }
 
@@ -1065,7 +1069,7 @@
       updateSliderBackground(slider);
     }
     if (volNum) {
-      volNum.textContent = isMuted ? '0' : String(currentVol);
+      volNum.textContent = isMuted ? '0%' : currentVol + '%';
       volNum.classList.toggle('andy-num-boosted', boosted && !ultra);
       volNum.classList.toggle('andy-num-ultra', ultra);
       if (isMuted) {
@@ -1088,7 +1092,7 @@
       } else if (currentVol === NORMAL) {
         volStatus.textContent = 'Normal';
       } else {
-        volStatus.textContent = 'Quiet · ' + (currentVol * 10) + '%';
+        volStatus.textContent = 'Quiet';
       }
     }
     if (boostBadge) {
@@ -1097,9 +1101,9 @@
       if (currentVol === MAX_LEVEL) {
         boostBadge.textContent = '💥 MAXIMUM · 1000%';
       } else if (ultra) {
-        boostBadge.textContent = `🔥 ULTRA · ${currentVol * 10}%`;
+        boostBadge.textContent = `🔥 ULTRA · ${currentVol}%`;
       } else {
-        boostBadge.textContent = `⚡ BOOST · ${currentVol * 10}%`;
+        boostBadge.textContent = `⚡ BOOST · ${currentVol}%`;
       }
     }
     if (volCard) {
@@ -1137,13 +1141,13 @@
         triggerPct.textContent = 'Muted';
         triggerPct.style.color = '#ff85b6';
       } else if (ultra) {
-        triggerPct.textContent = `💥 ${currentVol}`;
+        triggerPct.textContent = `💥 ${currentVol}%`;
         triggerPct.style.color = '#ff0055';
       } else if (boosted) {
-        triggerPct.textContent = `⚡ ${currentVol}`;
+        triggerPct.textContent = `⚡ ${currentVol}%`;
         triggerPct.style.color = '#ffd60a';
       } else {
-        triggerPct.textContent = `${currentVol}`;
+        triggerPct.textContent = `${currentVol}%`;
         triggerPct.style.color = '#00f2fe';
       }
     }
@@ -1260,7 +1264,7 @@
       });
     }
 
-    // Slider input & change (0 - 100)
+    // Slider input & change (0 - 1000)
     if (slider) {
       slider.addEventListener('input', function () {
         setVolume(this.value);
