@@ -751,9 +751,23 @@ body:not(.dark) .yt-chip.on { background: #0f0f0f; color: #fff; }
 .yt-ext { display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: inherit; padding: 6px 10px; border-radius: 16px; background: rgba(128,128,128,0.15); white-space: nowrap; }
 .yt-ext:hover { background: rgba(128,128,128,0.28); }
 .yt-ext svg { width: 14px; height: 14px; }
-.yt-realsearch { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 10px; background: rgba(128,128,128,0.12); font-size: 13px; margin-bottom: 16px; }
-.yt-realsearch a { display: flex; align-items: center; gap: 6px; color: #3ea6ff; font-weight: 600; }
-.yt-realsearch a svg { width: 14px; height: 14px; }
+.yt-sstat { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; font-size: 13.5px; margin-bottom: 14px; color: #aaa; }
+body:not(.dark) .yt-sstat { color: #606060; }
+.yt-sstat .ob-spin { margin: 0; width: 22px; height: 22px; }
+.yt-sstat .ob-spin i { background: currentColor; transform-origin: 2px 11px; }
+.yt-sstat a { display: flex; align-items: center; gap: 5px; color: #3ea6ff; font-weight: 600; margin-left: auto; }
+.yt-sstat a svg { width: 14px; height: 14px; }
+.yt-list { display: flex; flex-direction: column; gap: 14px; margin-bottom: 22px; }
+.yt-row { display: flex; gap: 14px; text-align: left; color: inherit; align-items: flex-start; }
+.yt-row .yt-thumb { width: 300px; max-width: 42%; flex: 0 0 auto; }
+.yt-rmeta { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 5px; }
+.yt-rmeta b { font-size: 16px; font-weight: 500; line-height: 1.3; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.yt-rmeta small { color: #aaa; font-size: 12px; }
+body:not(.dark) .yt-rmeta small { color: #606060; }
+.yt-rmeta .chl { display: flex; align-items: center; gap: 8px; font-size: 12px; color: #aaa; margin-top: 4px; }
+body:not(.dark) .yt-rmeta .chl { color: #606060; }
+.yt-rmeta .chl .ch { width: 24px; height: 24px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 11px !important; }
+.yt-h3 { font-size: 15px; font-weight: 600; margin: 4px 0 12px; }
 .yt-thumb .dur { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.8); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 5px; border-radius: 4px; }
 .yt-meta { display: flex; gap: 10px; }
 .yt-meta .ch { width: 36px; height: 36px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 18px; }
@@ -882,6 +896,8 @@ body:not(.dark) .yt-pill.sub { background: #0f0f0f; color: #fff; }
     .yt-up { width: 100%; }
     .rb-nav { display: none; }
     .yt-ext span { display: none; }
+    .yt-row .yt-thumb { width: 150px; }
+    .yt-rmeta b { font-size: 13.5px; }
     #oobe .ob-card { padding: 24px 20px 20px; }
     #oobe h1 { font-size: 22px; }
 }
@@ -3168,6 +3184,11 @@ function ytAvatar(name) {
     let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
     return '<span class="ch" style="background:hsl(' + hues[h % hues.length] + ',55%,42%);color:#fff;font-weight:700;font-size:15px">' + esc(name.charAt(0).toUpperCase()) + '</span>';
 }
+function ytRow(v, fn) {
+    const c = el('button', 'yt-row', '<div class="yt-thumb"><img src="' + ytThumbUrl(v.id) + '" alt="" loading="lazy">' + (v.live ? '<span class="dur live">LIVE</span>' : v.dur ? '<span class="dur">' + esc(v.dur) + '</span>' : '') + '</div><div class="yt-rmeta"><b>' + esc(v.t) + '</b><small>' + esc([v.views, v.age].filter(Boolean).join(' · ')) + '</small><span class="chl">' + ytAvatar(v.ch) + esc(v.ch) + '</span></div>');
+    c.onclick = fn;
+    return c;
+}
 function ytCard(v, fn) {
     const c = el('button', 'yt-card', '<div class="yt-thumb"><img src="' + ytThumbUrl(v.id) + '" alt="" loading="lazy">' + (v.live ? '<span class="dur live">LIVE</span>' : '') + '</div><div class="yt-meta">' + ytAvatar(v.ch) + '<span><b>' + esc(v.t) + '</b><small>' + esc(v.ch) + '</small></span></div>');
     c.onclick = fn;
@@ -3179,6 +3200,53 @@ function ytIdFrom(q) {
     const m = q.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/) || q.match(/^([A-Za-z0-9_-]{11})$/);
     return m ? m[1] : '';
 }
+// ---- Live search. Searching inside the app asks YouTube for real results.
+// The dependable way is YouTube's own Data API with a free key: paste it in
+// YT_API_KEY (see README). Without a key the app asks public YouTube mirrors
+// (Piped and Invidious), which work most days but can be down.
+const YT_API_KEY = '';
+const YT_MIRRORS = [
+    ['piped', 'https://pipedapi.kavin.rocks'], ['piped', 'https://api.piped.yt'], ['piped', 'https://pipedapi.adminforge.de'],
+    ['invidious', 'https://inv.nadeko.net'], ['invidious', 'https://invidious.nerdvpn.de'], ['invidious', 'https://yewtu.be']
+];
+const YT_SEARCH_CACHE = {};
+function ytFetchJson(url, ms) {
+    return new Promise(function (ok, fail) {
+        const ctl = typeof AbortController === 'function' ? new AbortController() : null;
+        const timer = setTimeout(function () { if (ctl) ctl.abort(); fail(new Error('timeout')); }, ms || 7000);
+        fetch(url, ctl ? { signal: ctl.signal } : {}).then(function (r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+            .then(function (d) { clearTimeout(timer); ok(d); }, function (e) { clearTimeout(timer); fail(e); });
+    });
+}
+function ytDecode(t) { const ta = document.createElement('textarea'); ta.innerHTML = t || ''; return ta.value; }
+function ytFmtViews(n) { n = +n || 0; return (n >= 1e9 ? (n / 1e9).toFixed(1) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(1) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(0) + 'K' : String(n)) + ' views'; }
+function ytFmtDur(sec) { sec = +sec || 0; const h = (sec / 3600) | 0, m = ((sec % 3600) / 60) | 0, s2 = sec % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(s2).padStart(2, '0'); }
+function ytSearchOfficial(q) {
+    if (!YT_API_KEY) return Promise.reject(new Error('no key'));
+    return ytFetchJson('https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&videoEmbeddable=true&safeSearch=strict&maxResults=24&q=' + encodeURIComponent(q) + '&key=' + YT_API_KEY).then(function (d) {
+        return (d.items || []).filter(function (it) { return it.id && it.id.videoId; }).map(function (it) { return { id: it.id.videoId, t: ytDecode(it.snippet.title), ch: ytDecode(it.snippet.channelTitle), cat: 'search', age: (it.snippet.publishedAt || '').slice(0, 10) }; });
+    });
+}
+function ytSearchMirror(kind, base, q) {
+    if (kind === 'piped') return ytFetchJson(base + '/search?q=' + encodeURIComponent(q) + '&filter=videos').then(function (d) {
+        return (d.items || []).filter(function (it) { return it.type === 'stream' && /v=([\w-]{11})/.test(it.url || ''); }).map(function (it) { return { id: it.url.match(/v=([\w-]{11})/)[1], t: it.title, ch: it.uploaderName, cat: 'search', views: ytFmtViews(it.views), dur: it.duration > 0 ? ytFmtDur(it.duration) : '', age: it.uploadedDate || '', live: it.duration < 0 }; });
+    });
+    return ytFetchJson(base + '/api/v1/search?q=' + encodeURIComponent(q) + '&type=video').then(function (d) {
+        return (Array.isArray(d) ? d : []).filter(function (it) { return it.type === 'video' && it.videoId; }).map(function (it) { return { id: it.videoId, t: it.title, ch: it.author, cat: 'search', views: ytFmtViews(it.viewCount), dur: it.liveNow ? '' : ytFmtDur(it.lengthSeconds), age: it.publishedText || '', live: !!it.liveNow }; });
+    });
+}
+// First source to answer with results wins; the rest are ignored.
+function ytSearchLive(q) {
+    if (YT_SEARCH_CACHE[q]) return Promise.resolve(YT_SEARCH_CACHE[q]);
+    const tries = [ytSearchOfficial(q)].concat(YT_MIRRORS.map(function (m) { return ytSearchMirror(m[0], m[1], q); }));
+    return new Promise(function (ok, fail) {
+        let left = tries.length;
+        tries.forEach(function (p) {
+            p.then(function (list) { if (list && list.length) { YT_SEARCH_CACHE[q] = list; ok(list); } else if (--left === 0) fail(new Error('empty')); },
+                   function () { if (--left === 0) fail(new Error('all failed')); });
+        });
+    });
+}
 const YT_GL = {
     home: gl('<path d="M2.5 8 8 3l5.5 5v5.5H2.5z"/>'), you: gl('<circle cx="8" cy="5.5" r="3"/><path d="M2.5 14a5.5 5.5 0 0 1 11 0"/>'),
     like: gl('<path d="M5 7v7H2V7zM5 7l3-5.5c1.5 0 2 1 2 2V6h3.5a1 1 0 0 1 1 1.2l-1 6a1 1 0 0 1-1 .8H5"/>'), share: gl('<path d="M9 3.5 14 8l-5 4.5V10C5 10 3 11.5 2 13.5c0-4 2.5-7 7-7.5z"/>'),
@@ -3187,12 +3255,13 @@ const YT_GL = {
 APPS.youtube.render = function (w) {
     const st = w.state;
     if (!st.view) { st.view = 'home'; st.q = ''; st.chip = 'all'; }
-    if (w.arg && w.arg.vid) { st.view = 'watch'; st.vid = w.arg.vid; st.vt = w.arg.title || ''; w.arg = {}; }
+    if (w.arg && w.arg.vid) { st.view = 'watch'; st.vid = w.arg.vid; st.vobj = known(w.arg.vid) || { id: w.arg.vid, t: 'YouTube video', ch: 'YouTube', cat: '' }; w.arg = {}; }
     function known(id) { return YT_VIDEOS.find(function (v) { return v.id === id; }); }
-    function watch(id, title) { st.view = 'watch'; st.vid = id; st.vt = title || ''; draw(); }
+    function watch(v) { st.view = 'watch'; st.vid = v.id; st.vobj = v; draw(); }
+    function watchId(id) { watch(known(id) || { id: id, t: 'YouTube video', ch: 'YouTube', cat: '' }); }
     function draw() {
         w.body.className = 'wbody flush';
-        const vid = st.view === 'watch' ? (known(st.vid) || { id: st.vid, t: st.vt || 'YouTube video', ch: 'YouTube', cat: '' }) : null;
+        const vid = st.view === 'watch' ? (st.vobj && st.vobj.id === st.vid ? st.vobj : known(st.vid) || { id: st.vid, t: 'YouTube video', ch: 'YouTube', cat: '' }) : null;
         setTitle(w, (vid ? vid.t + ' - ' : '') + 'YouTube');
         w.body.innerHTML = '<div class="yt"><div class="yt-top"><button class="yt-logo" id="yt-home">' + iconBox('youtube') + 'YouTube</button><div class="yt-search"><input id="yt-q" type="text" placeholder="Search, or paste a YouTube link" value="' + esc(st.q) + '" autocomplete="off"><button id="yt-go" title="Search">' + GL.search + '</button></div><a class="yt-ext" href="https://www.youtube.com" target="_blank" rel="noopener" title="Open youtube.com in a new browser tab">' + YT_GL.ext + '<span>youtube.com</span></a><span class="pfp">' + iconFor('user') + '</span></div>' +
             '<div class="yt-body"><div class="yt-side">' + [['home', 'Home'], ['you', 'You']].map(function (x) { return '<button data-v="' + x[0] + '" class="' + (st.view === x[0] ? 'on' : '') + '">' + YT_GL[x[0]] + x[1] + '</button>'; }).join('') + '</div><div class="yt-main" id="yt-main"></div></div></div>';
@@ -3202,40 +3271,63 @@ APPS.youtube.render = function (w) {
         const qi = w.body.querySelector('#yt-q');
         const doSearch = function () {
             const q = qi.value.trim(), id = ytIdFrom(q);
-            if (id) { st.q = ''; watch(id, ''); return; }
-            st.q = q; st.view = 'home'; draw();
+            if (id) { st.q = ''; watchId(id); return; }
+            if (!q) { st.q = ''; st.view = 'home'; draw(); return; }
+            st.q = q; st.view = 'search'; draw();
         };
         w.body.querySelector('#yt-go').onclick = doSearch;
         qi.onkeydown = function (e) { if (e.key === 'Enter') doSearch(); };
         if (vid) { drawWatch(main, vid); return; }
+        if (st.view === 'search') { drawSearch(main, st.q); return; }
         let list = YT_VIDEOS.slice();
         if (st.view === 'you') list = list.filter(function (v) { return G.yt.liked.indexOf(v.id) >= 0; });
-        if (st.q) { const q = st.q.toLowerCase(); list = list.filter(function (v) { return v.t.toLowerCase().indexOf(q) >= 0 || v.ch.toLowerCase().indexOf(q) >= 0 || v.cat.indexOf(q) >= 0; }); }
         if (st.chip !== 'all') list = list.filter(function (v) { return v.cat === st.chip; });
         const cb = el('div', 'yt-chips');
         YT_CATS.forEach(function (c) { const b = el('button', 'yt-chip' + (st.chip === c[0] ? ' on' : ''), c[1]); b.onclick = function () { st.chip = c[0]; draw(); }; cb.appendChild(b); });
         main.appendChild(cb);
-        if (st.q) {
-            // The real results page will not load inside another page, so the
-            // whole of YouTube is one click away in a new browser tab.
-            main.appendChild(el('div', 'yt-realsearch', '<span>Results from this PC\'s picks for <b>' + esc(st.q) + '</b>.</span><a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(st.q) + '" target="_blank" rel="noopener">' + YT_GL.ext + 'Search all of YouTube</a>'));
-        }
         const grid = el('div', 'yt-grid');
-        if (!list.length) grid.innerHTML = '<div class="yt-empty" style="grid-column:1/-1">' + (st.view === 'you' ? 'Videos you like will show up here.' : 'Nothing here matches that. Try the button above, or paste a YouTube link.') + '</div>';
-        list.forEach(function (v) { grid.appendChild(ytCard(v, function () { watch(v.id, v.t); })); });
+        if (!list.length) grid.innerHTML = '<div class="yt-empty" style="grid-column:1/-1">' + (st.view === 'you' ? 'Videos you like will show up here.' : 'Nothing in this category yet.') + '</div>';
+        list.forEach(function (v) { grid.appendChild(ytCard(v, function () { watch(v); })); });
         main.appendChild(grid);
+    }
+    function drawSearch(main, q) {
+        const ql = q.toLowerCase();
+        const picks = YT_VIDEOS.filter(function (v) { return v.t.toLowerCase().indexOf(ql) >= 0 || v.ch.toLowerCase().indexOf(ql) >= 0 || v.cat.indexOf(ql) >= 0; });
+        const realUrl = 'https://www.youtube.com/results?search_query=' + encodeURIComponent(q);
+        main.innerHTML = '<div class="yt-sstat" id="yt-sstat"><div class="ob-spin"><i></i><i></i><i></i><i></i><i></i><i></i></div>Searching YouTube for <b>' + esc(q) + '</b>…</div><div class="yt-list" id="yt-live"></div><div id="yt-picks"></div>';
+        main.querySelectorAll('.ob-spin i').forEach(function (d, k) { d.style.animationDelay = (k * 0.14) + 's'; });
+        const live = main.querySelector('#yt-live'), stat = main.querySelector('#yt-sstat'), pk = main.querySelector('#yt-picks');
+        function showPicks(label) {
+            if (!picks.length) return;
+            pk.innerHTML = '<h3 class="yt-h3">' + label + '</h3>';
+            const grid = el('div', 'yt-grid');
+            picks.forEach(function (v) { grid.appendChild(ytCard(v, function () { watch(v); })); });
+            pk.appendChild(grid);
+        }
+        ytSearchLive(q).then(function (list) {
+            if (!WINS[w.key] || st.view !== 'search' || st.q !== q) return;
+            stat.innerHTML = 'Results for <b>' + esc(q) + '</b><a href="' + realUrl + '" target="_blank" rel="noopener">' + YT_GL.ext + 'See more on youtube.com</a>';
+            list.forEach(function (v) { live.appendChild(ytRow(v, function () { watch(v); })); });
+            showPicks("From this PC's picks");
+        }, function () {
+            if (!WINS[w.key] || st.view !== 'search' || st.q !== q) return;
+            stat.innerHTML = '<span>YouTube search did not answer just now. ' + (picks.length ? 'Here is what this PC already has for <b>' + esc(q) + '</b>.' : 'Nothing on this PC matches <b>' + esc(q) + '</b>.') + '</span><a href="' + realUrl + '" target="_blank" rel="noopener">' + YT_GL.ext + 'Search on youtube.com</a>';
+            showPicks('');
+        });
     }
     function drawWatch(main, v) {
         const liked = G.yt.liked.indexOf(v.id) >= 0;
         const url = 'https://www.youtube.com/watch?v=' + v.id;
         main.innerHTML = '<div class="yt-player"><div class="yt-left"><div class="yt-video"><iframe src="https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&rel=0&playsinline=1" title="' + esc(v.t) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
             '<div class="yt-title">' + esc(v.t) + '</div><div class="yt-chrow">' + ytAvatar(v.ch) + '<span class="cht"><b>' + esc(v.ch) + '</b><small>' + (v.live ? 'Live now' : 'YouTube') + '</small></span><span style="flex:1"></span><button class="yt-pill' + (liked ? ' liked' : '') + '" id="yt-like">' + YT_GL.like + (liked ? 'Liked' : 'Like') + '</button><button class="yt-pill" id="yt-share">' + YT_GL.share + 'Share</button><a class="yt-pill" href="' + url + '" target="_blank" rel="noopener">' + YT_GL.ext + 'Watch on YouTube</a></div>' +
-            '<div class="yt-desc"><b>' + esc(url) + '</b>This is the real video, played with YouTube\'s own player. If it says the video is unavailable, it is no longer on YouTube.</div></div>' +
+            '<div class="yt-desc"><b>' + esc(url) + '</b>' + (v.views ? esc(v.views + (v.age ? ' · ' + v.age : '')) + '<br>' : '') + 'This is the real video, played with YouTube\'s own player. If it says the video is unavailable, it is no longer on YouTube.</div></div>' +
             '<div class="yt-up" id="yt-up"></div></div>';
         main.querySelector('#yt-like').onclick = function () { const i = G.yt.liked.indexOf(v.id); if (i >= 0) G.yt.liked.splice(i, 1); else G.yt.liked.push(v.id); saveGame(); SFX.click(); this.classList.toggle('liked', i < 0); this.innerHTML = YT_GL.like + (i < 0 ? 'Liked' : 'Like'); };
         main.querySelector('#yt-share').onclick = function () { AndySave.copyText(url, function () {}); toast('youtube', 'Link copied', v.t, 2500, 'YouTube'); };
         const up = main.querySelector('#yt-up');
-        YT_VIDEOS.filter(function (x) { return x.id !== v.id && (v.cat ? x.cat === v.cat : true); }).concat(YT_VIDEOS.filter(function (x) { return x.id !== v.id && v.cat && x.cat !== v.cat; })).slice(0, 10).forEach(function (x) { up.appendChild(ytCard(x, function () { watch(x.id, x.t); })); });
+        // up next: the rest of the search results if we came from a search, otherwise this PC's picks
+        const fromSearch = st.q && YT_SEARCH_CACHE[st.q] ? YT_SEARCH_CACHE[st.q].filter(function (x) { return x.id !== v.id; }) : [];
+        fromSearch.concat(YT_VIDEOS.filter(function (x) { return x.id !== v.id && (v.cat ? x.cat === v.cat : true); })).concat(YT_VIDEOS.filter(function (x) { return x.id !== v.id && v.cat && x.cat !== v.cat; })).slice(0, 12).forEach(function (x) { up.appendChild(ytCard(x, function () { watch(x); })); });
     }
     w.refresh = function () { if (st.view !== 'watch') draw(); };
     draw();
