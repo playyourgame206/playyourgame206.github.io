@@ -507,6 +507,12 @@ select.inp:focus, input.inp:focus, textarea.inp:focus { border-bottom: 2px solid
 .br-url input { flex: 1; min-width: 0; background: none; border: none; outline: none; font-size: 13px; }
 .br-page { flex: 1; min-height: 0; overflow-y: auto; background: var(--winbody); position: relative; }
 .br-page iframe { width: 100%; height: 100%; border: none; display: block; background: #0b0d1a; }
+.br-info { display: flex; align-items: center; gap: 8px; padding: 6px 12px; font-size: 12px; background: var(--card); border-bottom: 1px solid var(--stroke); color: var(--txt2); }
+.br-info svg { width: 13px; height: 13px; flex: 0 0 auto; }
+.br-info span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.br-info a { display: flex; align-items: center; gap: 4px; color: var(--accent); font-weight: 600; white-space: nowrap; }
+.br-info a svg { width: 12px; height: 12px; }
+.br-info + iframe { height: calc(100% - 30px); }
 .ntp { display: flex; flex-direction: column; align-items: center; padding: 60px 20px 30px; gap: 26px; min-height: 100%; }
 .ntp .logo { font-size: 30px; font-weight: 600; letter-spacing: -0.5px; display: flex; align-items: center; gap: 10px; }
 .ntp .logo .ic { width: 38px; height: 38px; }
@@ -653,7 +659,7 @@ body.dark .pt-wrap { background: #3a3d44; }
 #oobe { position: fixed; inset: 0; z-index: 8500; display: none; overflow: hidden; color: #1b1b1b; font-family: var(--font); }
 #oobe.on { display: block; animation: fadein 0.5s ease; }
 #oobe .ob-bg { position: absolute; inset: 0; }
-#oobe .ob-bg svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+#oobe .ob-bg svg, #oobe .ob-bg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 #oobe .ob-card {
     position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
     width: min(640px, calc(100vw - 32px)); max-height: calc(100vh - 40px); overflow-y: auto;
@@ -698,7 +704,7 @@ body.dark .pt-wrap { background: #3a3d44; }
 #oobe .ob-spin { width: 28px; height: 28px; position: relative; margin: 12px auto; }
 #oobe .ob-spin i { position: absolute; top: 0; left: 50%; width: 4px; height: 4px; border-radius: 50%; background: #0067c0; transform-origin: 2px 14px; animation: bootdot 1.6s linear infinite; }
 #oobe .ob-final { position: absolute; inset: 0; display: none; align-items: center; justify-content: center; color: #fff; text-align: center; padding: 20px; font-size: clamp(26px, 5vw, 44px); font-weight: 300; text-shadow: 0 2px 20px rgba(0,0,0,0.35); }
-#oobe .ob-final.on { display: flex; }
+#oobe .ob-final.on { display: flex; background: rgba(4, 18, 48, 0.62); }
 #oobe .ob-final span { animation: fadein 0.8s ease; }
 #oobe .ob-final .sub { position: absolute; bottom: 40px; left: 0; right: 0; font-size: 15px; font-weight: 400; opacity: 0.85; }
 #oobe .ob-steps { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
@@ -740,7 +746,14 @@ body:not(.dark) .yt-chip.on { background: #0f0f0f; color: #fff; }
 .yt-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 18px 14px; }
 .yt-card { text-align: left; color: inherit; display: flex; flex-direction: column; gap: 10px; }
 .yt-thumb { position: relative; aspect-ratio: 16/9; border-radius: 12px; overflow: hidden; background: #222; }
-.yt-thumb svg { width: 100%; height: 100%; display: block; }
+.yt-thumb svg, .yt-thumb img { width: 100%; height: 100%; display: block; object-fit: cover; }
+.yt-thumb .dur.live { background: #c00; }
+.yt-ext { display: flex; align-items: center; gap: 5px; font-size: 12.5px; font-weight: 600; color: inherit; padding: 6px 10px; border-radius: 16px; background: rgba(128,128,128,0.15); white-space: nowrap; }
+.yt-ext:hover { background: rgba(128,128,128,0.28); }
+.yt-ext svg { width: 14px; height: 14px; }
+.yt-realsearch { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 10px 14px; border-radius: 10px; background: rgba(128,128,128,0.12); font-size: 13px; margin-bottom: 16px; }
+.yt-realsearch a { display: flex; align-items: center; gap: 6px; color: #3ea6ff; font-weight: 600; }
+.yt-realsearch a svg { width: 14px; height: 14px; }
 .yt-thumb .dur { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,0.8); color: #fff; font-size: 11px; font-weight: 600; padding: 2px 5px; border-radius: 4px; }
 .yt-meta { display: flex; gap: 10px; }
 .yt-meta .ch { width: 36px; height: 36px; border-radius: 50%; flex: 0 0 auto; display: flex; align-items: center; justify-content: center; font-size: 18px; }
@@ -750,7 +763,7 @@ body:not(.dark) .yt-meta small { color: #606060; }
 .yt-player { display: flex; gap: 24px; }
 .yt-player .yt-left { flex: 1; min-width: 0; }
 .yt-video { position: relative; aspect-ratio: 16/9; background: #000; border-radius: 12px; overflow: hidden; }
-.yt-video canvas { width: 100%; height: 100%; display: block; cursor: pointer; }
+.yt-video canvas, .yt-video iframe { width: 100%; height: 100%; display: block; border: none; }
 .yt-ctl { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px 12px 8px; background: linear-gradient(transparent, rgba(0,0,0,0.75)); color: #fff; display: flex; flex-direction: column; gap: 6px; }
 .yt-bar { height: 4px; background: rgba(255,255,255,0.3); border-radius: 2px; cursor: pointer; position: relative; }
 .yt-bar i { display: block; height: 100%; background: #f00; border-radius: 2px; width: 0; }
@@ -800,7 +813,9 @@ body:not(.dark) .yt-pill.sub { background: #0f0f0f; color: #fff; }
 .rb-search { flex: 1; max-width: 360px; height: 34px; border-radius: 8px; background: #393b3d; display: flex; align-items: center; padding: 0 12px; gap: 8px; }
 .rb-search input { flex: 1; min-width: 0; background: none; border: none; outline: none; color: #fff; font-size: 13px; }
 .rb-search svg { width: 16px; height: 16px; opacity: 0.7; }
-.rb-robux { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; margin-left: auto; padding: 6px 10px; border-radius: 6px; }
+.rb-ext { margin-left: auto; font-size: 12.5px; font-weight: 600; color: #fff; padding: 6px 10px; border-radius: 6px; background: rgba(255,255,255,0.1); white-space: nowrap; }
+.rb-ext:hover { background: rgba(255,255,255,0.18); }
+.rb-robux { display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; padding: 6px 10px; border-radius: 6px; }
 .rb-robux:hover { background: rgba(255,255,255,0.1); }
 .rb-robux svg { width: 18px; height: 18px; }
 .rb-body { flex: 1; overflow-y: auto; padding: 18px 22px 24px; }
@@ -866,6 +881,7 @@ body:not(.dark) .yt-pill.sub { background: #0f0f0f; color: #fff; }
     .yt-player { flex-direction: column; }
     .yt-up { width: 100%; }
     .rb-nav { display: none; }
+    .yt-ext span { display: none; }
     #oobe .ob-card { padding: 24px 20px 20px; }
     #oobe h1 { font-size: 22px; }
 }
@@ -1130,7 +1146,7 @@ const GL = {
 const SAVE_KEY = 'andy-desktop-sim';
 const ACCENTS = ['#0067c0', '#0078d4', '#8764b8', '#c239b3', '#e3008c', '#d13438', '#ca5010', '#ff8c00', '#498205', '#00b294', '#038387', '#4a5459'];
 const G = {
-    name: 'Andy', theme: 'light', wp: 'bloom', accent: '#0067c0', night: false,
+    name: 'Andy', theme: 'light', wp: 'owner', accent: '#0067c0', night: false,
     wifi: true, bt: false, plane: false, snd: true, vol: 67, bright: 100, focus: false,
     view: 'grid', pinned: ['edge', 'youtube', 'roblox', 'explorer', 'notepad', 'calc', 'paint', 'terminal', 'photos', 'clock', 'settings', 'store', 'taskmgr', 'playcentre'],
     tbpins: ['explorer', 'edge', 'store', 'notepad', 'calc', 'settings'],
@@ -1349,7 +1365,8 @@ function spotlightSvg() {
         '<ellipse cx="1000" cy="720" rx="120" ry="10" fill="#ffd9a0" opacity="0.5"/><ellipse cx="1000" cy="745" rx="90" ry="6" fill="#ffd9a0" opacity="0.3"/></svg>';
 }
 const WALLPAPERS = {
-    bloom:    { label: 'Windows 11 Bloom', theme: 'light', svg: function () { return bloomSvg({ bg0: '#e9f5fd', bg1: '#c3e2f8', bg2: '#8ec4ef', p0: '#062b7a', p1: '#1f56c4', p2: '#4d97ec', p3: '#a9d8ff', c0: '#eaf6ff', c1: '#8ac6ff' }); } },
+    owner:    { label: 'Windows 11', theme: 'light', svg: function () { return '<img src="wallpaper.jpg" alt="">'; } },
+    bloom:    { label: 'Bloom (drawn)', theme: 'light', svg: function () { return bloomSvg({ bg0: '#e9f5fd', bg1: '#c3e2f8', bg2: '#8ec4ef', p0: '#062b7a', p1: '#1f56c4', p2: '#4d97ec', p3: '#a9d8ff', c0: '#eaf6ff', c1: '#8ac6ff' }); } },
     bloomdark:{ label: 'Bloom (dark)', theme: 'dark', svg: function () { return bloomSvg({ bg0: '#0a1a3d', bg1: '#071230', bg2: '#03081c', p0: '#0b2b78', p1: '#2050c0', p2: '#4a90ea', p3: '#9fd2ff', c0: '#e6f4ff', c1: '#5ea9ff' }); } },
     win10:    { label: 'Windows 10 Hero', theme: 'dark', svg: win10Svg },
     bliss:    { label: 'Bliss (XP)', theme: 'light', svg: blissSvg },
@@ -1369,25 +1386,8 @@ function wallpaperMarkup(key) {
     if (key === 'custom') return customWallpaperUrl ? '<img src="' + customWallpaperUrl + '" alt="">' : uniqueIds(WALLPAPERS.bloom.svg());
     return uniqueIds((WALLPAPERS[key] || WALLPAPERS.bloom).svg());
 }
-// A picture dropped into the repo as wallpaper.jpg becomes "Andy's background"
-// and is used until the player picks something else themselves.
-// It tries wallpaper.jpg in the repo first, then the picture Andy asked for
-// (hosted elsewhere, so it is only used if it actually loads).
-const OWNER_WALLPAPER_URL = 'https://www.trustedreviews.com/wp-content/uploads/sites/7/2023/03/windows11background-scaled-820x461.jpg';
-function probeOwnerWallpaper() {
-    const candidates = ['wallpaper.jpg', OWNER_WALLPAPER_URL];
-    (function tryNext(i) {
-        if (i >= candidates.length) return;
-        const img = new Image();
-        img.onload = function () {
-            WALLPAPERS.owner = { label: "Andy's background", theme: 'light', svg: function () { return '<img src="' + candidates[i] + '" alt="">'; } };
-            if (!G.wpChosen) G.wp = 'owner';
-            applyWallpaper(); refreshWindows();
-        };
-        img.onerror = function () { tryNext(i + 1); };
-        img.src = candidates[i];
-    })(0);
-}
+// wallpaper.jpg (the real Windows 11 picture) is the background until the
+// player picks something else themselves in Settings or Photos.
 function applyWallpaper() {
     if (G.wp === 'custom' && !customWallpaperUrl) G.wp = 'bloom';
     $('wallpaper').innerHTML = wallpaperMarkup(G.wp);
@@ -2630,7 +2630,7 @@ APPS.edge.render = function (w) {
     if (w.arg && w.arg.site) { st.tabs.push({ hist: [w.arg.site], hi: 0 }); st.ti = st.tabs.length - 1; w.arg = {}; }
     function cur() { return st.tabs[st.ti]; }
     function page() { return cur().hist[cur().hi]; }
-    function titleOf(p) { if (p === 'newtab') return 'New tab'; if (p.indexOf('search:') === 0) return p.slice(7) + ' - Search'; if (SITES[p]) return SITES[p].t; return 'Can\'t reach this page'; }
+    function titleOf(p) { if (p === 'newtab') return 'New tab'; if (p.indexOf('search:') === 0) return p.slice(7) + ' - Search'; if (SITES[p]) return SITES[p].t; if (p.indexOf('url:') === 0) return p.slice(4).replace(/^www\./, '').replace(/\/.*$/, ''); return 'Can\'t reach this page'; }
     function urlOf(p) { if (p === 'newtab') return ''; if (p.indexOf('search:') === 0) return 'bing.com/search?q=' + encodeURIComponent(p.slice(7)); if (SITES[p]) return SITES[p].url; return p.replace(/^url:/, ''); }
     function go(p) {
         if (SITES[p] && SITES[p].app) { openWin(SITES[p].app); return; }   // these open in their own app
@@ -2640,6 +2640,9 @@ APPS.edge.render = function (w) {
         const v = input.trim();
         if (!v) return;
         const low = v.toLowerCase().replace(/^https?:\/\//, '');
+        // youtube.com and roblox.com refuse to load inside another page, so they open in their own apps
+        if (/^(www\.|m\.)?(youtube\.com|youtu\.be)/.test(low)) { const id = ytIdFrom(v); openWin('youtube', id ? { vid: id } : undefined); return; }
+        if (/^(www\.)?roblox\.com/.test(low)) { openWin('roblox'); return; }
         const hit = Object.keys(SITES).find(function (k) { return low === SITES[k].url || low === k || low === SITES[k].t.toLowerCase(); });
         if (hit) return go(hit);
         if (/^[\w.-]+\.[a-z]{2,}(\/.*)?$/i.test(low) || low.indexOf('localhost') === 0) return go('url:' + low);
@@ -2657,7 +2660,7 @@ APPS.edge.render = function (w) {
         if (p === 'newtab') {
             pg.innerHTML = '<div class="ntp"><div class="logo">' + iconBox('edge') + 'Microsoft Edge</div><div class="ntp-search">' + GL.search + '<input id="ntp-q" type="text" placeholder="Search the web" autocomplete="off"></div>' +
                 '<div class="ntp-links">' + Object.keys(SITES).map(function (k) { return '<button class="ntp-link" data-s="' + k + '">' + iconBox(SITES[k].app ? SITES[k].app : (k === 'playcentre' ? 'playcentre' : 'game')) + esc(SITES[k].t) + '</button>'; }).join('') + '</div>' +
-                '<p style="color:var(--txt2);font-size:12px;max-width:520px;text-align:center;">This browser only knows about the Play Centre. Other websites will not load, because the PC is not really connected to anything.</p></div>';
+                '<p style="color:var(--txt2);font-size:12px;max-width:520px;text-align:center;">Type a real web address to visit it. Some sites refuse to load inside a pretend PC; those get a button to open in a new tab.</p></div>';
             pg.querySelector('#ntp-q').onkeydown = function (e) { if (e.key === 'Enter') nav(this.value); };
             pg.querySelectorAll('.ntp-link').forEach(function (b) { b.onclick = function () { go(b.dataset.s); }; });
         } else if (p.indexOf('search:') === 0) {
@@ -2666,11 +2669,15 @@ APPS.edge.render = function (w) {
             pg.innerHTML = '<div class="serp"><div class="stat">About ' + (hits.length || 1) + ' results (0.0' + (3 + q.length % 6) + ' seconds) for <b>' + esc(q) + '</b></div>' +
                 (hits.length ? hits.map(function (k) { return '<div class="r"><div class="u">https://' + esc(SITES[k].url) + '</div><div class="t" data-s="' + k + '">' + esc(SITES[k].t) + ' — Play Centre</div><div class="s">Free browser game, no download needed. Just your browser!</div></div>'; }).join('') :
                 '<div class="r"><div class="u">https://www.bing.com</div><div class="t">No results for "' + esc(q) + '"</div><div class="s">The only thing on this PC\'s internet is the Play Centre. Try searching for "games".</div></div>') + '</div>';
+            pg.insertAdjacentHTML('beforeend', '<div class="serp" style="padding-top:0"><div class="r"><div class="u">https://www.bing.com</div><a class="t" href="https://www.bing.com/search?q=' + encodeURIComponent(q) + '" target="_blank" rel="noopener" style="display:block">Search the real web for "' + esc(q) + '" ↗</a><div class="s">Opens Bing in a new browser tab.</div></div></div>');
             pg.querySelectorAll('.t[data-s]').forEach(function (b) { b.onclick = function () { go(b.dataset.s); }; });
         } else if (SITES[p]) {
             pg.innerHTML = '<iframe src="' + SITES[p].src + '" title="' + esc(SITES[p].t) + '" allow="autoplay"></iframe>';
         } else {
-            pg.innerHTML = '<div class="errpage"><div class="face">🌐</div><h2>Hmmm… can\'t reach this page</h2><p><b>' + esc(urlOf(p)) + '</b> took too long to respond.</p><p>Try checking the connection. This PC only reaches the Play Centre.</p><code>ERR_CONNECTION_TIMED_OUT</code></div>';
+            // A real site. Most load fine; the ones that refuse to be framed show the browser's own
+            // "refused to connect" note, so there is always a way out to a real tab.
+            const real = urlOf(p), href = 'https://' + real;
+            pg.innerHTML = '<div class="br-info">' + GL.lock + '<span>Real website: <b>' + esc(real) + '</b>. If it stays blank, it does not allow itself inside another page.</span><a href="' + esc(href) + '" target="_blank" rel="noopener">Open in a new tab ' + YT_GL.ext + '</a></div><iframe src="' + esc(href) + '" title="' + esc(real) + '" allow="autoplay; fullscreen" referrerpolicy="no-referrer" sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-popups-to-escape-sandbox allow-presentation"></iframe>';
         }
         w.body.querySelectorAll('.br-tab').forEach(function (b) { b.onclick = function (e) { if (e.target.dataset.x !== undefined) { closeTab(+e.target.dataset.x); return; } st.ti = +b.dataset.i; draw(); }; });
         w.body.querySelector('#br-new').onclick = function () { st.tabs.push({ hist: ['newtab'], hi: 0 }); st.ti = st.tabs.length - 1; draw(); };
@@ -3118,162 +3125,117 @@ APPS.news.render = function (w) {
 
 
 /* ---------------------------------------------------------- YouTube */
-const YT_CHANNELS = {
-    andy:   { n: 'Andy Plays', em: '🎮', bg: '#e2793d', subs: '12.4K' },
-    pc:     { n: 'Play Centre', em: '🕹️', bg: '#161a2e', subs: '88.1K' },
-    cat:    { n: 'Tabby TV', em: '🐈', bg: '#8764b8', subs: '2.1M' },
-    tech:   { n: 'Rig Wizard', em: '🖥️', bg: '#0078d4', subs: '540K' },
-    lofi:   { n: 'Lofi Laundromat', em: '🎧', bg: '#c239b3', subs: '1.3M' }
-};
+// Real YouTube. youtube.com itself refuses to load inside another page, but
+// its embedded player is built for exactly that, so the app shows real videos
+// and plays them with the real player. Add or swap videos here: id is the
+// 11-character code from the video's address (youtube.com/watch?v=ID).
+const YT_CATS = [['all', 'All'], ['kids', 'Kids'], ['music', 'Music'], ['gaming', 'Gaming'], ['science', 'Science'], ['space', 'Space'], ['relax', 'Relax'], ['classic', 'Classics']];
 const YT_VIDEOS = [
-    { id: 'coins1', t: 'I collected EVERY coin in Coin Collector (Hard mode)', ch: 'andy', scene: 'coins', views: '48K', age: '2 days ago', dur: '12:41', likes: 3100, desc: 'Full run on Hard. Fireflies come out after dark and I nearly missed the last coin behind the boulder.' },
-    { id: 'laundry1', t: 'Laundry Simulator but I only buy Quantum Washers', ch: 'andy', scene: 'laundry', views: '21K', age: '5 days ago', dur: '18:07', likes: 1900, desc: 'Is the Quantum Washer worth 2000 points? Yes. Do the socks still go missing? Also yes.' },
-    { id: 'pc1', t: 'Building a $5,000 gaming PC with an RTX 5090 (no side panel)', ch: 'tech', scene: 'pc', views: '1.2M', age: '1 week ago', dur: '24:55', likes: 84000, desc: 'i9-14900KF, RTX 5090, 64GB. Thermals are fine. The jet engine noise is a feature.' },
-    { id: 'virus1', t: 'How many viruses can a Windows PC survive? (it got weird)', ch: 'pc', scene: 'virus', views: '302K', age: '3 weeks ago', dur: '9:32', likes: 12000, desc: 'We download everything. Toolbars, cursors, BonziBuddy. The blue screen arrives at 6:40.' },
-    { id: 'lofi1', t: 'lofi beats to fold laundry to 🧺 (1 hour)', ch: 'lofi', scene: 'lofi', views: '4.8M', age: '2 months ago', dur: '1:00:12', likes: 210000, desc: 'Rain, a washing machine, and beats. Chill.' },
-    { id: 'cat1', t: 'A day in the life of a tabby cat that only wants coins', ch: 'cat', scene: 'coins', views: '9.1M', age: '4 months ago', dur: '4:18', likes: 630000, desc: 'She found 40 coins and knocked one bowl off the table.' },
-    { id: 'snake1', t: 'Snake world record attempt (720 points!!)', ch: 'andy', scene: 'snake', views: '8.2K', age: '1 day ago', dur: '6:03', likes: 640, desc: 'Installed Snake from the Store and did not stop.' },
-    { id: 'space1', t: 'Relaxing space ambience for homework 🌌', ch: 'lofi', scene: 'space', views: '2.2M', age: '1 year ago', dur: '3:00:00', likes: 98000, desc: 'Three hours of stars.' },
-    { id: 'pc2', t: 'Why the i3-4170 is still fine in 2026 (kind of)', ch: 'tech', scene: 'pc', views: '410K', age: '2 weeks ago', dur: '11:20', likes: 22000, desc: 'The humble starter chip gets a fair shake.' },
-    { id: 'virus2', t: 'Windows 11 setup speedrun in 1:47', ch: 'pc', scene: 'virus', views: '77K', age: '6 days ago', dur: '2:01', likes: 4100, desc: 'Region, keyboard, Wi-Fi, PIN, done.' },
-    { id: 'laundry2', t: 'Ranking every washing machine in Laundry Simulator', ch: 'pc', scene: 'laundry', views: '156K', age: '1 month ago', dur: '15:44', likes: 9800, desc: 'From the Basic to the Quantum. Spoiler: Platinum is underrated.' },
-    { id: 'cat2', t: 'Cat vs Retriever: who collects coins faster?', ch: 'cat', scene: 'coins', views: '3.4M', age: '5 months ago', dur: '7:29', likes: 250000, desc: 'The retriever is faster. The cat does not care.' }
+    { id: 'XqZsoesa55w', t: 'Baby Shark Dance | #babyshark Most Viewed Video', ch: 'Pinkfong Baby Shark', cat: 'kids' },
+    { id: 'aqz-KE-bpKQ', t: 'Big Buck Bunny 60fps 4K - Official Blender Foundation Short Film', ch: 'Blender', cat: 'kids' },
+    { id: 'eRsGyueVLvQ', t: 'Sintel - Third Open Movie by Blender Foundation', ch: 'Blender', cat: 'kids' },
+    { id: 'TnGl01FkMMo', t: 'The Super Mario Bros. Movie | Official Trailer', ch: 'Illumination', cat: 'kids' },
+    { id: 'QH2-TGUlwu4', t: 'Nyan Cat [original]', ch: 'saraj00n', cat: 'classic' },
+    { id: 'J---aiyznGQ', t: 'Keyboard Cat! - THE ORIGINAL!', ch: 'Keyboard Cat', cat: 'classic' },
+    { id: 'jNQXAC9IVRw', t: 'Me at the zoo', ch: 'jawed', cat: 'classic' },
+    { id: 'dQw4w9WgXcQ', t: 'Rick Astley - Never Gonna Give You Up (Official Video)', ch: 'Rick Astley', cat: 'classic' },
+    { id: 'jfKfPfyJRdk', t: 'lofi hip hop radio 📚 beats to relax/study to', ch: 'Lofi Girl', cat: 'relax', live: true },
+    { id: 'LXb3EKWsInQ', t: 'Costa Rica in 4K 60fps HDR (ULTRA HD)', ch: 'Jacob + Katie Schwarz', cat: 'relax' },
+    { id: 'IvUU8joBb1Q', t: 'Wintergatan - Marble Machine (music instrument using 2000 marbles)', ch: 'Wintergatan', cat: 'music' },
+    { id: 'qybUFnY7Y8w', t: 'OK Go - This Too Shall Pass - Rube Goldberg Machine', ch: 'OK Go', cat: 'music' },
+    { id: 'y6Sxv-sUYtM', t: 'Pharrell Williams - Happy (Official Music Video)', ch: 'Pharrell Williams', cat: 'music' },
+    { id: 'OPf0YbXqDm0', t: 'Mark Ronson - Uptown Funk (Official Video) ft. Bruno Mars', ch: 'Mark Ronson', cat: 'music' },
+    { id: 'nfWlot6h_JM', t: 'Taylor Swift - Shake It Off', ch: 'Taylor Swift', cat: 'music' },
+    { id: 'CevxZvSJLk8', t: 'Katy Perry - Roar (Official)', ch: 'Katy Perry', cat: 'music' },
+    { id: 'ru0K8uYEZWw', t: "Justin Timberlake - CAN'T STOP THE FEELING! (Official Video)", ch: 'Justin Timberlake', cat: 'music' },
+    { id: '9bZkp7q19f0', t: 'PSY - GANGNAM STYLE(강남스타일) M/V', ch: 'officialpsy', cat: 'music' },
+    { id: 'fJ9rUzIMcZQ', t: 'Queen – Bohemian Rhapsody (Official Video Remastered)', ch: 'Queen Official', cat: 'music' },
+    { id: '60ItHLz5WEA', t: 'Alan Walker - Faded', ch: 'Alan Walker', cat: 'music' },
+    { id: 'MmB9b5njVbA', t: 'Minecraft Trailer', ch: 'Minecraft', cat: 'gaming' },
+    { id: 'cPJUBQd-PNM', t: '"Revenge" - A Minecraft Parody of Usher\'s DJ Got Us Fallin\' In Love', ch: 'CaptainSparklez', cat: 'gaming' },
+    { id: 'I-sH53vXP2A', t: '"Fallen Kingdom" - A Minecraft Parody of Coldplay\'s Viva la Vida', ch: 'CaptainSparklez', cat: 'gaming' },
+    { id: 'hFZFjoX2cGg', t: 'Building the Perfect Squirrel Proof Bird Feeder', ch: 'Mark Rober', cat: 'science' },
+    { id: 'VrKW58MS12g', t: 'Package Thief vs. Glitter Bomb Trap', ch: 'Mark Rober', cat: 'science' },
+    { id: 'h6fcK_fRYaI', t: 'The Egg - A Short Story', ch: 'Kurzgesagt – In a Nutshell', cat: 'science' },
+    { id: 'zQGOcOUBi6s', t: 'The Immune System Explained I – Bacteria Infection', ch: 'Kurzgesagt – In a Nutshell', cat: 'science' },
+    { id: 'sNhhvQGsMEc', t: 'The Fermi Paradox — Where Are All The Aliens?', ch: 'Kurzgesagt – In a Nutshell', cat: 'space' },
+    { id: 'wbSwFU6tY1c', t: 'Falcon Heavy Test Flight', ch: 'SpaceX', cat: 'space' },
+    { id: '4czjS9h4Fpg', t: "Perseverance Rover's Descent and Touchdown on Mars (Official NASA Video)", ch: 'NASA', cat: 'space' }
 ];
-const YT_COMMENTS = {
-    coins1: [['🐈', 'tabbyfan', 'the boulder coin gets everyone'], ['🎮', 'zx_gamer', 'night mode + fireflies is peak']],
-    pc1: [['🔧', 'pcmasterrace_42', 'no side panel is the airflow meta'], ['🤓', 'thermalpaste', 'jet engine noise = free white noise machine']],
-    lofi1: [['☕', 'studybuddy', 'folded 3 loads to this. thank you.']],
-    virus1: [['💀', 'bsod_enjoyer', 'BonziBuddy jumpscare at 4:12']]
-};
-function ytThumb(v, big) {
-    const pal = { coins: ['#2c5a1e', '#7bd35c', '🪙'], laundry: ['#123a5c', '#4fa3e0', '🧺'], pc: ['#3a1f5c', '#b07be6', '🖥️'], virus: ['#0d3a6e', '#4cc2ff', '🖱️'], lofi: ['#4a1240', '#ff7ab8', '🎧'], snake: ['#0f2a12', '#5fd38a', '🐍'], space: ['#0b1030', '#7f9dff', '🌌'] }[v.scene];
-    const uid = 'yt' + Math.random().toString(36).slice(2, 7);
-    return '<svg viewBox="0 0 320 180" preserveAspectRatio="xMidYMid slice"><defs><linearGradient id="' + uid + '" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="' + pal[1] + '"/><stop offset="1" stop-color="' + pal[0] + '"/></linearGradient></defs>' +
-        '<rect width="320" height="180" fill="url(#' + uid + ')"/><circle cx="250" cy="50" r="70" fill="#fff" opacity="0.08"/><circle cx="60" cy="150" r="50" fill="#000" opacity="0.15"/>' +
-        '<text x="160" y="' + (big ? 112 : 108) + '" font-size="' + (big ? 72 : 64) + '" text-anchor="middle">' + pal[2] + '</text>' +
-        '<text x="14" y="168" font-size="13" font-weight="700" fill="#fff" opacity="0.85" font-family="Segoe UI, sans-serif">' + esc(YT_CHANNELS[v.ch].n) + '</text></svg>';
+function ytThumbUrl(id) { return 'https://i.ytimg.com/vi/' + id + '/mqdefault.jpg'; }
+function ytAvatar(name) {
+    const hues = [0, 28, 48, 120, 170, 210, 260, 300];
+    let h = 0; for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) & 0xffff;
+    return '<span class="ch" style="background:hsl(' + hues[h % hues.length] + ',55%,42%);color:#fff;font-weight:700;font-size:15px">' + esc(name.charAt(0).toUpperCase()) + '</span>';
 }
 function ytCard(v, fn) {
-    const c = el('button', 'yt-card', '<div class="yt-thumb">' + ytThumb(v) + '<span class="dur">' + v.dur + '</span></div><div class="yt-meta"><span class="ch" style="background:' + YT_CHANNELS[v.ch].bg + '">' + YT_CHANNELS[v.ch].em + '</span><span><b>' + esc(v.t) + '</b><small>' + esc(YT_CHANNELS[v.ch].n) + '</small><small>' + v.views + ' views · ' + v.age + '</small></span></div>');
+    const c = el('button', 'yt-card', '<div class="yt-thumb"><img src="' + ytThumbUrl(v.id) + '" alt="" loading="lazy">' + (v.live ? '<span class="dur live">LIVE</span>' : '') + '</div><div class="yt-meta">' + ytAvatar(v.ch) + '<span><b>' + esc(v.t) + '</b><small>' + esc(v.ch) + '</small></span></div>');
     c.onclick = fn;
     return c;
 }
+// Pull a video id out of anything pasted into the search box: a full address,
+// a youtu.be link or just the 11-character id.
+function ytIdFrom(q) {
+    const m = q.match(/(?:youtu\.be\/|[?&]v=|\/embed\/|\/shorts\/|\/live\/)([A-Za-z0-9_-]{11})/) || q.match(/^([A-Za-z0-9_-]{11})$/);
+    return m ? m[1] : '';
+}
 const YT_GL = {
-    home: gl('<path d="M2.5 8 8 3l5.5 5v5.5H2.5z"/>'), shorts: gl('<rect x="4" y="1.5" width="8" height="13" rx="2"/><path d="m7 6 3 2-3 2z"/>'), subs: gl('<rect x="2" y="6" width="12" height="8" rx="1.5"/><path d="M4 3.5h8M5 1.5h6M7 8.5l3 1.5-3 1.5z"/>'),
-    you: gl('<circle cx="8" cy="5.5" r="3"/><path d="M2.5 14a5.5 5.5 0 0 1 11 0"/>'), like: gl('<path d="M5 7v7H2V7zM5 7l3-5.5c1.5 0 2 1 2 2V6h3.5a1 1 0 0 1 1 1.2l-1 6a1 1 0 0 1-1 .8H5"/>'), share: gl('<path d="M9 3.5 14 8l-5 4.5V10C5 10 3 11.5 2 13.5c0-4 2.5-7 7-7.5z"/>'),
-    play: gl('<path d="M4 2.5v11l9-5.5z"/>'), pause: gl('<path d="M5 3v10M11 3v10"/>'), full: gl('<path d="M2 6V2h4M14 6V2h-4M2 10v4h4M14 10v4h-4"/>'), vol: gl('<path d="M2 6h3l4-3v10l-4-3H2z"/><path d="M11 5.5a3.5 3.5 0 0 1 0 5"/>')
+    home: gl('<path d="M2.5 8 8 3l5.5 5v5.5H2.5z"/>'), you: gl('<circle cx="8" cy="5.5" r="3"/><path d="M2.5 14a5.5 5.5 0 0 1 11 0"/>'),
+    like: gl('<path d="M5 7v7H2V7zM5 7l3-5.5c1.5 0 2 1 2 2V6h3.5a1 1 0 0 1 1 1.2l-1 6a1 1 0 0 1-1 .8H5"/>'), share: gl('<path d="M9 3.5 14 8l-5 4.5V10C5 10 3 11.5 2 13.5c0-4 2.5-7 7-7.5z"/>'),
+    ext: gl('<path d="M6 3H3v10h10v-3M9 2h5v5M14 2 7 9"/>')
 };
 APPS.youtube.render = function (w) {
     const st = w.state;
-    if (!st.view) { st.view = 'home'; st.q = ''; st.chip = 'All'; }
-    let raf = 0, playing = false, t0 = 0, acc = 0;
-    function stopVideo() { cancelAnimationFrame(raf); raf = 0; playing = false; }
-    w.onClose = stopVideo;
-    function durSec(d) { const p = d.split(':').map(Number); return p.length === 3 ? p[0] * 3600 + p[1] * 60 + p[2] : p[0] * 60 + p[1]; }
-    function fmtT(sec) { sec = Math.max(0, sec | 0); const h = (sec / 3600) | 0, m = ((sec % 3600) / 60) | 0, ss = sec % 60; return (h ? h + ':' + String(m).padStart(2, '0') : m) + ':' + String(ss).padStart(2, '0'); }
-    function drawScene(ctx, scene, t, W, H) {
-        ctx.clearRect(0, 0, W, H);
-        if (scene === 'coins') {
-            const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#87ceeb'); g.addColorStop(0.6, '#c8e6ff'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-            ctx.fillStyle = '#4c8a22'; ctx.fillRect(0, H * 0.62, W, H); ctx.fillStyle = '#6db32c'; ctx.beginPath(); ctx.ellipse(W * 0.5, H * 0.66, W * 0.7, H * 0.12, 0, 0, Math.PI * 2); ctx.fill();
-            for (let i = 0; i < 7; i++) { const x = ((i * 137 + t * 60) % (W + 60)) - 30, y = H * 0.55 + Math.sin(t * 3 + i) * 6; ctx.fillStyle = '#ffd60a'; ctx.beginPath(); ctx.ellipse(x, y, 10 * Math.abs(Math.cos(t * 2 + i)) + 2, 10, 0, 0, Math.PI * 2); ctx.fill(); }
-            const cx = W * 0.5 + Math.sin(t * 0.8) * W * 0.3; ctx.fillStyle = '#c98a3e'; ctx.fillRect(cx - 22, H * 0.56, 44, 26); ctx.fillRect(cx + 10, H * 0.5, 22, 20); ctx.fillStyle = '#222'; ctx.fillRect(cx + 26, H * 0.54, 3, 3); ctx.fillStyle = '#c98a3e'; ctx.fillRect(cx - 30, H * 0.5 + Math.sin(t * 6) * 5, 10, 6);
-        } else if (scene === 'laundry') {
-            ctx.fillStyle = '#e9eef5'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#b9c6d8'; ctx.fillRect(0, H * 0.75, W, H);
-            for (let i = 0; i < 4; i++) { const x = W * (0.14 + i * 0.24), y = H * 0.48; ctx.fillStyle = '#f7f9fc'; ctx.fillRect(x - 48, y - 55, 96, 110); ctx.strokeStyle = '#8aa0bb'; ctx.lineWidth = 3; ctx.strokeRect(x - 48, y - 55, 96, 110); ctx.fillStyle = '#243b5c'; ctx.beginPath(); ctx.arc(x, y + 5, 34, 0, Math.PI * 2); ctx.fill(); ctx.save(); ctx.translate(x, y + 5); ctx.rotate(t * (2 + i)); ctx.fillStyle = ['#4cc2ff', '#ff6b9d', '#ffd60a'][i % 3]; for (let k = 0; k < 3; k++) { ctx.rotate(Math.PI * 2 / 3); ctx.fillRect(8, -6, 20, 12); } ctx.restore(); }
-        } else if (scene === 'pc') {
-            ctx.fillStyle = '#1a1030'; ctx.fillRect(0, 0, W, H); ctx.strokeStyle = '#7f7fa0'; ctx.lineWidth = 4; ctx.strokeRect(W * 0.3, H * 0.15, W * 0.4, H * 0.7);
-            const parts = [['#2b3440', 0.2], ['#0a6ed1', 0.4], ['#5fd38a', 0.6], ['#ffc14d', 0.8]];
-            parts.forEach(function (p, i) { const prog = clamp((t * 0.5 - i * 0.8) % 4, 0, 1); ctx.fillStyle = p[0]; ctx.fillRect(W * 0.34, H * (0.05 + (0.15 + i * 0.16) * prog + (1 - prog) * -0.3), W * 0.32, H * 0.12); });
-            for (let i = 0; i < 12; i++) { ctx.fillStyle = 'hsl(' + ((t * 120 + i * 30) % 360) + ',90%,60%)'; ctx.fillRect(W * 0.31 + i * W * 0.03, H * 0.83, W * 0.02, 4); }
-        } else if (scene === 'virus') {
-            ctx.fillStyle = '#0f3d7a'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = 'rgba(255,255,255,0.15)'; ctx.beginPath(); ctx.arc(W / 2, H / 2, H * 0.3, 0, Math.PI * 2); ctx.fill();
-            const n = 2 + ((t * 1.2) % 10 | 0);
-            for (let i = 0; i < n; i++) { const x = (i * 97) % (W - 120) + 10, y = (i * 61) % (H - 80) + 10; ctx.fillStyle = '#10132a'; ctx.fillRect(x, y, 110, 70); ctx.fillStyle = '#ffd400'; ctx.fillRect(x, y, 110, 14); ctx.fillStyle = '#fff'; ctx.font = '10px sans-serif'; ctx.fillText('YOU WON!!!', x + 20, y + 44); }
-            if ((t % 12) > 10) { ctx.fillStyle = '#0078d7'; ctx.fillRect(0, 0, W, H); ctx.fillStyle = '#fff'; ctx.font = '48px sans-serif'; ctx.fillText(':(', 40, 80); ctx.font = '14px sans-serif'; ctx.fillText('Your PC ran into a problem', 40, 110); }
-        } else if (scene === 'lofi') {
-            const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#1a0f3a'); g.addColorStop(1, '#4a1240'); ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
-            for (let i = 0; i < 9; i++) { const hgt = 40 + (i * 53) % 90; ctx.fillStyle = '#120a25'; ctx.fillRect(i * W / 9, H - hgt, W / 9 - 4, hgt); for (let k = 0; k < 6; k++) { ctx.fillStyle = ((i * 7 + k + (t | 0)) % 3) ? '#ffd27a' : '#120a25'; ctx.fillRect(i * W / 9 + 6 + (k % 2) * 12, H - hgt + 8 + (k >> 1) * 14, 6, 8); } }
-            ctx.strokeStyle = 'rgba(180,200,255,0.5)'; ctx.lineWidth = 1; for (let i = 0; i < 60; i++) { const x = (i * 53) % W, y = ((i * 97) + t * 400) % H; ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x - 3, y + 14); ctx.stroke(); }
-            ctx.fillStyle = '#fff'; ctx.font = 'bold 13px sans-serif'; ctx.fillText('♪ now playing: fold & chill', 14, 24);
-        } else if (scene === 'snake') {
-            ctx.fillStyle = '#0f2a12'; ctx.fillRect(0, 0, W, H); const S = 16, n = 8 + ((t * 2) % 20 | 0);
-            for (let i = 0; i < n; i++) { const a = t * 1.5 - i * 0.25; ctx.fillStyle = i ? '#5fd38a' : '#b9ffd0'; ctx.fillRect(W / 2 + Math.cos(a) * W * 0.3 - S / 2, H / 2 + Math.sin(a * 1.3) * H * 0.3 - S / 2, S - 2, S - 2); }
-            ctx.fillStyle = '#ff5252'; ctx.beginPath(); ctx.arc(W * 0.8, H * 0.3, 7, 0, Math.PI * 2); ctx.fill();
-        } else {
-            ctx.fillStyle = '#05071a'; ctx.fillRect(0, 0, W, H);
-            for (let i = 0; i < 120; i++) { const x = (i * 173) % W, y = (i * 97) % H; ctx.fillStyle = 'rgba(255,255,255,' + (0.3 + 0.7 * Math.abs(Math.sin(t + i))) + ')'; ctx.fillRect(x, y, 2, 2); }
-            ctx.fillStyle = '#7f9dff'; ctx.beginPath(); ctx.arc(W * 0.7, H * 0.4, 40 + Math.sin(t) * 3, 0, Math.PI * 2); ctx.fill();
-        }
-    }
+    if (!st.view) { st.view = 'home'; st.q = ''; st.chip = 'all'; }
+    if (w.arg && w.arg.vid) { st.view = 'watch'; st.vid = w.arg.vid; st.vt = w.arg.title || ''; w.arg = {}; }
+    function known(id) { return YT_VIDEOS.find(function (v) { return v.id === id; }); }
+    function watch(id, title) { st.view = 'watch'; st.vid = id; st.vt = title || ''; draw(); }
     function draw() {
-        stopVideo();
         w.body.className = 'wbody flush';
-        const vid = st.view === 'watch' ? YT_VIDEOS.find(function (v) { return v.id === st.vid; }) : null;
+        const vid = st.view === 'watch' ? (known(st.vid) || { id: st.vid, t: st.vt || 'YouTube video', ch: 'YouTube', cat: '' }) : null;
         setTitle(w, (vid ? vid.t + ' - ' : '') + 'YouTube');
-        w.body.innerHTML = '<div class="yt"><div class="yt-top"><button class="yt-logo" id="yt-home">' + iconBox('youtube') + 'YouTube</button><div class="yt-search"><input id="yt-q" type="text" placeholder="Search" value="' + esc(st.q) + '" autocomplete="off"><button id="yt-go">' + GL.search + '</button></div><span class="pfp">' + iconFor('user') + '</span></div>' +
-            '<div class="yt-body"><div class="yt-side">' + [['home', 'Home'], ['shorts', 'Shorts'], ['subs', 'Subscriptions'], ['you', 'You']].map(function (x) { return '<button data-v="' + x[0] + '" class="' + (st.view === x[0] ? 'on' : '') + '">' + YT_GL[x[0]] + x[1] + '</button>'; }).join('') + '</div><div class="yt-main" id="yt-main"></div></div></div>';
+        w.body.innerHTML = '<div class="yt"><div class="yt-top"><button class="yt-logo" id="yt-home">' + iconBox('youtube') + 'YouTube</button><div class="yt-search"><input id="yt-q" type="text" placeholder="Search, or paste a YouTube link" value="' + esc(st.q) + '" autocomplete="off"><button id="yt-go" title="Search">' + GL.search + '</button></div><a class="yt-ext" href="https://www.youtube.com" target="_blank" rel="noopener" title="Open youtube.com in a new browser tab">' + YT_GL.ext + '<span>youtube.com</span></a><span class="pfp">' + iconFor('user') + '</span></div>' +
+            '<div class="yt-body"><div class="yt-side">' + [['home', 'Home'], ['you', 'You']].map(function (x) { return '<button data-v="' + x[0] + '" class="' + (st.view === x[0] ? 'on' : '') + '">' + YT_GL[x[0]] + x[1] + '</button>'; }).join('') + '</div><div class="yt-main" id="yt-main"></div></div></div>';
         const main = w.body.querySelector('#yt-main');
         w.body.querySelector('#yt-home').onclick = function () { st.view = 'home'; st.q = ''; draw(); };
         w.body.querySelectorAll('.yt-side button').forEach(function (b) { b.onclick = function () { st.view = b.dataset.v; st.q = ''; draw(); }; });
         const qi = w.body.querySelector('#yt-q');
-        const doSearch = function () { st.q = qi.value.trim(); st.view = 'home'; draw(); };
+        const doSearch = function () {
+            const q = qi.value.trim(), id = ytIdFrom(q);
+            if (id) { st.q = ''; watch(id, ''); return; }
+            st.q = q; st.view = 'home'; draw();
+        };
         w.body.querySelector('#yt-go').onclick = doSearch;
         qi.onkeydown = function (e) { if (e.key === 'Enter') doSearch(); };
-        if (st.view === 'watch' && vid) { drawWatch(main, vid); return; }
+        if (vid) { drawWatch(main, vid); return; }
         let list = YT_VIDEOS.slice();
-        if (st.view === 'subs') list = list.filter(function (v) { return G.yt.subs.indexOf(v.ch) >= 0; });
         if (st.view === 'you') list = list.filter(function (v) { return G.yt.liked.indexOf(v.id) >= 0; });
-        if (st.view === 'shorts') list = list.filter(function (v) { return durSec(v.dur) < 300; });
-        if (st.q) { const q = st.q.toLowerCase(); list = list.filter(function (v) { return v.t.toLowerCase().indexOf(q) >= 0 || YT_CHANNELS[v.ch].n.toLowerCase().indexOf(q) >= 0; }); }
-        if (st.chip !== 'All') list = list.filter(function (v) { return v.scene === st.chip; });
-        const chips = [['All', 'All'], ['coins', 'Gaming'], ['lofi', 'Music'], ['pc', 'Tech'], ['laundry', 'Tycoon'], ['virus', 'Windows']];
+        if (st.q) { const q = st.q.toLowerCase(); list = list.filter(function (v) { return v.t.toLowerCase().indexOf(q) >= 0 || v.ch.toLowerCase().indexOf(q) >= 0 || v.cat.indexOf(q) >= 0; }); }
+        if (st.chip !== 'all') list = list.filter(function (v) { return v.cat === st.chip; });
         const cb = el('div', 'yt-chips');
-        chips.forEach(function (c) { const b = el('button', 'yt-chip' + (st.chip === c[0] ? ' on' : ''), c[1]); b.onclick = function () { st.chip = c[0]; draw(); }; cb.appendChild(b); });
+        YT_CATS.forEach(function (c) { const b = el('button', 'yt-chip' + (st.chip === c[0] ? ' on' : ''), c[1]); b.onclick = function () { st.chip = c[0]; draw(); }; cb.appendChild(b); });
         main.appendChild(cb);
+        if (st.q) {
+            // The real results page will not load inside another page, so the
+            // whole of YouTube is one click away in a new browser tab.
+            main.appendChild(el('div', 'yt-realsearch', '<span>Results from this PC\'s picks for <b>' + esc(st.q) + '</b>.</span><a href="https://www.youtube.com/results?search_query=' + encodeURIComponent(st.q) + '" target="_blank" rel="noopener">' + YT_GL.ext + 'Search all of YouTube</a>'));
+        }
         const grid = el('div', 'yt-grid');
-        if (!list.length) grid.innerHTML = '<div class="yt-empty" style="grid-column:1/-1">' + (st.view === 'subs' ? 'Subscribe to a channel and its videos will show up here.' : st.view === 'you' ? 'Videos you like will show up here.' : 'No results for "' + esc(st.q) + '"') + '</div>';
-        list.forEach(function (v) { grid.appendChild(ytCard(v, function () { st.view = 'watch'; st.vid = v.id; draw(); })); });
+        if (!list.length) grid.innerHTML = '<div class="yt-empty" style="grid-column:1/-1">' + (st.view === 'you' ? 'Videos you like will show up here.' : 'Nothing here matches that. Try the button above, or paste a YouTube link.') + '</div>';
+        list.forEach(function (v) { grid.appendChild(ytCard(v, function () { watch(v.id, v.t); })); });
         main.appendChild(grid);
     }
     function drawWatch(main, v) {
-        const ch = YT_CHANNELS[v.ch], subbed = G.yt.subs.indexOf(v.ch) >= 0, liked = G.yt.liked.indexOf(v.id) >= 0;
-        const total = durSec(v.dur);
-        main.innerHTML = '<div class="yt-player"><div class="yt-left"><div class="yt-video"><canvas id="yt-cv" width="640" height="360"></canvas><div class="yt-ctl"><div class="yt-bar" id="yt-bar"><i id="yt-fill"></i></div><div class="row2"><button id="yt-pp">' + YT_GL.pause + '</button><button>' + YT_GL.vol + '</button><span id="yt-time">0:00 / ' + v.dur + '</span><span class="sp"></span><button id="yt-full">' + YT_GL.full + '</button></div></div></div>' +
-            '<div class="yt-title">' + esc(v.t) + '</div><div class="yt-chrow"><span class="ch" style="background:' + ch.bg + '">' + ch.em + '</span><span class="cht"><b>' + esc(ch.n) + '</b><small>' + ch.subs + ' subscribers</small></span><button class="yt-pill ' + (subbed ? 'subbed' : 'sub') + '" id="yt-sub">' + (subbed ? 'Subscribed' : 'Subscribe') + '</button><span class="sp" style="flex:1"></span><button class="yt-pill' + (liked ? ' liked' : '') + '" id="yt-like">' + YT_GL.like + ' <span id="yt-likes">' + (v.likes + (liked ? 1 : 0)).toLocaleString() + '</span></button><button class="yt-pill" id="yt-share">' + YT_GL.share + ' Share</button></div>' +
-            '<div class="yt-desc"><b>' + v.views + ' views · ' + v.age + '</b>' + esc(v.desc) + '</div>' +
-            '<div class="yt-comments"><h3 id="yt-ccount"></h3><div class="yt-cadd"><span class="ch" style="width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;background:#e2793d">🙂</span><input id="yt-cin" type="text" placeholder="Add a comment…" maxlength="200"></div><div id="yt-clist"></div></div></div>' +
+        const liked = G.yt.liked.indexOf(v.id) >= 0;
+        const url = 'https://www.youtube.com/watch?v=' + v.id;
+        main.innerHTML = '<div class="yt-player"><div class="yt-left"><div class="yt-video"><iframe src="https://www.youtube-nocookie.com/embed/' + v.id + '?autoplay=1&rel=0&playsinline=1" title="' + esc(v.t) + '" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen" allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>' +
+            '<div class="yt-title">' + esc(v.t) + '</div><div class="yt-chrow">' + ytAvatar(v.ch) + '<span class="cht"><b>' + esc(v.ch) + '</b><small>' + (v.live ? 'Live now' : 'YouTube') + '</small></span><span style="flex:1"></span><button class="yt-pill' + (liked ? ' liked' : '') + '" id="yt-like">' + YT_GL.like + (liked ? 'Liked' : 'Like') + '</button><button class="yt-pill" id="yt-share">' + YT_GL.share + 'Share</button><a class="yt-pill" href="' + url + '" target="_blank" rel="noopener">' + YT_GL.ext + 'Watch on YouTube</a></div>' +
+            '<div class="yt-desc"><b>' + esc(url) + '</b>This is the real video, played with YouTube\'s own player. If it says the video is unavailable, it is no longer on YouTube.</div></div>' +
             '<div class="yt-up" id="yt-up"></div></div>';
-        const cv = main.querySelector('#yt-cv'), ctx = cv.getContext('2d');
-        acc = 0; t0 = performance.now(); playing = true;
-        function frame(now) {
-            if (!WINS[w.key] || st.view !== 'watch') return;
-            const t = acc + (playing ? (now - t0) / 1000 : 0);
-            if (t >= total) { playing = false; acc = total; }
-            drawScene(ctx, v.scene, t, cv.width, cv.height);
-            if (!playing) { ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.fillRect(0, 0, cv.width, cv.height); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.moveTo(cv.width / 2 - 22, cv.height / 2 - 28); ctx.lineTo(cv.width / 2 + 30, cv.height / 2); ctx.lineTo(cv.width / 2 - 22, cv.height / 2 + 28); ctx.fill(); }
-            main.querySelector('#yt-fill').style.width = (t / total * 100) + '%';
-            main.querySelector('#yt-time').textContent = fmtT(t) + ' / ' + v.dur;
-            raf = requestAnimationFrame(frame);
-        }
-        raf = requestAnimationFrame(frame);
-        function toggle() { if (playing) { acc += (performance.now() - t0) / 1000; playing = false; } else { if (acc >= total) acc = 0; t0 = performance.now(); playing = true; } main.querySelector('#yt-pp').innerHTML = playing ? YT_GL.pause : YT_GL.play; }
-        cv.onclick = toggle; main.querySelector('#yt-pp').onclick = toggle;
-        main.querySelector('#yt-bar').onclick = function (e) { const r = this.getBoundingClientRect(); acc = (e.clientX - r.left) / r.width * total; t0 = performance.now(); };
-        main.querySelector('#yt-full').onclick = function () { maxWin(w); };
-        main.querySelector('#yt-sub').onclick = function () { const i = G.yt.subs.indexOf(v.ch); if (i >= 0) G.yt.subs.splice(i, 1); else G.yt.subs.push(v.ch); saveGame(); SFX.click(); const keep = { acc: acc + (playing ? (performance.now() - t0) / 1000 : 0) }; draw(); };
-        main.querySelector('#yt-like').onclick = function () { const i = G.yt.liked.indexOf(v.id); if (i >= 0) G.yt.liked.splice(i, 1); else G.yt.liked.push(v.id); saveGame(); SFX.click(); this.classList.toggle('liked', i < 0); this.querySelector('#yt-likes').textContent = (v.likes + (i < 0 ? 1 : 0)).toLocaleString(); };
-        main.querySelector('#yt-share').onclick = function () { AndySave.copyText('https://youtube.com/watch?v=' + v.id, function () {}); toast('youtube', 'Link copied', v.t, 2500, 'YouTube'); };
-        function comments() {
-            const mine = G.yt.comments[v.id] || [], base = YT_COMMENTS[v.id] || [];
-            const all = mine.map(function (c) { return ['🙂', G.name, c, 'just now']; }).concat(base.map(function (c) { return [c[0], c[1], c[2], '3 days ago']; }));
-            main.querySelector('#yt-ccount').textContent = all.length + ' Comment' + (all.length === 1 ? '' : 's');
-            main.querySelector('#yt-clist').innerHTML = all.map(function (c) { return '<div class="yt-c"><span class="ch" style="background:#4a4f5c">' + c[0] + '</span><div><b>@' + esc(c[1]) + '</b><small>' + c[3] + '</small><p>' + esc(c[2]) + '</p></div></div>'; }).join('');
-        }
-        comments();
-        main.querySelector('#yt-cin').onkeydown = function (e) { if (e.key === 'Enter' && this.value.trim()) { (G.yt.comments[v.id] = G.yt.comments[v.id] || []).unshift(this.value.trim()); this.value = ''; saveGame(); comments(); } };
+        main.querySelector('#yt-like').onclick = function () { const i = G.yt.liked.indexOf(v.id); if (i >= 0) G.yt.liked.splice(i, 1); else G.yt.liked.push(v.id); saveGame(); SFX.click(); this.classList.toggle('liked', i < 0); this.innerHTML = YT_GL.like + (i < 0 ? 'Liked' : 'Like'); };
+        main.querySelector('#yt-share').onclick = function () { AndySave.copyText(url, function () {}); toast('youtube', 'Link copied', v.t, 2500, 'YouTube'); };
         const up = main.querySelector('#yt-up');
-        YT_VIDEOS.filter(function (x) { return x.id !== v.id; }).slice(0, 8).forEach(function (x) { up.appendChild(ytCard(x, function () { st.vid = x.id; draw(); })); });
+        YT_VIDEOS.filter(function (x) { return x.id !== v.id && (v.cat ? x.cat === v.cat : true); }).concat(YT_VIDEOS.filter(function (x) { return x.id !== v.id && v.cat && x.cat !== v.cat; })).slice(0, 10).forEach(function (x) { up.appendChild(ytCard(x, function () { watch(x.id, x.t); })); });
     }
     w.refresh = function () { if (st.view !== 'watch') draw(); };
     draw();
@@ -3305,7 +3267,7 @@ APPS.roblox.render = function (w) {
     function draw() {
         w.body.className = 'wbody flush';
         setTitle(w, 'Roblox');
-        w.body.innerHTML = '<div class="rb"><div class="rb-top"><button class="rb-logo" id="rb-home"><i></i>ROBLOX</button><div class="rb-nav">' + [['home', 'Home'], ['discover', 'Discover'], ['avatar', 'Avatar'], ['friends', 'Friends']].map(function (x) { return '<button data-v="' + x[0] + '" class="' + (st.view === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div><div class="rb-search">' + GL.search + '<input id="rb-q" type="text" placeholder="Search" value="' + esc(st.q) + '" autocomplete="off"></div><button class="rb-robux" id="rb-robux"><svg viewBox="0 0 16 16"><path d="M8 1.5 14 5v6l-6 3.5L2 11V5z" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M6 6h4v4H6z" fill="#fff"/></svg>0</button></div><div class="rb-body" id="rb-body"></div></div>';
+        w.body.innerHTML = '<div class="rb"><div class="rb-top"><button class="rb-logo" id="rb-home"><i></i>ROBLOX</button><div class="rb-nav">' + [['home', 'Home'], ['discover', 'Discover'], ['avatar', 'Avatar'], ['friends', 'Friends']].map(function (x) { return '<button data-v="' + x[0] + '" class="' + (st.view === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div><div class="rb-search">' + GL.search + '<input id="rb-q" type="text" placeholder="Search" value="' + esc(st.q) + '" autocomplete="off"></div><a class="rb-ext" href="https://www.roblox.com" target="_blank" rel="noopener" title="Open the real roblox.com in a new browser tab">roblox.com ↗</a><button class="rb-robux" id="rb-robux"><svg viewBox="0 0 16 16"><path d="M8 1.5 14 5v6l-6 3.5L2 11V5z" fill="none" stroke="#fff" stroke-width="1.4"/><path d="M6 6h4v4H6z" fill="#fff"/></svg>0</button></div><div class="rb-body" id="rb-body"></div></div>';
         const body = w.body.querySelector('#rb-body');
         w.body.querySelector('#rb-home').onclick = function () { st.view = 'home'; st.q = ''; draw(); };
         w.body.querySelectorAll('.rb-nav button').forEach(function (b) { b.onclick = function () { st.view = b.dataset.v; draw(); }; });
@@ -3382,7 +3344,7 @@ const OOBE_WIFI = [['Play-Centre-5G', 3, true], ['Andy-Home', 3, true], ['NETGEA
 let oobe = { step: 0, region: 'Australia', kb: 'US', wifi: '', pcName: 'Andy-PC', name: 'Andy', pin: '', priv: { loc: true, find: true, diag: true, ads: false, tips: true }, uses: [] };
 const OOBE_STEPS = ['region', 'keyboard', 'wifi', 'license', 'pcname', 'account', 'pin', 'privacy', 'customise', 'updates'];
 function showOOBE() {
-    $('ob-bg').innerHTML = wallpaperMarkup('bloom');
+    $('ob-bg').innerHTML = wallpaperMarkup('owner');
     $('oobe').classList.add('on');
     oobe.step = 0;
     renderOobe();
@@ -3539,7 +3501,7 @@ function oobeFinale() {
     const fin = $('ob-final');
     fin.classList.add('on');
     fin.innerHTML = '';
-    $('ob-bg').innerHTML = wallpaperMarkup('bloomdark');
+    $('ob-bg').innerHTML = wallpaperMarkup('owner');
     const lines = [
         ['Hi ' + oobe.name + '.', 3200],
         ['Welcome to Windows', 3200],
@@ -3678,6 +3640,7 @@ $('boot').onclick = bootDone;
 
 /* ====================================================================== INIT */
 loadGame();
+if (!G.wpChosen) G.wp = 'owner';
 applyTheme();
 applyWallpaper();
 paintShell();
@@ -3691,7 +3654,6 @@ IDB.get('wallpaper').then(function (blob) {
         if (G.wp === 'custom') applyWallpaper();
     } else if (G.wp === 'custom') { G.wp = 'bloom'; applyWallpaper(); }
 });
-probeOwnerWallpaper();
 window.addEventListener('pagehide', function () { if (G.setup) writeSave(); });
 document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && G.setup) writeSave(); });
 </script>
