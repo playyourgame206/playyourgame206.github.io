@@ -1049,7 +1049,7 @@ body:not(.dark) .yt-pill.sub { background: #0f0f0f; color: #fff; }
 </div>
 
 <script src="save-tools.js"></script>
-<script src="volume-menu.js" data-position="top-right"></script>
+<script src="volume-menu.js" data-position="top-right" data-tick-sound="sounds/Windows Background.wav"></script>
 <script>
 'use strict';
 
@@ -1483,10 +1483,17 @@ function playWin(k, fallback) {
     // waiting for; anything else just stays quiet.
     if (p && p.catch) p.catch(function () { if (k === 'startup') document.addEventListener('pointerdown', function () { c.play().catch(function () {}); }, { once: true }); });
 }
+let customStartup = false;
+(function probeMediaStartup() {
+    // Windows' own "Windows Startup.wav" is a 0.2 s stub; if a real one is dropped in under that name, use it
+    const a = new Audio(); a.preload = 'metadata';
+    a.onloadedmetadata = function () { if (a.duration > 1 && !customStartup) { WIN_FILES.startup = a.src; delete WIN_AUDIO.startup; } };
+    a.src = 'sounds/Windows Startup.wav';
+})();
 (function probeCustomStartup(exts) {
     if (!exts.length) return;
     const a = new Audio(); a.preload = 'auto';
-    a.oncanplaythrough = function () { WIN_FILES.startup = a.src; delete WIN_AUDIO.startup; };
+    a.oncanplaythrough = function () { customStartup = true; WIN_FILES.startup = a.src; delete WIN_AUDIO.startup; };
     a.onerror = function () { probeCustomStartup(exts.slice(1)); };
     a.src = 'sounds/startup.' + exts[0];
 })(['mp3', 'wav', 'ogg', 'm4a']);
@@ -1495,7 +1502,8 @@ const SFX = {
     boot:    function () { playWin('startup', function () { beep(523, 0.35, 'sine', 0.06); setTimeout(function () { beep(659, 0.35, 'sine', 0.06); }, 140); setTimeout(function () { beep(784, 0.5, 'sine', 0.06); }, 280); }); },
     unlock:  function () { playWin('unlock', function () { beep(880, 0.06, 'triangle', 0.03); }); },
     shutdown:function () { playWin('shutdown', function () { beep(440, 0.3, 'sine', 0.05); }); },
-    volume:  function () { playWin('volume', function () { beep(880, 0.06, 'triangle', 0.03); }); },
+    volume:  function () { const t = Date.now(); if (t - SFX._lastVol < 250) return; SFX._lastVol = t; playWin('volume', function () { beep(880, 0.06, 'triangle', 0.03); }); },
+    _lastVol: 0,
     notify:  function () { playWin('notify', function () { beep(988, 0.12, 'sine', 0.05); setTimeout(function () { beep(1319, 0.2, 'sine', 0.05); }, 110); }); },
     error:   function () { playWin('error', function () { beep(220, 0.18, 'square', 0.04); }); },
     warn:    function () { playWin('warn', function () { beep(330, 0.15, 'square', 0.04); }); },
@@ -1953,7 +1961,7 @@ function renderQuick() {
 function batteryPct() { return clamp(100 - Math.floor(((Date.now() - sessionStart) / 60000) * 0.7), 8, 100); }
 $('qs-bright').oninput = function () { G.bright = +this.value; applyTheme(); };
 $('qs-bright').onchange = function () { saveGame(); };
-$('qs-vol').oninput = function () { G.vol = +this.value; $('qs-vol-ic').innerHTML = iconFor(G.vol === 0 ? 'mute' : 'volume'); paintTray(); };
+$('qs-vol').oninput = function () { G.vol = +this.value; $('qs-vol-ic').innerHTML = iconFor(G.vol === 0 ? 'mute' : 'volume'); paintTray(); SFX.volume(); };
 $('qs-vol').onchange = function () { saveGame(); SFX.volume(); };
 $('qs-settings').onclick = function () { openWin('settings'); closeFlyouts(); };
 
@@ -3029,7 +3037,7 @@ APPS.settings.render = function (w) {
             case 'sound':
                 pane.appendChild(toggleRow('System sounds', 'The real Windows sounds when things happen', G.snd, function (v) { G.snd = v; saveGame(); }, 'volume'));
                 pane.appendChild(el('div', 'card', '<div>Volume</div><div class="qs-slider" style="margin-top:8px">' + iconBox('volume') + '<input type="range" id="st-vol" min="0" max="100" value="' + G.vol + '"></div>'));
-                pane.querySelector('#st-vol').oninput = function () { G.vol = +this.value; paintTray(); };
+                pane.querySelector('#st-vol').oninput = function () { G.vol = +this.value; paintTray(); SFX.volume(); };
                 pane.querySelector('#st-vol').onchange = function () { saveGame(); SFX.volume(); };
                 pane.appendChild(el('div', 'card', '<div class="row"><div><div>Output</div><small>Speakers (Realtek High Definition Audio)</small></div><button class="btn sm" id="st-test">Test</button></div>'));
                 pane.querySelector('#st-test').onclick = function () { SFX.boot(); };

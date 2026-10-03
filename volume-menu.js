@@ -24,6 +24,25 @@
   // <script> tag and gets a smaller tab in the top-right corner instead.
   const scriptTag = document.currentScript;
   const TAB_POSITION = (scriptTag && scriptTag.getAttribute('data-position')) === 'top-right' ? 'top-right' : 'top';
+  // A page can give the menu its own sound for volume changes (the Windows
+  // games pass the real Windows volume ding) with data-tick-sound="file".
+  const TICK_SRC = scriptTag && scriptTag.getAttribute('data-tick-sound');
+  let tickAudio = null;
+  let lastTick = 0;
+  function playTickFile(minGap) {
+    const eff = getEffectiveVolume();
+    if (eff <= 0.001) return;
+    const t = Date.now();
+    if (t - lastTick < minGap) return;
+    lastTick = t;
+    try {
+      if (!tickAudio) { tickAudio = new Audio(TICK_SRC); tickAudio.preload = 'auto'; }
+      const c = tickAudio.cloneNode();
+      c.volume = Math.min(1, eff);
+      const p = c.play();
+      if (p && p.catch) p.catch(function () {});
+    } catch (e) {}
+  }
   let isMuted = false;
   let isOpen = false;
 
@@ -187,6 +206,7 @@
   // can exist at once, and a fresh one per click stops working after a few.
   let chimeCtx = null;
   function playTestChime() {
+    if (TICK_SRC) { playTickFile(250); return; }
     const eff = getEffectiveVolume();
     if (eff <= 0.001) return;
     try {
@@ -224,8 +244,8 @@
 
   // Short single tick while the slider is being dragged, so the new level is
   // audible as it changes (throttled so a fast drag does not machine-gun).
-  let lastTick = 0;
   function playTick() {
+    if (TICK_SRC) { playTickFile(250); return; }
     const eff = getEffectiveVolume();
     if (eff <= 0.001) return;
     const t = Date.now();
