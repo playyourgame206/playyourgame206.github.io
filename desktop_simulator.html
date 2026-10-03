@@ -1444,9 +1444,40 @@ function beep(freq, dur, type, vol) {
         o.stop(actx.currentTime + dur);
     } catch (e) { /* no audio, no problem */ }
 }
+/* ---- Real Windows sounds. Drop the real files into sounds/ (see README):
+   sounds/startup.(mp3|wav|ogg|m4a) plays when the desktop appears and
+   sounds/volume.(mp3|wav|ogg|m4a) plays when the volume slider is let go.
+   Missing files fall back to the little synthesised tones below. */
+const REAL_SOUNDS = {};
+(function probeRealSounds() {
+    ['startup', 'volume'].forEach(function (k) {
+        (function tryNext(exts) {
+            if (!exts.length) return;
+            const a = new Audio();
+            a.preload = 'auto';
+            a.oncanplaythrough = function () { REAL_SOUNDS[k] = a; };
+            a.onerror = function () { tryNext(exts.slice(1)); };
+            a.src = 'sounds/' + k + '.' + exts[0];
+        })(['mp3', 'wav', 'ogg', 'm4a']);
+    });
+})();
+function playReal(k) {
+    const src = REAL_SOUNDS[k];
+    if (!src) return false;
+    if (!G.snd || G.vol === 0) return true;   // the real sound exists, the PC is just muted
+    const a = src.cloneNode();
+    a.volume = Math.min(1, G.vol / 100);
+    const p = a.play();
+    if (p && p.catch) p.catch(function () {
+        // the browser wants a click or tap before any sound: play on the next one
+        document.addEventListener('pointerdown', function () { a.play().catch(function () {}); }, { once: true });
+    });
+    return true;
+}
 const SFX = {
-    boot:  function () { beep(523, 0.35, 'sine', 0.06); setTimeout(function () { beep(659, 0.35, 'sine', 0.06); }, 140); setTimeout(function () { beep(784, 0.5, 'sine', 0.06); }, 280); },
+    boot:  function () { if (playReal('startup')) return; beep(523, 0.35, 'sine', 0.06); setTimeout(function () { beep(659, 0.35, 'sine', 0.06); }, 140); setTimeout(function () { beep(784, 0.5, 'sine', 0.06); }, 280); },
     pop:   function () { beep(880, 0.06, 'triangle', 0.03); },
+    volume:function () { if (playReal('volume')) return; beep(880, 0.06, 'triangle', 0.03); },
     close: function () { beep(440, 0.07, 'triangle', 0.03); },
     notify:function () { beep(988, 0.12, 'sine', 0.05); setTimeout(function () { beep(1319, 0.2, 'sine', 0.05); }, 110); },
     error: function () { beep(220, 0.18, 'square', 0.04); },
@@ -1898,7 +1929,7 @@ function batteryPct() { return clamp(100 - Math.floor(((Date.now() - sessionStar
 $('qs-bright').oninput = function () { G.bright = +this.value; applyTheme(); };
 $('qs-bright').onchange = function () { saveGame(); };
 $('qs-vol').oninput = function () { G.vol = +this.value; $('qs-vol-ic').innerHTML = iconFor(G.vol === 0 ? 'mute' : 'volume'); paintTray(); };
-$('qs-vol').onchange = function () { saveGame(); SFX.pop(); };
+$('qs-vol').onchange = function () { saveGame(); SFX.volume(); };
 $('qs-settings').onclick = function () { openWin('settings'); closeFlyouts(); };
 
 /* calendar */
@@ -2972,7 +3003,7 @@ APPS.settings.render = function (w) {
                 pane.appendChild(toggleRow('System sounds', 'Little beeps when things happen', G.snd, function (v) { G.snd = v; saveGame(); }, 'volume'));
                 pane.appendChild(el('div', 'card', '<div>Volume</div><div class="qs-slider" style="margin-top:8px">' + iconBox('volume') + '<input type="range" id="st-vol" min="0" max="100" value="' + G.vol + '"></div>'));
                 pane.querySelector('#st-vol').oninput = function () { G.vol = +this.value; paintTray(); };
-                pane.querySelector('#st-vol').onchange = function () { saveGame(); SFX.pop(); };
+                pane.querySelector('#st-vol').onchange = function () { saveGame(); SFX.volume(); };
                 pane.appendChild(el('div', 'card', '<div class="row"><div><div>Output</div><small>Speakers (Realtek High Definition Audio)</small></div><button class="btn sm" id="st-test">Test</button></div>'));
                 pane.querySelector('#st-test').onclick = function () { SFX.boot(); };
                 break;

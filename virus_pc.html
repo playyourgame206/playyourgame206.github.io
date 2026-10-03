@@ -1060,12 +1060,24 @@ function beep(freq, dur, type, vol) {
         o.start(); o.stop(actx.currentTime + dur);
     } catch (e) { /* no audio on this device — silent is fine */ }
 }
+let REAL_STARTUP = null;
+(function probeStartup(exts) {
+    if (!exts.length) return;
+    const a = new Audio(); a.preload = 'auto';
+    a.oncanplaythrough = function () { REAL_STARTUP = a; };
+    a.onerror = function () { probeStartup(exts.slice(1)); };
+    a.src = 'sounds/startup.' + exts[0];
+})(['mp3', 'wav', 'ogg', 'm4a']);
 const SFX = {
     ding:  function () { beep(880, 0.16, 'sine', 0.05); setTimeout(function () { beep(1320, 0.22, 'sine', 0.04); }, 90); },
     error: function () { beep(250, 0.18, 'square', 0.05); setTimeout(function () { beep(190, 0.3, 'square', 0.045); }, 150); },
     pop:   function () { beep(560, 0.07, 'triangle', 0.045); },
     bad:   function () { beep(120, 0.5, 'sawtooth', 0.05); },
-    boot:  function () { [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.4, 'sine', 0.035); }, i * 130); }); }
+    boot:  function () {
+        // the real Windows 11 startup sound if sounds/startup.* exists (see README), otherwise a little chime
+        if (REAL_STARTUP) { const a = REAL_STARTUP.cloneNode(); const p = a.play(); if (p && p.catch) p.catch(function () { document.addEventListener('pointerdown', function () { a.play().catch(function () {}); }, { once: true }); }); return; }
+        [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.4, 'sine', 0.035); }, i * 130); });
+    }
 };
 
 /* ================================================================ WALLPAPER
