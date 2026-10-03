@@ -1444,44 +1444,68 @@ function beep(freq, dur, type, vol) {
         o.stop(actx.currentTime + dur);
     } catch (e) { /* no audio, no problem */ }
 }
-/* ---- Real Windows sounds. Drop the real files into sounds/ (see README):
-   sounds/startup.(mp3|wav|ogg|m4a) plays when the desktop appears and
-   sounds/volume.(mp3|wav|ogg|m4a) plays when the volume slider is let go.
-   Missing files fall back to the little synthesised tones below. */
-const REAL_SOUNDS = {};
-(function probeRealSounds() {
-    ['startup', 'volume'].forEach(function (k) {
-        (function tryNext(exts) {
-            if (!exts.length) return;
-            const a = new Audio();
-            a.preload = 'auto';
-            a.oncanplaythrough = function () { REAL_SOUNDS[k] = a; };
-            a.onerror = function () { tryNext(exts.slice(1)); };
-            a.src = 'sounds/' + k + '.' + exts[0];
-        })(['mp3', 'wav', 'ogg', 'm4a']);
-    });
-})();
-function playReal(k) {
-    const src = REAL_SOUNDS[k];
-    if (!src) return false;
-    if (!G.snd || G.vol === 0) return true;   // the real sound exists, the PC is just muted
-    const a = src.cloneNode();
-    a.volume = Math.min(1, G.vol / 100);
-    const p = a.play();
-    if (p && p.catch) p.catch(function () {
-        // the browser wants a click or tap before any sound: play on the next one
-        document.addEventListener('pointerdown', function () { a.play().catch(function () {}); }, { once: true });
-    });
-    return true;
+/* ---- Windows sounds. The real files from C:\Windows\Media live in sounds/,
+   and every event plays the file Windows uses for it. The Media folder's own
+   "Windows Startup.wav" is a silent stub (the real chime is built into
+   Windows), so startup uses "Windows Logon.wav" unless a real recording is
+   dropped in as sounds/startup.mp3 (or .wav/.ogg/.m4a). A missing file falls
+   back to a little synthesised tone so nothing goes quiet. */
+const WIN_FILES = {
+    startup:  'sounds/Windows Logon.wav',
+    unlock:   'sounds/Windows Unlock.wav',
+    shutdown: 'sounds/Windows Shutdown.wav',
+    volume:   'sounds/Windows Background.wav',             // Default Beep: the ding when the volume slider moves
+    notify:   'sounds/Windows Notify System Generic.wav',  // notifications
+    error:    'sounds/Windows Critical Stop.wav',
+    warn:     'sounds/Windows Exclamation.wav',            // "are you sure?" boxes
+    info:     'sounds/Windows Background.wav',             // Asterisk: ordinary message boxes
+    click:    'sounds/Windows Navigation Start.wav',       // the classic Windows click
+    open:     'sounds/Windows Menu Command.wav',
+    minimize: 'sounds/Windows Minimize.wav',
+    restore:  'sounds/Windows Restore.wav',
+    recycle:  'sounds/Windows Recycle.wav'
+};
+const WIN_AUDIO = {};
+function winAudio(k) {
+    let a = WIN_AUDIO[k];
+    if (!a) { a = WIN_AUDIO[k] = new Audio(WIN_FILES[k]); a.preload = 'auto'; a.onerror = function () { a.bad = true; }; }
+    return a;
 }
+function masterVol() { try { return window.AndyVolume ? (AndyVolume.isMuted() ? 0 : Math.min(1, AndyVolume.getVolume() / 10)) : 1; } catch (e) { return 1; } }
+function playWin(k, fallback) {
+    if (!G.snd || G.vol === 0) return;
+    const a = winAudio(k);
+    if (a.bad) { if (fallback) fallback(); return; }
+    const c = a.cloneNode();
+    c.volume = Math.min(1, G.vol / 100) * masterVol();
+    const p = c.play();
+    // Browsers want a click or tap before any sound. The startup chime is worth
+    // waiting for; anything else just stays quiet.
+    if (p && p.catch) p.catch(function () { if (k === 'startup') document.addEventListener('pointerdown', function () { c.play().catch(function () {}); }, { once: true }); });
+}
+(function probeCustomStartup(exts) {
+    if (!exts.length) return;
+    const a = new Audio(); a.preload = 'auto';
+    a.oncanplaythrough = function () { WIN_FILES.startup = a.src; delete WIN_AUDIO.startup; };
+    a.onerror = function () { probeCustomStartup(exts.slice(1)); };
+    a.src = 'sounds/startup.' + exts[0];
+})(['mp3', 'wav', 'ogg', 'm4a']);
+Object.keys(WIN_FILES).forEach(winAudio);   // warm the cache so the first sound is on time
 const SFX = {
-    boot:  function () { if (playReal('startup')) return; beep(523, 0.35, 'sine', 0.06); setTimeout(function () { beep(659, 0.35, 'sine', 0.06); }, 140); setTimeout(function () { beep(784, 0.5, 'sine', 0.06); }, 280); },
-    pop:   function () { beep(880, 0.06, 'triangle', 0.03); },
-    volume:function () { if (playReal('volume')) return; beep(880, 0.06, 'triangle', 0.03); },
-    close: function () { beep(440, 0.07, 'triangle', 0.03); },
-    notify:function () { beep(988, 0.12, 'sine', 0.05); setTimeout(function () { beep(1319, 0.2, 'sine', 0.05); }, 110); },
-    error: function () { beep(220, 0.18, 'square', 0.04); },
-    click: function () { beep(1200, 0.03, 'square', 0.015); }
+    boot:    function () { playWin('startup', function () { beep(523, 0.35, 'sine', 0.06); setTimeout(function () { beep(659, 0.35, 'sine', 0.06); }, 140); setTimeout(function () { beep(784, 0.5, 'sine', 0.06); }, 280); }); },
+    unlock:  function () { playWin('unlock', function () { beep(880, 0.06, 'triangle', 0.03); }); },
+    shutdown:function () { playWin('shutdown', function () { beep(440, 0.3, 'sine', 0.05); }); },
+    volume:  function () { playWin('volume', function () { beep(880, 0.06, 'triangle', 0.03); }); },
+    notify:  function () { playWin('notify', function () { beep(988, 0.12, 'sine', 0.05); setTimeout(function () { beep(1319, 0.2, 'sine', 0.05); }, 110); }); },
+    error:   function () { playWin('error', function () { beep(220, 0.18, 'square', 0.04); }); },
+    warn:    function () { playWin('warn', function () { beep(330, 0.15, 'square', 0.04); }); },
+    info:    function () { playWin('info', function () { beep(880, 0.06, 'triangle', 0.03); }); },
+    click:   function () { playWin('click', function () { beep(1200, 0.03, 'square', 0.015); }); },
+    pop:     function () { playWin('open', function () { beep(880, 0.06, 'triangle', 0.03); }); },
+    minimize:function () { playWin('minimize', function () { beep(660, 0.05, 'triangle', 0.02); }); },
+    restore: function () { playWin('restore', function () { beep(770, 0.05, 'triangle', 0.02); }); },
+    recycle: function () { playWin('recycle', function () { beep(440, 0.07, 'triangle', 0.03); }); },
+    close:   function () { }   // Windows makes no sound when a window closes
 };
 
 /* ================================================================== CLOCK */
@@ -1535,6 +1559,7 @@ function dialog(opts) {
         (opts.input !== undefined ? '<input class="inp" id="dlg-in" type="text" maxlength="60" autocomplete="off" spellcheck="false">' : '') +
         '<div id="dlg-btns"></div>';
     const btns = $('dlg-btns');
+    if ((opts.buttons || []).some(function (b) { return b.danger; })) SFX.warn(); else SFX.info();
     (opts.buttons || [{ t: 'OK', primary: true }]).forEach(function (b) {
         const bt = el('button', 'btn' + (b.primary ? ' primary' : '') + (b.danger ? ' danger' : ''), esc(b.t));
         bt.onclick = function () {
@@ -1723,7 +1748,7 @@ function iconMenu(e, ic) {
 }
 function emptyBin() {
     if (!G.bin.length) return;
-    dialog({ title: 'Delete ' + G.bin.length + ' item' + (G.bin.length > 1 ? 's' : '') + '?', text: 'Are you sure you want to permanently delete everything in the Recycle Bin?', buttons: [{ t: 'Yes', primary: true, fn: function () { G.bin = []; saveGame(); refreshWindows(); renderIcons(); SFX.close(); } }, { t: 'No' }] });
+    dialog({ title: 'Delete ' + G.bin.length + ' item' + (G.bin.length > 1 ? 's' : '') + '?', text: 'Are you sure you want to permanently delete everything in the Recycle Bin?', buttons: [{ t: 'Yes', primary: true, fn: function () { G.bin = []; saveGame(); refreshWindows(); renderIcons(); SFX.recycle(); } }, { t: 'No' }] });
 }
 
 /* ========================================================== TASKBAR ETC. */
@@ -2101,11 +2126,13 @@ function focusWin(w) {
 }
 function minWin(w) {
     w.node.classList.add('min');
+    SFX.minimize();
     if (activeWin === w) { activeWin = null; const rest = topWindows(); if (rest.length) focusWin(rest[0]); }
     markTaskbar();
 }
 function maxWin(w) {
     const n = w.node;
+    SFX.restore();
     if (n.dataset.max) {
         n.style.cssText = n.dataset.prev;
         n.style.zIndex = ++zTop;
@@ -3000,7 +3027,7 @@ APPS.settings.render = function (w) {
                 pane.appendChild(el('div', 'card', '<div class="row"><div><div>Properties</div><small>IPv4 192.168.1.42 · Link speed 866 Mbps · This PC can only reach the Play Centre</small></div></div>'));
                 break;
             case 'sound':
-                pane.appendChild(toggleRow('System sounds', 'Little beeps when things happen', G.snd, function (v) { G.snd = v; saveGame(); }, 'volume'));
+                pane.appendChild(toggleRow('System sounds', 'The real Windows sounds when things happen', G.snd, function (v) { G.snd = v; saveGame(); }, 'volume'));
                 pane.appendChild(el('div', 'card', '<div>Volume</div><div class="qs-slider" style="margin-top:8px">' + iconBox('volume') + '<input type="range" id="st-vol" min="0" max="100" value="' + G.vol + '"></div>'));
                 pane.querySelector('#st-vol').oninput = function () { G.vol = +this.value; paintTray(); };
                 pane.querySelector('#st-vol').onchange = function () { saveGame(); SFX.volume(); };
@@ -3688,7 +3715,7 @@ function unlock() {
     locked = false;
     $('lock').classList.remove('on');
     $('lock').classList.remove('login');
-    SFX.pop();
+    SFX.unlock();
 }
 $('lock').onclick = function (e) {
     if (e.target.closest('.lk-user')) return;
@@ -3718,6 +3745,7 @@ function sleepPC() {
 function shutDown() {
     if (G.setup) writeSave();
     closeFlyouts();
+    SFX.shutdown();
     $('desktop').classList.remove('on');
     setTimeout(function () {
         Object.keys(WINS).forEach(function (k) { WINS[k].node.remove(); delete WINS[k]; });
@@ -3728,8 +3756,9 @@ function shutDown() {
 }
 function restartPC() {
     if (G.setup) writeSave();
+    SFX.shutdown();
     $('desktop').classList.remove('on');
-    setTimeout(function () { location.reload(); }, 600);
+    setTimeout(function () { location.reload(); }, 1200);
 }
 $('off-btn').onclick = function () {
     $('off').classList.add('gone');

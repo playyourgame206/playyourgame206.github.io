@@ -1060,24 +1060,58 @@ function beep(freq, dur, type, vol) {
         o.start(); o.stop(actx.currentTime + dur);
     } catch (e) { /* no audio on this device — silent is fine */ }
 }
-let REAL_STARTUP = null;
-(function probeStartup(exts) {
+/* ---- Windows sounds: the real files from C:\Windows\Media in sounds/. The
+   Media folder's "Windows Startup.wav" is a silent stub, so startup uses
+   "Windows Logon.wav" unless a real recording is dropped in as
+   sounds/startup.mp3. Missing files fall back to little synthesised tones. */
+const WIN_FILES = {
+    startup: 'sounds/Windows Logon.wav',
+    notify:  'sounds/Windows Notify System Generic.wav',
+    error:   'sounds/Windows Critical Stop.wav',
+    bad:     'sounds/Windows Hardware Fail.wav',            // a virus got in
+    uac:     'sounds/Windows User Account Control.wav',
+    ad:      'sounds/Windows Pop-up Blocked.wav',           // a pop-up that was not blocked
+    open:    'sounds/Windows Menu Command.wav',
+    click:   'sounds/Windows Navigation Start.wav',
+    battlow: 'sounds/Windows Battery Low.wav',              // health getting low
+    battcrit:'sounds/Windows Battery Critical.wav'
+};
+const WIN_AUDIO = {};
+function winAudio(k) {
+    let a = WIN_AUDIO[k];
+    if (!a) { a = WIN_AUDIO[k] = new Audio(WIN_FILES[k]); a.preload = 'auto'; a.onerror = function () { a.bad = true; }; }
+    return a;
+}
+function masterVol() { try { return window.AndyVolume ? (AndyVolume.isMuted() ? 0 : Math.min(1, AndyVolume.getVolume() / 10)) : 1; } catch (e) { return 1; } }
+function playWin(k, fallback) {
+    if (!G.sound) return;
+    const a = winAudio(k);
+    if (a.bad) { if (fallback) fallback(); return; }
+    const c = a.cloneNode();
+    c.volume = masterVol();
+    const p = c.play();
+    if (p && p.catch) p.catch(function () { if (k === 'startup') document.addEventListener('pointerdown', function () { c.play().catch(function () {}); }, { once: true }); });
+}
+(function probeCustomStartup(exts) {
     if (!exts.length) return;
     const a = new Audio(); a.preload = 'auto';
-    a.oncanplaythrough = function () { REAL_STARTUP = a; };
-    a.onerror = function () { probeStartup(exts.slice(1)); };
+    a.oncanplaythrough = function () { WIN_FILES.startup = a.src; delete WIN_AUDIO.startup; };
+    a.onerror = function () { probeCustomStartup(exts.slice(1)); };
     a.src = 'sounds/startup.' + exts[0];
 })(['mp3', 'wav', 'ogg', 'm4a']);
+Object.keys(WIN_FILES).forEach(winAudio);
+let hpBand = 'ok';
 const SFX = {
-    ding:  function () { beep(880, 0.16, 'sine', 0.05); setTimeout(function () { beep(1320, 0.22, 'sine', 0.04); }, 90); },
-    error: function () { beep(250, 0.18, 'square', 0.05); setTimeout(function () { beep(190, 0.3, 'square', 0.045); }, 150); },
-    pop:   function () { beep(560, 0.07, 'triangle', 0.045); },
-    bad:   function () { beep(120, 0.5, 'sawtooth', 0.05); },
-    boot:  function () {
-        // the real Windows 11 startup sound if sounds/startup.* exists (see README), otherwise a little chime
-        if (REAL_STARTUP) { const a = REAL_STARTUP.cloneNode(); const p = a.play(); if (p && p.catch) p.catch(function () { document.addEventListener('pointerdown', function () { a.play().catch(function () {}); }, { once: true }); }); return; }
-        [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.4, 'sine', 0.035); }, i * 130); });
-    }
+    ding:    function () { playWin('notify', function () { beep(880, 0.16, 'sine', 0.05); setTimeout(function () { beep(1320, 0.22, 'sine', 0.04); }, 90); }); },
+    error:   function () { playWin('error', function () { beep(250, 0.18, 'square', 0.05); setTimeout(function () { beep(190, 0.3, 'square', 0.045); }, 150); }); },
+    pop:     function () { playWin('open', function () { beep(560, 0.07, 'triangle', 0.045); }); },
+    click:   function () { playWin('click', function () { beep(560, 0.05, 'triangle', 0.03); }); },
+    ad:      function () { playWin('ad', function () { beep(560, 0.07, 'triangle', 0.045); }); },
+    uac:     function () { playWin('uac', function () { beep(250, 0.18, 'square', 0.05); }); },
+    bad:     function () { playWin('bad', function () { beep(120, 0.5, 'sawtooth', 0.05); }); },
+    battlow: function () { playWin('battlow', function () { beep(300, 0.2, 'square', 0.04); }); },
+    battcrit:function () { playWin('battcrit', function () { beep(200, 0.3, 'square', 0.05); }); },
+    boot:    function () { playWin('startup', function () { [523, 659, 784, 1047].forEach(function (f, i) { setTimeout(function () { beep(f, 0.4, 'sine', 0.035); }, i * 130); }); }); }
 };
 
 /* ================================================================ WALLPAPER
@@ -1378,7 +1412,7 @@ function startDownload(c) {
     }
     toggleStart(false);
     downloading[c.id] = true;
-    SFX.pop();
+    SFX.click();
 
     const t = toast(iconFor(c), 'Downloading ' + c.name, fmtMb(c.mb) + ' — 0%', 60000, 'Microsoft Store');
     const bar = el('div', 'meter', '<i style="width:0%"></i>');
@@ -1418,7 +1452,7 @@ function askUac(c) {
         'File origin: ' + (evil ? 'Downloaded from a website your mum warned you about' : 'Hard drive on this computer') +
         (c.note ? '<br><i>' + esc(c.note) + '</i>' : '');
     $('uac').classList.add('on');
-    SFX.error();
+    SFX.uac();
 }
 $('uac-yes').onclick = function () {
     $('uac').classList.remove('on');
@@ -1644,7 +1678,7 @@ function spawnAd() {
     box.style.top  = rand(6, Math.max(10, window.innerHeight - h - 70)) + 'px';
     $('popup-layer').appendChild(box);
     G.ads++;
-    SFX.pop();
+    SFX.ad();
 
     box.querySelector('.abar button').onclick = function (e) {
         e.stopPropagation();
@@ -2199,7 +2233,7 @@ $('desktop').addEventListener('contextmenu', function (e) {
         { svg: CTX_GL.sort, t: 'Sort by', sub: 1, dim: 1 },
         { svg: CTX_GL.refresh, t: 'Refresh', key: 'F5', fn: function () {
             G.health = clamp(G.health + 1.5, 0, 100);
-            SFX.pop();
+            SFX.click();
             toast(iconFor('settings'), 'Refreshed', 'Pressing F5 fixes everything. (It fixed 1.5% of everything.)', 2600);
         } },
         { sep: 1 },
@@ -2345,6 +2379,9 @@ function paintHud() {
     const pill = $('hp-pill');
     pill.classList.toggle('warn', G.health <= 60 && G.health > 28);
     pill.classList.toggle('crit', G.health <= 28);
+    // the battery warnings double as health warnings, once each time health drops into a new band
+    const band = G.health <= 28 ? 'crit' : G.health <= 60 ? 'warn' : 'ok';
+    if (band !== hpBand) { if (band === 'crit') SFX.battcrit(); else if (band === 'warn' && hpBand === 'ok') SFX.battlow(); hpBand = band; }
     pill.title = 'Health ' + G.health.toFixed(0) + '% • CPU ' + G.cpu.toFixed(0) +
                  '% • RAM ' + G.ram.toFixed(0) + '% • ' + G.temp.toFixed(0) + '°C';
 }
