@@ -1445,13 +1445,12 @@ function beep(freq, dur, type, vol) {
     } catch (e) { /* no audio, no problem */ }
 }
 /* ---- Windows sounds. The real files from C:\Windows\Media live in sounds/,
-   and every event plays the file Windows uses for it. The Media folder's own
-   "Windows Startup.wav" is a silent stub (the real chime is built into
-   Windows), so startup uses "Windows Logon.wav" unless a real recording is
-   dropped in as sounds/startup.mp3 (or .wav/.ogg/.m4a). A missing file falls
+   and every event plays the file Windows uses for it. The startup chime is
+   Andy's own recording of the Windows 11 one, since Windows keeps that one
+   inside a system file rather than in the Media folder. A missing file falls
    back to a little synthesised tone so nothing goes quiet. */
 const WIN_FILES = {
-    startup:  'sounds/Windows Logon.wav',
+    startup:  'sounds/Windows 11 startup sound.wav',
     unlock:   'sounds/Windows Unlock.wav',
     shutdown: 'sounds/Windows Shutdown.wav',
     volume:   'sounds/Windows Background.wav',             // Default Beep: the ding when the volume slider moves
@@ -1483,20 +1482,6 @@ function playWin(k, fallback) {
     // waiting for; anything else just stays quiet.
     if (p && p.catch) p.catch(function () { if (k === 'startup') document.addEventListener('pointerdown', function () { c.play().catch(function () {}); }, { once: true }); });
 }
-let customStartup = false;
-(function probeMediaStartup() {
-    // Windows' own "Windows Startup.wav" is a 0.2 s stub; if a real one is dropped in under that name, use it
-    const a = new Audio(); a.preload = 'metadata';
-    a.onloadedmetadata = function () { if (a.duration > 1 && !customStartup) { WIN_FILES.startup = a.src; delete WIN_AUDIO.startup; } };
-    a.src = 'sounds/Windows Startup.wav';
-})();
-(function probeCustomStartup(exts) {
-    if (!exts.length) return;
-    const a = new Audio(); a.preload = 'auto';
-    a.oncanplaythrough = function () { customStartup = true; WIN_FILES.startup = a.src; delete WIN_AUDIO.startup; };
-    a.onerror = function () { probeCustomStartup(exts.slice(1)); };
-    a.src = 'sounds/startup.' + exts[0];
-})(['mp3', 'wav', 'ogg', 'm4a']);
 Object.keys(WIN_FILES).forEach(winAudio);   // warm the cache so the first sound is on time
 const SFX = {
     boot:    function () { playWin('startup', function () { beep(523, 0.35, 'sine', 0.06); setTimeout(function () { beep(659, 0.35, 'sine', 0.06); }, 140); setTimeout(function () { beep(784, 0.5, 'sine', 0.06); }, 280); }); },

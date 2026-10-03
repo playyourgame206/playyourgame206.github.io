@@ -7,7 +7,7 @@ their Windows names.
 
 | Event in the game | File |
 |---|---|
-| Desktop appears after booting or setup | `Windows Logon.wav` (see note below) |
+| Desktop appears after booting or setup | `Windows 11 startup sound.wav` |
 | Signing in on the lock screen | `Windows Unlock.wav` |
 | Shut down or restart | `Windows Shutdown.wav` |
 | Letting go of the volume slider | `Windows Background.wav` |
@@ -24,17 +24,9 @@ their Windows names.
 | Virus PC: a pop-up ad | `Windows Pop-up Blocked.wav` |
 | Virus PC: health drops low / critical | `Windows Battery Low.wav` / `Windows Battery Critical.wav` |
 
-**About the startup sound.** The `Windows Startup.wav` in the Media folder is
-a near-silent 0.2-second placeholder; Windows keeps the real startup chime
-inside a system file, not as a .wav. So for now the games use
-`Windows Logon.wav`, which is the older Windows 7 jingle. To get the real
-Windows 11 chime, do either of these and the games pick it up automatically:
-
-- Save a recording of the Windows 11 startup sound here as `startup.mp3`
-  (or `.wav`, `.ogg`, `.m4a`), or
-- Extract it from Windows and save it here as `Windows Startup.wav`,
-  replacing the placeholder. With Resource Hacker, open
-  `C:\Windows\SystemResources\imageres.dll.mun`, look in the WAVE folder for
-  the clip a couple of seconds long, and save it as a .wav.
+**About the startup sound.** Windows keeps its startup chime inside a system
+file, not in the Media folder (the `Windows Startup Wrong.wav` here is the
+Media folder's silent placeholder). `Windows 11 startup sound.wav` is a
+recording of the real chime, and that is what the games play.
 
 These sounds are Microsoft's and are here for this family's own game.
