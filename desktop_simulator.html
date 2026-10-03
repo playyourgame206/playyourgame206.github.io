@@ -3469,21 +3469,70 @@ function renderOobe() {
             break;
         }
         case 'updates': {
-            oobeCard('Checking for updates', "This might take a few minutes. Don't turn off your PC.", '<div class="ob-spin">' + '<i></i>'.repeat(6).replace(/<i><\/i>/g, function () { return '<i></i>'; }) + '</div><div class="ob-progress"><i id="ob-upd"></i></div><div class="ob-sub" id="ob-upd-msg" style="text-align:center">Looking for updates…</div>', []);
+            oobeCard('Checking for updates', "This might take a few minutes. Don't turn off your PC.", '<div class="ob-spin">' + '<i></i>'.repeat(6) + '</div><div class="ob-progress"><i id="ob-upd"></i></div><div class="ob-sub" id="ob-upd-msg" style="text-align:center">Looking for updates…</div><div class="ob-sub" id="ob-upd-pct" style="text-align:center;font-size:12px;min-height:1.3em"></div>', []);
             const spins = $('ob-card').querySelectorAll('.ob-spin i');
             spins.forEach(function (d, i) { d.style.animationDelay = (i * 0.14) + 's'; });
-            let p = 0;
+            // Real Windows setup takes ages. Each phase has its own speed, and the download
+            // and install stall now and then so the bar does not just glide to 100.
+            const phases = [
+                { t: 'Looking for updates…', dur: 5000 },
+                { t: 'Downloading Windows 11 update (KB5099999)…', pct: true, dur: 11000, stall: true },
+                { t: 'Installing Windows 11 update (KB5099999)…', pct: true, dur: 10000, stall: true },
+                { t: 'Installing security intelligence update for Microsoft Defender…', pct: true, dur: 5000 },
+                { t: 'Finishing up…', dur: 3000 }
+            ];
+            let ph = 0, p = 0, stall = 0;
             const iv = setInterval(function () {
-                p += 4 + Math.random() * 9;
-                const bar = $('ob-upd'), m = $('ob-upd-msg');
+                const bar = $('ob-upd'), m = $('ob-upd-msg'), pc = $('ob-upd-pct');
                 if (!bar) { clearInterval(iv); return; }
-                bar.style.width = Math.min(100, p) + '%';
-                m.textContent = p < 30 ? 'Looking for updates…' : p < 70 ? 'Downloading Windows 11 update (KB5099999)…' : p < 100 ? 'Installing…' : 'Your device is up to date.';
-                if (p >= 100) { clearInterval(iv); setTimeout(oobeFinale, 700); }
-            }, 260);
+                const cur = phases[ph];
+                if (stall > 0) { stall--; }
+                else {
+                    if (cur.stall && Math.random() < 0.04) stall = 4 + Math.floor(Math.random() * 6); // pause 1 to 2.5 seconds
+                    p += (100 / (cur.dur / 250)) * (0.5 + Math.random());
+                }
+                if (p >= 100) {
+                    p = 0; ph++;
+                    if (ph >= phases.length) {
+                        clearInterval(iv);
+                        bar.style.width = '100%'; m.textContent = 'Your device is up to date.'; pc.textContent = '';
+                        setTimeout(oobeRestart, 1800);
+                        return;
+                    }
+                }
+                const c = phases[ph];
+                const overall = ((ph + Math.min(p, 100) / 100) / phases.length) * 100;
+                bar.style.width = overall + '%';
+                m.textContent = c.t;
+                pc.textContent = c.pct ? Math.floor(Math.min(p, 99)) + '%' : '';
+            }, 250);
             break;
         }
     }
+}
+function oobeRestart() {
+    // Pretend restart between the update and the "getting things ready" screen.
+    $('ob-card').style.display = 'none';
+    const fin = $('ob-final');
+    fin.classList.add('on');
+    $('ob-bg').innerHTML = '<div style="position:absolute;inset:0;background:#000"></div>';
+    const steps = [
+        ['Restarting', '', 3000],
+        ['Working on updates', '12% complete<br>Don\'t turn off your PC. This will take a while.', 4000],
+        ['Working on updates', '47% complete<br>Don\'t turn off your PC. This will take a while.', 4500],
+        ['Working on updates', '83% complete<br>Don\'t turn off your PC. This will take a while.', 4000],
+        ['Working on updates', '100% complete<br>Don\'t turn off your PC. This will take a while.', 2500]
+    ];
+    let i = 0;
+    function next() {
+        if (i >= steps.length) { oobeFinale(); return; }
+        const st = steps[i];
+        fin.innerHTML = '<div style="display:flex;flex-direction:column;align-items:center;gap:18px"><div class="ob-spin" style="margin:0"><i></i><i></i><i></i><i></i><i></i><i></i></div><span style="font-size:0.6em">' + st[0] + '</span></div><div class="sub" style="line-height:1.6">' + st[1] + '</div>';
+        fin.querySelectorAll('.ob-spin i').forEach(function (d, k) { d.style.background = '#fff'; d.style.animationDelay = (k * 0.14) + 's'; });
+        i++;
+        setTimeout(next, st[2]);
+    }
+    next();
 }
 function oobeFinale() {
     $('ob-card').style.display = 'none';
@@ -3491,13 +3540,23 @@ function oobeFinale() {
     fin.classList.add('on');
     fin.innerHTML = '';
     $('ob-bg').innerHTML = wallpaperMarkup('bloomdark');
-    const lines = ['Hi ' + oobe.name + '.', 'Getting things ready for you', 'This might take a few minutes', "Don't turn off your PC", "It's taking a bit longer than expected, but it'll be ready soon", 'Almost there', "Let's get started"];
+    const lines = [
+        ['Hi ' + oobe.name + '.', 3200],
+        ['Welcome to Windows', 3200],
+        ['Getting things ready for you', 4000],
+        ['This might take a few minutes', 4500],
+        ["Don't turn off your PC", 4500],
+        ['Setting up your apps', 4000],
+        ["It's taking a bit longer than expected, but it'll be ready soon", 5500],
+        ['Almost there', 3500],
+        ["Let's get started", 3000]
+    ];
     let i = 0;
     function next() {
         if (i >= lines.length) { finishSetup(); return; }
-        fin.innerHTML = '<span>' + esc(lines[i]) + '</span><div class="sub">' + (i < lines.length - 1 ? 'Leave everything to us' : '') + '</div>';
+        fin.innerHTML = '<span>' + esc(lines[i][0]) + '</span><div class="sub">' + (i < lines.length - 1 ? 'Leave everything to us' : '') + '</div>';
+        setTimeout(next, lines[i][1]);
         i++;
-        setTimeout(next, i === 1 ? 1500 : 1700);
     }
     next();
 }
