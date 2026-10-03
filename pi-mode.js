@@ -55,12 +55,20 @@ window.PiMode = (function () {
     box.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:99999;' +
       'padding:2px 7px;border-radius:6px;background:rgba(0,0,0,0.55);' +
       'color:#9f9;font:12px/1.4 monospace;pointer-events:none;';
+    // Touch events as the page receives them, to see what the browser does
+    // with a finger that is held still: a "touchend" the panel never sent,
+    // or a "touchcancel", are two different problems.
+    const touches = { start: 0, move: 0, end: 0, cancel: 0 };
+    for (const k of Object.keys(touches)) {
+      window.addEventListener('touch' + k, () => { touches[k]++; }, { capture: true, passive: true });
+    }
     let frames = 0, last = performance.now();
     function tick(now) {
       frames++;
       if (now - last >= 1000) {
         const calls = renderer ? ' ' + renderer.info.render.calls + ' draws' : '';
-        box.textContent = Math.round(frames * 1000 / (now - last)) + ' fps' + calls;
+        box.textContent = Math.round(frames * 1000 / (now - last)) + ' fps' + calls +
+          ' | touch s' + touches.start + ' m' + touches.move + ' e' + touches.end + ' c' + touches.cancel;
         frames = 0; last = now;
       }
       requestAnimationFrame(tick);
