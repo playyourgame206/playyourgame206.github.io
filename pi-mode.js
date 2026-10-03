@@ -10,7 +10,13 @@
 // Pi mode a game:
 //   - renders at a modest height (480 lines, or "?pi=600" for another),
 //   - turns shadows and antialiasing off,
-//   - shows its touch controls (the stylesheet matches html.pi-mode).
+//   - uses simple (Lambert) shading in place of the physically based
+//     materials, whose per-pixel cost under several lights is what the
+//     Pi's GPU chokes on; the scene looks a little flatter on the Pi only,
+//   - shows its touch controls (the stylesheet matches html.pi-mode),
+//   - shows the frame rate in a corner, so the Pi can be tuned by numbers.
+//
+// This file loads after three.js and before the game's own script.
 window.PiMode = (function () {
   'use strict';
   const param = new URLSearchParams(location.search).get('pi');
@@ -21,14 +27,60 @@ window.PiMode = (function () {
     isFinite(wanted) && wanted >= 240 ? wanted : 480));
   if (on) document.documentElement.classList.add('pi-mode');
 
+  // Physically based materials become Lambert ones at creation, so every
+  // mesh the game makes later (coins, clothes, other players) is covered.
+  // Properties Lambert lacks (roughness, metalness...) are dropped; a game
+  // that sets them afterwards just sets a harmless unused property.
+  if (on && window.THREE && THREE.MeshLambertMaterial) {
+    const DROP = ['roughness', 'metalness', 'roughnessMap', 'metalnessMap',
+      'normalMap', 'normalScale', 'envMapIntensity', 'clearcoat',
+      'clearcoatRoughness', 'transmission', 'thickness', 'ior', 'sheen',
+      'flatShading', 'bumpMap', 'bumpScale', 'displacementMap'];
+    class PiLambert extends THREE.MeshLambertMaterial {
+      constructor(params) {
+        const p = Object.assign({}, params);
+        for (const k of DROP) delete p[k];
+        super(p);
+      }
+    }
+    THREE.MeshStandardMaterial = PiLambert;
+    THREE.MeshPhysicalMaterial = PiLambert;
+  }
+
+  // Frame rate (and draw calls, once a renderer is known) in a corner.
+  let renderer = null;
+  if (on) {
+    const box = document.createElement('div');
+    box.id = 'pi-fps';
+    box.style.cssText = 'position:fixed;left:6px;bottom:6px;z-index:99999;' +
+      'padding:2px 7px;border-radius:6px;background:rgba(0,0,0,0.55);' +
+      'color:#9f9;font:12px/1.4 monospace;pointer-events:none;';
+    let frames = 0, last = performance.now();
+    function tick(now) {
+      frames++;
+      if (now - last >= 1000) {
+        const calls = renderer ? ' ' + renderer.info.render.calls + ' draws' : '';
+        box.textContent = Math.round(frames * 1000 / (now - last)) + ' fps' + calls;
+        frames = 0; last = now;
+      }
+      requestAnimationFrame(tick);
+    }
+    document.addEventListener('DOMContentLoaded', () => {
+      document.body.appendChild(box);
+      requestAnimationFrame(tick);
+    });
+  }
+
   // Options for the THREE.WebGLRenderer: antialiasing off on the Pi.
   function rendererOptions(opts) {
     return on ? Object.assign({}, opts, { antialias: false }) : opts;
   }
 
   // Call after the renderer's shadow settings: shadows off on the Pi.
-  function tune(renderer) {
-    if (on) renderer.shadowMap.enabled = false;
+  function tune(r) {
+    if (!on) return;
+    r.shadowMap.enabled = false;
+    renderer = r;
   }
 
   // The pixel ratio that renders at renderHeight on this screen.
