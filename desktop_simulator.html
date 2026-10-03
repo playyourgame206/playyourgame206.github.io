@@ -1451,7 +1451,7 @@ function beep(freq, dur, type, vol) {
    back to a little synthesised tone so nothing goes quiet. */
 const WIN_FILES = {
     startup:  'sounds/Windows 11 startup sound.wav',
-    unlock:   'sounds/Windows Unlock.wav',
+    unlock:   'sounds/Windows 11 startup sound.wav',    // signing in plays the startup chime too
     shutdown: 'sounds/Windows Shutdown.wav',
     volume:   'sounds/Windows Background.wav',             // Default Beep: the ding when the volume slider moves
     notify:   'sounds/Windows Notify System Generic.wav',  // notifications
@@ -1464,7 +1464,21 @@ const WIN_FILES = {
     restore:  'sounds/Windows Restore.wav',
     recycle:  'sounds/Windows Recycle.wav'
 };
-const WIN_AUDIO = {};
+// The startup recording is a little quieter than the Media folder sounds.
+const WIN_GAIN = { startup: 1.6, unlock: 1.6 };
+// Every sound is fetched once and decoded into memory, then played from there,
+// so a slow connection can never make a chime stutter part-way through. If the
+// fetch is not possible (opening the file straight from disk), an <audio>
+// element streams it instead.
+const WIN_READY = {}, WIN_AUDIO = {};
+function audioCtx() { try { if (!actx) actx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) {} return actx; }
+function winDecode(k) {
+    const ctx = audioCtx();
+    if (!ctx || WIN_READY[k] || !window.fetch) return;
+    fetch(WIN_FILES[k]).then(function (r) { if (!r.ok) throw new Error(r.status); return r.arrayBuffer(); })
+        .then(function (ab) { return new Promise(function (ok, fail) { ctx.decodeAudioData(ab, ok, fail); }); })
+        .then(function (buf) { WIN_READY[k] = buf; }, function () {});
+}
 function winAudio(k) {
     let a = WIN_AUDIO[k];
     if (!a) { a = WIN_AUDIO[k] = new Audio(WIN_FILES[k]); a.preload = 'auto'; a.onerror = function () { a.bad = true; }; }
@@ -1473,16 +1487,28 @@ function winAudio(k) {
 function masterVol() { try { return window.AndyVolume ? (AndyVolume.isMuted() ? 0 : Math.min(1, AndyVolume.getVolume() / 10)) : 1; } catch (e) { return 1; } }
 function playWin(k, fallback) {
     if (!G.snd || G.vol === 0) return;
+    const buf = WIN_READY[k], ctx = buf && audioCtx();
+    if (buf && ctx) {
+        // The Play Centre volume tab sits between this and the speakers, so no master volume here.
+        const asked = Date.now();
+        ctx.resume().then(function () {
+            // The browser holds sound back until the first click or tap. The startup chime is worth
+            // waiting for; anything else that got held that long would play at the wrong moment.
+            if (k !== 'startup' && Date.now() - asked > 600) return;
+            const src = ctx.createBufferSource(), g = ctx.createGain();
+            src.buffer = buf; g.gain.value = Math.min(1, G.vol / 100) * (WIN_GAIN[k] || 1);
+            src.connect(g); g.connect(ctx.destination); src.start();
+        }).catch(function () {});
+        return;
+    }
     const a = winAudio(k);
     if (a.bad) { if (fallback) fallback(); return; }
     const c = a.cloneNode();
     c.volume = Math.min(1, G.vol / 100) * masterVol();
     const p = c.play();
-    // Browsers want a click or tap before any sound. The startup chime is worth
-    // waiting for; anything else just stays quiet.
     if (p && p.catch) p.catch(function () { if (k === 'startup') document.addEventListener('pointerdown', function () { c.play().catch(function () {}); }, { once: true }); });
 }
-Object.keys(WIN_FILES).forEach(winAudio);   // warm the cache so the first sound is on time
+Object.keys(WIN_FILES).forEach(winDecode);   // get everything into memory before the first sound is needed   // warm the cache so the first sound is on time
 const SFX = {
     boot:    function () { playWin('startup', function () { beep(523, 0.35, 'sine', 0.06); setTimeout(function () { beep(659, 0.35, 'sine', 0.06); }, 140); setTimeout(function () { beep(784, 0.5, 'sine', 0.06); }, 280); }); },
     unlock:  function () { playWin('unlock', function () { beep(880, 0.06, 'triangle', 0.03); }); },

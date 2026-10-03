@@ -8,7 +8,7 @@ their Windows names.
 | Event in the game | File |
 |---|---|
 | Desktop appears after booting or setup | `Windows 11 startup sound.wav` |
-| Signing in on the lock screen | `Windows Unlock.wav` |
+| Signing in on the lock screen | `Windows 11 startup sound.wav` |
 | Shut down or restart | `Windows Shutdown.wav` |
 | Letting go of the volume slider | `Windows Background.wav` |
 | A notification pops up | `Windows Notify System Generic.wav` |
