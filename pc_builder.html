@@ -136,6 +136,7 @@
     <script src="save-tools.js"></script>
     <script src="webgl-check.js"></script>
     <script src="pi-mode.js"></script>
+    <script src="quality.js"></script>
     <script src="volume-menu.js"></script>
     <!-- Supabase (multiplayer presence + broadcast, same project as the other Play Centre games) -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
@@ -294,11 +295,20 @@
         </div>
         <div class="modal-item">
             <div>
+                <strong>🎨 Graphics</strong><br>
+                <small style="color: #aaa;" id="graphics-hint">Auto suits the level to this device</small>
+            </div>
+            <select id="graphics-select" class="setting-select"></select>
+        </div>
+        <div class="modal-item">
+            <div>
                 <strong>Render Resolution</strong><br>
                 <small style="color: #aaa;">Adjust graphic fidelity</small>
             </div>
             <div style="display:flex; flex-direction:column; gap:6px; align-items:flex-end;">
                 <select id="res-select" class="setting-select" onchange="changeResolution(this.value)">
+                    <option value="480">480p</option>
+                    <option value="540">540p</option>
                     <option value="720">720p</option>
                     <option value="900">900p</option>
                     <option value="1050">1050p</option>
@@ -607,7 +617,7 @@ const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerH
 // No WebGL means three.js throws on the next line and nothing below
 // runs, so say so on the start screen rather than leave a dead button.
 if (!AndyWebGL.require('character-select')) throw new Error('WebGL is not available');
-const renderer = new THREE.WebGLRenderer(PiMode.rendererOptions({ antialias: true }));
+const renderer = new THREE.WebGLRenderer(PiMode.rendererOptions(AndyQuality.rendererOptions({ antialias: true })));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
@@ -652,6 +662,17 @@ dirLight.shadow.camera.right = 75;
 dirLight.shadow.camera.top = 75;
 dirLight.shadow.camera.bottom = -75;
 scene.add(dirLight);
+
+// Graphics quality (quality.js): Auto adapts to the device, the player can
+// pin a level in the settings menu. Levels set the Render Resolution too.
+AndyQuality.setup({
+    renderer, scene, shadowLight: dirLight,
+    setRenderHeight(lines) {
+        const sel = document.getElementById('res-select');
+        sel.value = lines ? String(lines) : '1080';
+        changeResolution(sel.value);
+    }
+});
 const fillLight = new THREE.DirectionalLight(0x80a0ff, 0.4);
 fillLight.position.set(-25, 20, -20);
 scene.add(fillLight);

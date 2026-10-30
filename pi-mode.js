@@ -31,7 +31,11 @@ window.PiMode = (function () {
   // mesh the game makes later (coins, clothes, other players) is covered.
   // Properties Lambert lacks (roughness, metalness...) are dropped; a game
   // that sets them afterwards just sets a harmless unused property.
-  if (on && window.THREE && THREE.MeshLambertMaterial) {
+  // quality.js uses this too, for its Low level on any device.
+  let lambertOn = false;
+  function useLambertMaterials() {
+    if (lambertOn || !window.THREE || !THREE.MeshLambertMaterial) return;
+    lambertOn = true;
     const DROP = ['roughness', 'metalness', 'roughnessMap', 'metalnessMap',
       'normalMap', 'normalScale', 'envMapIntensity', 'clearcoat',
       'clearcoatRoughness', 'transmission', 'thickness', 'ior', 'sheen',
@@ -46,6 +50,7 @@ window.PiMode = (function () {
     THREE.MeshStandardMaterial = PiLambert;
     THREE.MeshPhysicalMaterial = PiLambert;
   }
+  if (on) useLambertMaterials();
 
   // Frame rate (and draw calls, once a renderer is known) in a corner.
   let renderer = null;
@@ -109,5 +114,5 @@ window.PiMode = (function () {
     return 'custom';
   }
 
-  return { on, renderHeight, rendererOptions, tune, pixelRatio, startResolution };
+  return { on, renderHeight, rendererOptions, tune, pixelRatio, startResolution, useLambertMaterials };
 })();
